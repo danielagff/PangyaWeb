@@ -95,7 +95,15 @@ medições de referência passam a servir para validar.
 - [x] Tabela dos 15 tacos, força/alcance por categoria (madeira, ferro, wedge, putter).
 - [x] Testes: determinismo, regressão de distâncias, vento, curva, tacadas especiais.
 - [x] Demonstração no cliente (`pnpm dev`) com painel de parâmetros.
-- [ ] Quique e rolagem por tipo de piso (não existem na calculadora; precisa de pesquisa).
+- [ ] Quique e rolagem por tipo de piso. **No Pangya quem simula é o cliente**: o servidor
+      (SuperSS-Dev) só recebe o resultado em `ShotSyncData` (posição final, OB/no buraco/
+      jogável, flag de bunker, pang) e confia nele — por isso o SuperSS não tem quique/rolagem
+      (`Game Server/TYPE/game_type.hpp`, `GAME/*::requestTranslateSyncShotData`). O
+      `QuadTree3D` do servidor só simula o voo, para posicionar moedas/cubos
+      (`GAME/coin_cube_location_update_system.cpp`). Plano: modelo próprio de quique/rolagem
+      com coeficientes por piso e por bola (`Ball.iff` tem `bound` e `roll`), calibrado com o
+      cliente original jogando contra um SuperSS local, cujos logs registram a posição final
+      de cada tacada.
 - [ ] Colisão com a malha do terreno (depende da spec 06).
 - [ ] Putt (spec 11).
 - [ ] Calibrar: a 100% e power 15 o voo (carry) dá ~83% do alcance do HUD; confirmar no jogo
