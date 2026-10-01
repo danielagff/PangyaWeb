@@ -27,6 +27,14 @@ export class BinaryReader {
     return this.seek(this.offset + count)
   }
 
+  i8(): number {
+    return this.view.getInt8(this.advance(1))
+  }
+
+  i16(): number {
+    return this.view.getInt16(this.advance(2), true)
+  }
+
   u8(): number {
     return this.view.getUint8(this.advance(1))
   }
@@ -55,6 +63,29 @@ export class BinaryReader {
   /** String de tamanho fixo terminada em zero (padrão dos registros .iff). */
   fixedString(size: number, encoding = 'latin1'): string {
     const raw = this.bytesN(size)
+    const end = raw.indexOf(0)
+    return new TextDecoder(encoding).decode(end === -1 ? raw : raw.subarray(0, end))
+  }
+
+  f32n(count: number): number[] {
+    return Array.from({ length: count }, () => this.f32())
+  }
+
+  /** String terminada em zero, de tamanho variável. */
+  cString(encoding = 'euc-kr'): string {
+    const start = this.offset
+    const end = this.bytes.indexOf(0, start)
+    if (end === -1) throw new RangeError(`string sem terminador a partir de ${start}`)
+    this.offset = end + 1
+    return new TextDecoder(encoding).decode(this.bytes.subarray(start, end))
+  }
+
+  /** String com prefixo u32 de tamanho (pode conter zeros de preenchimento). */
+  lengthString(encoding = 'euc-kr'): string {
+    const length = this.u32()
+    if (length === 0) return ''
+    if (length > 1 << 20) throw new RangeError(`string de ${length} bytes no offset ${this.offset}`)
+    const raw = this.bytesN(length)
     const end = raw.indexOf(0)
     return new TextDecoder(encoding).decode(end === -1 ? raw : raw.subarray(0, end))
   }
