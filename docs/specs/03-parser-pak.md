@@ -21,6 +21,9 @@ Estrutura geral conhecida pela comunidade (verificar):
 - Vários `.pak` se sobrepõem: o pak com número maior sobrescreve arquivos de mesmo caminho
   (sistema de patches).
 
+**Referência:** `Tools/lzpak.cpp` do SuperSS-Dev (MIT) documenta cabeçalho, entradas e
+LZ77 dos `.pak`.
+
 ## Escopo
 
 **Inclui**

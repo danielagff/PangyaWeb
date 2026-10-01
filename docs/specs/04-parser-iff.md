@@ -25,6 +25,9 @@ Dados mais importantes para a jogabilidade:
 - **Bola:** bônus de atributos/efeitos.
 - **Curso:** lista de buracos, par, modelos.
 
+**Referência:** `pangya_jp.iff` reais e layouts em `Server Lib/Projeto IOCP/TYPE/data_iff.h`
+do SuperSS-Dev (MIT) — esta spec pode ser feita inteira sem o cliente.
+
 ## Escopo
 
 **Inclui**

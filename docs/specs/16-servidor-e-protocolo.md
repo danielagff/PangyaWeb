@@ -20,6 +20,11 @@ web via WebSocket com protocolo próprio.
    que o cliente original e o cliente web joguem juntos; exige reimplementar no cliente web
    o protocolo binário e a criptografia de pacotes do original. Mais trabalho, menos controle.
 
+Com o SuperSS-Dev (MIT, C++, inclui builds Linux) a opção 2 fica bem mais concreta: servidor
+completo (lojas, itens, salas, torneios) já existe. O custo continua sendo implementar no
+cliente web o protocolo binário + criptografia do original e um gateway WebSocket↔TCP.
+Decisão adiada até o modo offline (spec 14) estar jogável.
+
 ## Escopo (opção 1)
 
 **Inclui**

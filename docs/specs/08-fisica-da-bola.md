@@ -26,6 +26,11 @@ Características do original a reproduzir:
   quique/rolagem onde ela cai.
 - Tacadas especiais com trajetórias próprias (spec 09).
 
+**Referência:** `Smart Calculator App/smart_calculator.js` do SuperSS-Dev (MIT) implementa o
+lançamento oblíquo com resistência do ar e efeito Magnus obtido por engenharia reversa do
+Pangya. Partir dele (portando para TypeScript determinístico) em vez de calibrar do zero; as
+medições de referência passam a servir para validar.
+
 ## Escopo
 
 **Inclui**

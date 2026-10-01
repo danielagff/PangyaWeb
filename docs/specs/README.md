@@ -59,6 +59,14 @@ offline com física, depois um curso completo, depois multiplayer.
 Dependências principais: `01 → 02 → (03 → 04, 05, 06)`; `07 ← 05, 06`; `08` pode começar
 logo após `01` com terreno procedural; `09 ← 08`; `14 ← 08–12`; `17 ← 14, 16`.
 
+## Referência principal: SuperSS-Dev
+
+O servidor privado [SuperSS-Dev](https://github.com/Acrisio-Filho/SuperSS-Dev) (licença MIT)
+traz tabelas `.iff` reais (JP), o layout dos registros, o formato `.pak`, a física da tacada
+obtida por engenharia reversa, as regras de partida e o protocolo. Veja
+[`docs/referencias/superss-dev.md`](../referencias/superss-dev.md) para o mapa do que usar em
+cada spec. Ele **não** contém os assets do cliente (modelos, texturas, cursos, sons).
+
 ## Formato de cada spec
 
 Todas as specs seguem o [`TEMPLATE.md`](./TEMPLATE.md): objetivo, contexto, escopo,
