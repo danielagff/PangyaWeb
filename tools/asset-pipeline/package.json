@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@pangya/formats": "workspace:*"
+    "@pangya/formats": "workspace:*",
+    "fflate": "^0.8.3"
   },
   "scripts": {
     "cli": "tsx src/cli.ts"

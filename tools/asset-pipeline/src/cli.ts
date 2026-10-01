@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { readGameData } from '@pangya/formats'
 import { extractClient, findPaks, mountClient, searchPakKey } from './extract.ts'
+import { exampleUrl, installExampleCourse } from './example-course.ts'
 import { convertedDir, originalDir, repoRoot, resolvePangyaDir } from './config.ts'
 
 const envFile = resolve(repoRoot, '.env')
@@ -38,6 +39,12 @@ const commands: Record<string, (args: string[]) => void> = {
     const top = [...byExt].sort((a, b) => b[1].length - a[1].length).slice(0, 25)
     console.log(`\n${vfs.size} arquivos após patches. Extensões:`)
     console.log(top.map(([ext, list]) => `${ext}: ${list.length}`).join(', '))
+  },
+
+  /** Baixa e instala o Blue Lagoon de exemplo: `pnpm assets:exemplo`. */
+  exemplo() {
+    installExampleCourse()
+    console.log(`\nPronto! Rode "pnpm dev" e abra:\n  ${exampleUrl}`)
   },
 
   /** Procura a chave XTEA de um .pak no cliente: `pnpm assets:pak-key [arquivo.pak]`. */

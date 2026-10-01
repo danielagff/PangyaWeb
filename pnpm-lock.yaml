@@ -75,6 +75,9 @@ importers:
       '@pangya/formats':
         specifier: workspace:*
         version: link:../../packages/formats
+      fflate:
+        specifier: ^0.8.3
+        version: 0.8.3
 
 packages:
 

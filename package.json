@@ -16,6 +16,7 @@
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",
     "assets:build": "pnpm --filter @pangya/asset-pipeline cli build",
+    "assets:exemplo": "pnpm --filter @pangya/asset-pipeline cli exemplo",
     "assets:iff": "pnpm --filter @pangya/asset-pipeline cli iff",
     "assets:pak": "pnpm --filter @pangya/asset-pipeline cli pak",
     "assets:pak-dump": "pnpm --filter @pangya/asset-pipeline cli pak-dump",

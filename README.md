@@ -52,14 +52,14 @@ docs/                  specs e decisões de arquitetura (ADRs)
 
 ## Ver um buraco real (Blue Lagoon)
 
-Enquanto o leitor de `.pak` não tem um cliente com chave conhecida, dá para usar o Blue
-Lagoon já extraído que está no repositório
-[lbarceloss/pangya-pet_tools](https://github.com/lbarceloss/pangya-pet_tools) (`Blue Lagoon.zip`):
+```bash
+pnpm assets:exemplo   # baixa e instala o Blue Lagoon de exemplo (precisa de git)
+pnpm dev
+```
 
-1. Baixe o zip e copie a pasta `Blue Lagoon\data\round02_blue` para
-   `assets\original\data\round02_blue` (dentro deste repositório; a pasta `assets/` fica fora do git).
-2. `pnpm dev` e abra http://localhost:5173/?curso=round02_blue&prefixo=blue&buraco=1
-   (troque `buraco=1` por 1–18).
+Depois abra http://localhost:5173/?curso=round02_blue&prefixo=blue&buraco=1 (buraco de 1 a 18).
+O curso vem de [lbarceloss/pangya-pet_tools](https://github.com/lbarceloss/pangya-pet_tools)
+(`Blue Lagoon.zip`) e é instalado em `assets/original/data/round02_blue`, fora do git.
 
 O terreno aparece colorido pelo tipo de piso (fairway, rough, green, bunker…) lido do
 `blue_property.xml`; **M** alterna para a vista aérea.
