@@ -50,9 +50,28 @@ export interface LoadedHole {
  */
 const ASSET_ROOTS = ['/game-assets/original', '/game-assets/original/data']
 
-async function fetchBytes(path: string): Promise<Uint8Array> {
+let assetIndex: Promise<Record<string, string>> | undefined
+
+/** Índice nome → caminho gerado pelo pipeline (assets/original/_index.json). */
+function loadAssetIndex() {
+  assetIndex ??= fetch('/game-assets/original/_index.json')
+    .then((r) => (r.ok ? (r.json() as Promise<Record<string, string>>) : {}))
+    .catch(() => ({}))
+  return assetIndex
+}
+
+/** Modelo do cenário: primeiro pelo índice (pode estar em outra pasta), senão em <curso>/ase. */
+async function fetchModel(round: string, model: string): Promise<Uint8Array> {
+  const indexed = (await loadAssetIndex())[model.toLowerCase()]
+  return fetchBytes(
+    indexed ?? `${round}/ase/${model}`,
+    indexed ? ['/game-assets/original'] : ASSET_ROOTS,
+  )
+}
+
+async function fetchBytes(path: string, roots = ASSET_ROOTS): Promise<Uint8Array> {
   const encoded = path.split('/').map(encodeURIComponent).join('/')
-  for (const root of ASSET_ROOTS) {
+  for (const root of roots) {
     const response = await fetch(`${root}/${encoded}`)
     if (response.ok) return new Uint8Array(await response.arrayBuffer())
   }
@@ -98,7 +117,7 @@ export async function loadHole(ref: HoleRef): Promise<LoadedHole> {
   await Promise.all(
     [...byModel].map(async ([model, elements]) => {
       try {
-        const pet = readPet(await fetchBytes(`${ref.round}/ase/${model}`))
+        const pet = readPet(await fetchModel(ref.round, model))
         objects.push({
           model,
           subMeshes: petToSubMeshes(pet),

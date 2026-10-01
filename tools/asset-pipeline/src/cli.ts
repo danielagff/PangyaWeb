@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { readGameData } from '@pangya/formats'
 import { extractClient, findPaks, mountClient, searchPakKey } from './extract.ts'
+import { writeAssetIndex } from './asset-index.ts'
 import { exampleUrl, installExampleCourse } from './example-course.ts'
 import { convertedDir, originalDir, repoRoot, resolvePangyaDir } from './config.ts'
 
@@ -20,6 +21,7 @@ const commands: Record<string, (args: string[]) => void> = {
       writeFileSync(report, failures.join('\n'))
       console.log(`${failures.length} falhas (detalhes em ${report})`)
     }
+    console.log(`índice: ${writeAssetIndex(originalDir)} arquivos`)
     const iff = vfs.list().find((e) => /^pangya_\w+\.iff$/i.test(e.path.split('/').pop() ?? ''))
     if (iff) commands['iff']!([resolve(originalDir, iff.path)])
     else console.log('nenhum pangya_*.iff encontrado nos pacotes')
@@ -42,8 +44,14 @@ const commands: Record<string, (args: string[]) => void> = {
   },
 
   /** Baixa e instala o Blue Lagoon de exemplo: `pnpm assets:exemplo`. */
+  /** Refaz o índice de nomes de assets/original: `pnpm assets:index`. */
+  index() {
+    console.log(`índice: ${writeAssetIndex(originalDir)} arquivos em ${originalDir}`)
+  },
+
   exemplo() {
     installExampleCourse()
+    writeAssetIndex(originalDir)
     console.log(`\nPronto! Rode "pnpm dev" e abra:\n  ${exampleUrl}`)
   },
 
