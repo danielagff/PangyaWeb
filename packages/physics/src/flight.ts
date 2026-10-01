@@ -397,6 +397,54 @@ export class FlightSimulator {
       range: this.range,
     }
   }
+  /**
+   * Simula até a bola descer e tocar o chão dado por `groundAt(x, z)` (altura em
+   * unidades; undefined = fora do terreno, segue caindo até `floor`).
+   */
+  flyOverGround(
+    groundAt: (x: number, z: number) => number | undefined,
+    floor = -1000,
+  ): FlightResult & { landed: boolean } {
+    const frames: number[] = []
+    const push = () =>
+      frames.push(this.state.position.x, this.state.position.y, this.state.position.z)
+    push()
+
+    const ground = () => groundAt(this.state.position.x, this.state.position.z) ?? floor
+    let previous: BallState
+    let steps = 0
+    let landed: boolean
+    do {
+      previous = cloneState(this.state)
+      this.step()
+      push()
+      landed = this.state.apexStep !== -1 && this.state.position.y <= ground()
+    } while (!landed && this.state.position.y > floor && steps++ < MAX_STEPS)
+
+    if (landed) {
+      // Refaz o último passo só até cruzar o chão (altura do ponto de chegada).
+      const target = ground()
+      const dy = this.state.position.y - previous.position.y
+      const fraction = dy === 0 ? 1 : Math.min(1, Math.abs((target - previous.position.y) / dy))
+      this.state = previous
+      this.step(STEP_TIME * fraction)
+      frames.splice(frames.length - 3, 3)
+      push()
+    }
+
+    const p = this.state.position
+    const dx = p.x - this.origin.x
+    const dz = p.z - this.origin.z
+    return {
+      frames: Float32Array.from(frames),
+      landing: { x: p.x, y: p.y, z: p.z },
+      carry: unitsToYards(Math.sqrt(dx * dx + dz * dz)),
+      lateral: unitsToYards(dx),
+      apex: this.state.apex,
+      range: this.range,
+      landed,
+    }
+  }
 }
 
 /** Atalho: simula o voo de uma tacada até o chão na altura `landingY` (unidades). */

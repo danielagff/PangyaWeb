@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { CLUB_IDS } from './clubs.ts'
-import { DEFAULT_PLAYER, simulateFlight, type ShotInput, type SpecialShot } from './flight.ts'
+import {
+  DEFAULT_PLAYER,
+  FlightSimulator,
+  simulateFlight,
+  type ShotInput,
+  type SpecialShot,
+} from './flight.ts'
 
 const shot = (extra: Partial<ShotInput> = {}): ShotInput => ({
   club: '1W',
@@ -92,5 +98,20 @@ describe('simulateFlight', () => {
     expect(spike.carry).toBeGreaterThan(dunk.carry)
     expect(spike.apex).toBeGreaterThan(tomahawk.apex)
     expect(cobra.apex).toBeLessThan(dunk.apex)
+  })
+})
+
+describe('flyOverGround', () => {
+  it('em chão plano cai no mesmo lugar que flyTo', () => {
+    const flat = new FlightSimulator(shot()).flyOverGround(() => 0)
+    const reference = simulateFlight(shot(), 0)
+    expect(flat.landed).toBe(true)
+    expect(flat.carry).toBeCloseTo(reference.carry, 3)
+  })
+
+  it('chão mais alto encurta o voo', () => {
+    const uphill = new FlightSimulator(shot()).flyOverGround(() => 60)
+    expect(uphill.landing.y).toBeCloseTo(60, 3)
+    expect(uphill.carry).toBeLessThan(simulateFlight(shot(), 0).carry)
   })
 })

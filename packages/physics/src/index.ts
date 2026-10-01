@@ -13,3 +13,4 @@ export {
   type SpecialShot,
   type Wind,
 } from './flight.ts'
+export * from './terrain.ts'
