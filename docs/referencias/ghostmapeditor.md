@@ -34,3 +34,9 @@ https://github.com/retreev/Documentation (`pc/file-formats/`).
 - Com o terreno real (`HeightAt` + malha de colisão do `.sbin`), a simulação de voo da
   spec 08 pode calcular o ponto de pouso exato em qualquer buraco — não só numa altura
   fixa como a calculadora do SuperSS. Quique/rolagem continuam sem referência.
+
+## GhostPro — https://github.com/lbarceloss/GhostPro (sem licença)
+
+Calculadora em overlay (C#/WPF) do mesmo autor. A física (`calc_s4/QuadTree.cs`) é um port
+da calculadora do SuperSS-Dev — só o voo, sem quique/rolagem — e o restante lê a memória do
+jogo em execução para preencher os dados automaticamente. Nada novo para o PangyaWeb.
