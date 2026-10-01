@@ -40,3 +40,12 @@ https://github.com/retreev/Documentation (`pc/file-formats/`).
 Calculadora em overlay (C#/WPF) do mesmo autor. A física (`calc_s4/QuadTree.cs`) é um port
 da calculadora do SuperSS-Dev — só o voo, sem quique/rolagem — e o restante lê a memória do
 jogo em execução para preencher os dados automaticamente. Nada novo para o PangyaWeb.
+
+## dx9-collision-boxes — https://github.com/lbarceloss/dx9-collision-boxes (sem licença, sem código)
+
+DLL injetada no jogo (overlay DirectX 9) que desenha as caixas de colisão dos objetos. O
+repositório só tem binários e um `collboxes.zip` com 270 arquivos `.pycb` (magic `PYCB`), um
+por buraco, de 15 cursos: para cada objeto, o nome do `.pet` e caixas orientadas de 8 cantos.
+Mostra que a colisão com objetos (árvores, postes…) usa caixas definidas nos próprios `.pet`
+(o pet-source_tools também lê essas "collision box"). Não cobre terreno, tipo de piso nem
+quique/rolagem. Pode servir para validar nossa leitura de caixas de colisão dos `.pet`.
