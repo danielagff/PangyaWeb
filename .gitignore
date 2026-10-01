@@ -1,13 +1,3 @@
 node_modules/
 dist/
 .env
-
-# Assets originais do jogo e saídas convertidas — nunca commitar
-assets/original/
-assets/converted/
-*.pak
-*.iff
-*.pet
-*.apet
-*.bpet
-*.mpet

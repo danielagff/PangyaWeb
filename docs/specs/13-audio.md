@@ -14,7 +14,7 @@ Efeitos sonoros e música tocando nos eventos certos.
 - Mapa evento → som: tacada (por tipo/qualidade), Pangya, quique por superfície, água,
   entrada na cova, vozes do personagem, música por curso.
 - Desbloqueio de áudio após primeira interação (exigência dos navegadores).
-- Placeholders livres de direitos para rodar sem assets.
+- Usar os sons, vozes e músicas originais (convertidos para formato web pelo pipeline).
 
 ## Critérios de aceite
 - [ ] Todos os eventos da física e da tacada têm som associado.

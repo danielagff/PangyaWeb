@@ -10,8 +10,7 @@ Repositório com estrutura de monorepo, build, testes e CI funcionando, abrindo 
 web vazia com um canvas 3D.
 
 ## Contexto
-Tudo o que vem depois (parsers, engine, servidor) compartilha tipos e precisa ser testável
-sem os assets originais. Separar em pacotes desde o início evita que o código do jogo
+Tudo o que vem depois (parsers, engine, servidor) compartilha tipos e assets. Separar em pacotes desde o início evita que o código do jogo
 dependa do pipeline de conversão.
 
 ## Escopo
@@ -25,8 +24,11 @@ dependa do pipeline de conversão.
   - `apps/server` — servidor (Node, WebSocket), vazio por enquanto.
   - `tools/asset-pipeline` — CLI que lê a instalação original e gera `assets/converted/`.
 - Vitest para testes, ESLint + Prettier, GitHub Actions rodando lint/typecheck/test.
-- `.gitignore` bloqueando `*.pak`, `*.iff`, `assets/original/`, `assets/converted/`.
-- `.env.example` com `PANGYA_DIR=` (caminho da instalação local do cliente).
+- Git LFS configurado em `.gitattributes` para os binários do jogo (`*.pak`, `*.iff`, `*.pet`,
+  `*.apet`, `*.bpet`, `*.mpet`, `*.dds`, `*.tga`, `*.jpg`, `*.png`, `*.ogg`, `*.wav`, `*.glb`, `*.bin`).
+- `assets/original/` (extraído dos `.pak`) e `assets/converted/` (saída do pipeline) versionados.
+- `.env.example` com `PANGYA_DIR=` (caminho da instalação do cliente, usado só para a
+  primeira extração).
 
 **Não inclui**
 - Qualquer lógica de jogo.
@@ -35,14 +37,16 @@ dependa do pipeline de conversão.
 1. `pnpm install && pnpm dev` abre o cliente em `localhost` com uma cena Three.js
    (plano verde + esfera branca).
 2. `pnpm test` roda os testes de todos os pacotes.
-3. CI passa sem acesso a nenhum asset original.
+3. CI faz checkout com LFS e roda os testes contra os assets reais.
 4. Escolha da engine registrada em `docs/adr/0001-engine.md` (Three.js recomendado pela
    simplicidade e ecossistema glTF; Babylon.js é alternativa válida).
 
 ## Critérios de aceite
 - [ ] `pnpm dev`, `pnpm build`, `pnpm test`, `pnpm lint` funcionam.
 - [ ] CI verde no GitHub Actions.
-- [ ] Nenhum arquivo original do jogo é rastreado pelo git.
+- [ ] Binários do jogo são rastreados pelo LFS (`git lfs ls-files`), não pelo git comum.
 
 ## Riscos e perguntas em aberto
+- Cota do LFS no GitHub (ver README das specs): decidir entre pagar pacotes de dados,
+  versionar só os assets usados até o momento, ou guardar os `.pak` brutos fora do git.
 - WebGPU vs WebGL2: começar em WebGL2 (suporte universal); Three.js permite migrar depois.

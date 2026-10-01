@@ -34,7 +34,9 @@ Para a física, o essencial é o **tipo de superfície** de cada triângulo:
   }
   ```
 - Malha de colisão otimizada (BVH pré-calculada ou gerada no carregamento).
-- Gerador de **buraco procedural** com o mesmo formato, para desenvolvimento sem assets.
+- Conversão em lote de todos os cursos/buracos, commitada em `assets/converted/courses/`.
+- Opcional: buraco procedural simples no mesmo formato, para testes de física com geometria
+  conhecida (green plano, rampa de 5°, etc.).
 
 **Não inclui**
 - Editor de cursos.
@@ -42,7 +44,7 @@ Para a física, o essencial é o **tipo de superfície** de cada triângulo:
 ## Critérios de aceite
 - [ ] Um buraco real convertido e renderizado com colisão alinhada ao visual.
 - [ ] Debug view colorindo cada triângulo pelo tipo de superfície.
-- [ ] Buraco procedural com fairway, rough, bunker, green e água.
+- [ ] Todos os cursos da versão de referência convertidos.
 
 ## Riscos e perguntas em aberto
 - Se os tipos de superfície não estiverem em dados explícitos, podem estar codificados em

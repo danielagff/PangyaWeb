@@ -16,8 +16,9 @@ curso/modo → partida → resultado.
   `.iff` (spec 04).
 - Seleção de curso, número de buracos, modo.
 - Configurações: gráficos, áudio, controles, idioma (pt-BR primeiro).
-- Usar estética inspirada no original, mas sem depender das texturas de UI originais
-  (o formato de UI do cliente costuma ser complexo — opcional numa spec futura).
+- Reproduzir a UI original usando as texturas/sprites de interface do cliente. Se o formato
+  de layout da UI for difícil de interpretar, montar as telas à mão em HTML/CSS com os
+  sprites originais e deixar o parser de layout para uma spec futura.
 
 **Não inclui**
 - Lobby/salas online (spec 17), loja com moeda (futuro).

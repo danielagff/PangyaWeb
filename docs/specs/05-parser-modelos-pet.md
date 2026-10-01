@@ -39,10 +39,12 @@ no Blender ou em visualizadores online.
 ## Critérios de aceite
 - [ ] `.glb` de bola, taco e um personagem abrem corretamente no Blender e no `/viewer`.
 - [ ] Pelo menos a animação de tacada (swing) e a de espera (idle) tocam corretamente.
-- [ ] Testes com chunks sintéticos (sem asset original).
+- [ ] Todos os modelos e animações do jogo convertidos em lote e commitados em
+      `assets/converted/models/`; lista de arquivos que falharam no relatório do pipeline.
 
 ## Riscos e perguntas em aberto
 - É a tarefa de engenharia reversa mais pesada. Mitigação: procurar documentação da
-  comunidade antes; se travar, o jogo pode avançar com modelos placeholder.
+  comunidade antes; enquanto não ficar pronta, as outras specs usam primitivas simples
+  (esfera, cápsula) só para não ficarem bloqueadas.
 - Partes de personagem (roupas/cabelo) são modelos separados anexados a ossos — definir
   como compor no cliente (spec 12).

@@ -20,7 +20,7 @@ e mascotes.
 - Máquina de animações: idle, preparar, backswing (sincronizado com a barra), impacto,
   follow-through, reações (comemoração, frustração).
 - O impacto da animação dispara a física no momento certo.
-- Fallback: personagem placeholder (cápsula) quando não houver assets.
+- Usar as animações originais do jogo, inclusive as de reação e de cada tipo de tacada.
 
 **Não inclui**
 - Caddie e mascote (spec futura), loja de roupas (spec 15).

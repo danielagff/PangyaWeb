@@ -46,7 +46,7 @@ interface Stats         { power: number; control: number; accuracy: number; spin
 ## Critérios de aceite
 - [ ] JSON gerado para personagens, clubsets, bolas e cursos da versão de referência.
 - [ ] Nomes legíveis (encoding correto — testar Shift-JIS/CP949/Latin-1 conforme região).
-- [ ] Dados placeholder em `packages/game/fixtures/` permitem rodar o jogo sem o `.iff`.
+- [ ] JSON gerado commitado em `assets/converted/data/` e usado pelo cliente e pelo servidor.
 
 ## Riscos e perguntas em aberto
 - Campos desconhecidos: manter como `unknownN` no descritor e documentar hipóteses.

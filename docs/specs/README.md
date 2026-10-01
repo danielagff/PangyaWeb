@@ -1,16 +1,20 @@
 # PangyaWeb — Specs
 
-Projeto pessoal e de estudo: recriar uma versão jogável de Pangya rodando no navegador.
-Não é para publicação — o jogo original está descontinuado e o conteúdo (assets, marcas,
-personagens) continua protegido por direitos autorais. Por isso:
+Projeto pessoal: recriar uma versão jogável de Pangya rodando no navegador, o mais fiel
+possível ao original — mesmos modelos, animações, texturas, sons, cursos e dados.
 
-- O **código** deste repositório é escrito do zero (clean-room): nada de copiar código
-  descompilado do cliente/servidor oficial.
-- Os **assets originais** (modelos, texturas, sons, tabelas) **nunca** são commitados.
-  Cada pessoa aponta para a própria instalação do cliente (`PANGYA_DIR`) e o pipeline
-  converte localmente. `assets/`, `*.pak`, `*.iff` e saídas convertidas ficam no `.gitignore`.
-- O projeto deve funcionar também com **assets placeholder** (cubos, terrenos procedurais),
-  para que o código continue testável sem os arquivos originais.
+## Política de assets
+
+- Os **assets originais entram no repositório** e são usados como estão (modelos, animações,
+  texturas, sons, UI, tabelas `.iff`, cursos).
+- Arquivos binários grandes vão pelo **Git LFS** (spec 01). O GitHub tem limite de 100 MB por
+  arquivo e a cota gratuita de LFS é pequena (≈1 GB de armazenamento e de banda/mês) — um
+  cliente completo passa disso, então é preciso comprar pacotes de dados de LFS ou guardar os
+  `.pak` brutos fora do git e commitar só o que for extraído/convertido.
+- Estrutura: `assets/original/` (arquivos extraídos dos `.pak`, intocados) e
+  `assets/converted/` (glTF, JSON, áudio web gerados pelo pipeline). O pipeline é
+  reproduzível: dá para regenerar `converted/` a partir de `original/`.
+- Testes e CI podem usar os assets reais (checkout com LFS).
 
 ## As duas abordagens
 

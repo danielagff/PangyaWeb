@@ -2,7 +2,7 @@
 
 - **Status:** rascunho
 - **Fase:** 2 Engine
-- **Depende de:** 01; usa 05 e 06 quando prontos (placeholder antes)
+- **Depende de:** 01, 05, 06
 - **Estimativa:** M
 
 ## Objetivo
@@ -14,8 +14,8 @@ rodando a 60 fps em hardware modesto.
 - Loader de buraco a partir de `hole.json` + `.glb`.
 - Céu (skybox/gradiente), luz direcional + ambiente, sombras simples (só personagem e bola).
 - Água com shader simples, vegetação/objetos do cenário.
-- Estilo visual próximo do original: cores saturadas, materiais *unlit/lambert*; evitar PBR
-  pesado que mude a aparência dos assets.
+- Visual igual ao original: mesmas texturas, materiais *unlit/lambert*, céus e efeitos do
+  jogo; evitar PBR que mude a aparência dos assets.
 - Gerenciador de assets com cache (IndexedDB) e barra de carregamento.
 - Painel de debug (lil-gui / stats.js): wireframe, colisão, fps, posição da câmera.
 
