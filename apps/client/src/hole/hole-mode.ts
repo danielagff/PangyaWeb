@@ -180,8 +180,23 @@ export async function startHoleMode(ref: HoleRef) {
   )
   ball.position.copy(toScene(origin.x, origin.y + 1.6, origin.z))
   scene.add(ball)
-  const trail = new Line(new BufferGeometry(), new LineBasicMaterial({ color: 0xffeb3b }))
+  const MAX_TRAIL = 4000
+  const trailPositions = new Float32BufferAttribute(new Float32Array(MAX_TRAIL * 3), 3)
+  const trailGeometry = new BufferGeometry()
+  trailGeometry.setAttribute('position', trailPositions)
+  trailGeometry.setDrawRange(0, 0)
+  const trail = new Line(trailGeometry, new LineBasicMaterial({ color: 0xffeb3b }))
+  trail.frustumCulled = false
   scene.add(trail)
+
+  const showError = (message: string) => {
+    status.classList.add('error')
+    status.textContent = message
+  }
+  renderer.domElement.addEventListener('webglcontextlost', (e) => {
+    e.preventDefault()
+    showError('A placa de vídeo perdeu o contexto WebGL (memória de vídeo?). Recarregue a página.')
+  })
 
   // Direção da tacada na cena (para posicionar a câmera atrás da bola).
   const forward = toScene(toPin.x, 0, toPin.z).normalize()
@@ -216,6 +231,12 @@ export async function startHoleMode(ref: HoleRef) {
   const panel = createShotPanel((input: ShotInput) => {
     const sim = new FlightSimulator({ ...input, aim, targetDistance: pinYards }, origin)
     const result = sim.flyOverGround((x, z) => grid.groundAt(x, z)?.y)
+    if (result.frames.some((v) => !Number.isFinite(v))) {
+      showError(
+        `Tacada gerou posição inválida (NaN). Entrada: ${JSON.stringify({ ...input, aim, origin })}`,
+      )
+      return
+    }
     flight = { result, start: performance.now() }
     panel.showResult('…')
   })
@@ -224,14 +245,29 @@ export async function startHoleMode(ref: HoleRef) {
     toScene(frames[i * 3]!, frames[i * 3 + 1]! + 1.6, frames[i * 3 + 2]!)
 
   renderer.setAnimationLoop((now) => {
+    try {
+      frame(now)
+    } catch (err) {
+      renderer.setAnimationLoop(null)
+      showError(
+        `Erro ao desenhar: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}`,
+      )
+    }
+  })
+
+  function frame(now: number) {
     if (flight) {
       const { result } = flight
       const count = result.frames.length / 3
       const index = Math.min(Math.floor((now - flight.start) / 1000 / STEP_TIME), count - 1)
       ball.position.copy(frameAt(result.frames, index))
-      const points: number[] = []
-      for (let i = 0; i <= index; i++) points.push(...frameAt(result.frames, i).toArray())
-      trail.geometry.setAttribute('position', new Float32BufferAttribute(points, 3))
+      const shown = Math.min(index + 1, MAX_TRAIL)
+      for (let i = 0; i < shown; i++) {
+        const p = frameAt(result.frames, i)
+        trailPositions.setXYZ(i, p.x, p.y, p.z)
+      }
+      trailPositions.needsUpdate = true
+      trailGeometry.setDrawRange(0, shown)
 
       if (index === count - 1) {
         const { x, z } = result.landing
@@ -246,5 +282,5 @@ export async function startHoleMode(ref: HoleRef) {
     }
     placeCamera(ball.position, 0.08)
     renderer.render(scene, camera)
-  })
+  }
 }
