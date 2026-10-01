@@ -27,6 +27,7 @@ const commands: Record<string, (args: string[]) => void> = {
   /** Lista os .pak do cliente: entradas e região detectada. */
   pak() {
     const dir = resolvePangyaDir()
+    console.log(`cliente: ${dir}\n`)
     const { vfs, paks } = mountClient(dir)
     for (const p of paks) {
       const status = p.error ? 'ERRO' : (p.region ?? '-')
