@@ -2,6 +2,9 @@
   "name": "@pangya/asset-pipeline",
   "private": true,
   "type": "module",
+  "dependencies": {
+    "@pangya/formats": "workspace:*"
+  },
   "scripts": {
     "cli": "tsx src/cli.ts"
   }

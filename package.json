@@ -15,7 +15,8 @@
     "typecheck": "tsc -b",
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",
-    "assets:build": "pnpm --filter @pangya/asset-pipeline cli build"
+    "assets:build": "pnpm --filter @pangya/asset-pipeline cli build",
+    "assets:iff": "pnpm --filter @pangya/asset-pipeline cli iff"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

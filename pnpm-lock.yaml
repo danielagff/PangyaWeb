@@ -64,7 +64,11 @@ importers:
         specifier: ^5.0.3
         version: 5.0.3(@types/node@26.6.3)(vite@8.3.2(@types/node@26.6.3)(esbuild@0.28.2)(tsx@4.23.15))
 
-  tools/asset-pipeline: {}
+  tools/asset-pipeline:
+    dependencies:
+      '@pangya/formats':
+        specifier: workspace:*
+        version: link:../../packages/formats
 
 packages:
 

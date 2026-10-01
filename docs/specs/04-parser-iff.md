@@ -1,6 +1,6 @@
 # 04 — Parser de tabelas `.iff`
 
-- **Status:** rascunho
+- **Status:** em andamento
 - **Fase:** 1 Formatos
 - **Depende de:** 03
 - **Estimativa:** M
@@ -59,6 +59,15 @@ interface Stats         { power: number; control: number; accuracy: number; spin
 - [ ] Nomes legíveis (encoding correto — testar Shift-JIS/CP949/Latin-1 conforme região).
 - [ ] JSON gerado em `assets/converted/data/` (local) e usado pelo cliente e pelo servidor.
 - [ ] Testes unitários com registros sintéticos no CI.
+
+## Andamento
+
+- [x] Codec declarativo (`packages/formats/src/codec.ts`) e leitor de tabela com validação de tamanho.
+- [x] Layouts de Character, Club, ClubSet, Ball e Course (versão 13, JP) + `readGameData`.
+- [x] `pnpm assets:iff <arquivo.iff>` gera `assets/converted/data/*.json`.
+- [x] Testes unitários com dados sintéticos.
+- [ ] Demais tabelas (Part, Caddie, Mascot, Card, Item…) conforme forem necessárias.
+- [ ] Teste de integração com o `.iff` do cliente, após a spec 03.
 
 ## Riscos e perguntas em aberto
 
