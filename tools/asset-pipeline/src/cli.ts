@@ -16,8 +16,11 @@ const commands: Record<string, (args: string[]) => void> = {
   },
 
   /** Converte um pangya_<região>.iff em JSON: `pnpm assets:iff <arquivo.iff>`. */
-  iff([file]) {
+  iff(args) {
+    // Junta os argumentos: caminhos com espaço funcionam mesmo sem aspas.
+    const file = args.join(' ')
     if (!file) throw new Error('uso: pnpm assets:iff <caminho/do/pangya_jp.iff>')
+    if (!existsSync(file)) throw new Error(`arquivo não encontrado: ${file}`)
     const data = readGameData(readFileSync(file))
     const outDir = resolve(convertedDir, 'data')
     mkdirSync(outDir, { recursive: true })
