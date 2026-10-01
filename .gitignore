@@ -10,3 +10,5 @@ assets/
 *.apet
 *.bpet
 *.mpet
+.tsbuild/
+*.tsbuildinfo

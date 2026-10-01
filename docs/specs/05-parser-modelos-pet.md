@@ -6,10 +6,12 @@
 - **Estimativa:** G
 
 ## Objetivo
+
 Converter modelos do jogo (personagens, tacos, bolas, objetos de cenário) para glTF 2.0
 (`.glb`), com malha, materiais, esqueleto e animações.
 
 ## Contexto
+
 O formato `.pet` (e variantes `.apet`, `.bpet`, `.mpet`) é baseado em blocos/chunks com
 tag de 4 caracteres + tamanho (verificar), contendo coisas como versão, lista de texturas,
 materiais, ossos, malha (vértices, normais, UVs, pesos), frames/animações e possivelmente
@@ -17,7 +19,9 @@ colisão. Converter para glTF permite usar o loader padrão do Three.js e valida
 no Blender ou em visualizadores online.
 
 ## Escopo
+
 **Inclui**
+
 - Leitor genérico de chunks que loga tags desconhecidas sem quebrar.
 - Decodificação de: malha estática → malha com skinning → animações.
 - Exportador glTF (pode usar `@gltf-transform/core`).
@@ -25,9 +29,11 @@ no Blender ou em visualizadores online.
 - Página de debug no cliente (`/viewer`) para abrir qualquer `.glb` convertido.
 
 **Não inclui**
+
 - Efeitos especiais (partículas), shaders customizados do jogo.
 
 ## Requisitos
+
 1. Implementar em etapas, cada uma com critério próprio:
    1. objeto estático (ex.: bola) com textura;
    2. taco;
@@ -37,6 +43,7 @@ no Blender ou em visualizadores online.
    documentar a transformação aplicada.
 
 ## Critérios de aceite
+
 - [ ] `.glb` de bola, taco e um personagem abrem corretamente no Blender e no `/viewer`.
 - [ ] Pelo menos a animação de tacada (swing) e a de espera (idle) tocam corretamente.
 - [ ] Testes unitários com chunks sintéticos no CI.
@@ -44,6 +51,7 @@ no Blender ou em visualizadores online.
       `assets/converted/models/` (local); lista de arquivos que falharam no relatório do pipeline.
 
 ## Riscos e perguntas em aberto
+
 - É a tarefa de engenharia reversa mais pesada. Mitigação: procurar documentação da
   comunidade antes; enquanto não ficar pronta, as outras specs usam primitivas simples
   (esfera, cápsula) só para não ficarem bloqueadas.

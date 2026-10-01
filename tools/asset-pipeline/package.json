@@ -1,0 +1,8 @@
+{
+  "name": "@pangya/asset-pipeline",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "cli": "tsx src/cli.ts"
+  }
+}

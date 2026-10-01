@@ -6,10 +6,12 @@
 - **Estimativa:** M
 
 ## Objetivo
+
 Implementar a interação do jogador que gera um `ShotInput`: mira, escolha do taco,
 ponto de contato na bola, barra de força em dois cliques e tacadas especiais.
 
 ## Contexto (comportamento do original — verificar detalhes)
+
 - **Barra:** 1º clique define a força (a barra sobe), 2º clique define o impacto quando o
   cursor volta; acertar a zona "Pangya!" dá impacto perfeito. Errar desvia a bola
   (hook/slice) proporcionalmente ao erro.
@@ -18,13 +20,15 @@ ponto de contato na bola, barra de força em dois cliques e tacadas especiais.
   estreita a zona de impacto. Existe Double Power Shot.
 - **Spin/curve:** o jogador move o ponto de contato na bola antes da tacada.
 - **Tacadas especiais** (com power shot + combinação de ponto de contato/entrada):
-  - *Tomahawk*: alta, cai quase sem rolar.
-  - *Spike*: sobe muito e desce "cravando" com efeito.
-  - *Cobra*: sai baixa e sobe no final da trajetória.
+  - _Tomahawk_: alta, cai quase sem rolar.
+  - _Spike_: sobe muito e desce "cravando" com efeito.
+  - _Cobra_: sai baixa e sobe no final da trajetória.
 - **Inclinação/piso:** % de força disponível mostrada no HUD conforme o piso.
 
 ## Escopo
+
 **Inclui**
+
 - Máquina de estados: `aim → choose-club → set-spin → swing(power) → swing(impact) → flight`.
 - Barra com velocidade configurável, zona Pangya, zona de erro, power shot.
 - Controles: teclado + mouse (padrão do original) e toque (celular, opcional).
@@ -32,14 +36,16 @@ ponto de contato na bola, barra de força em dois cliques e tacadas especiais.
 - Testes de unidade da máquina de estados com entradas simuladas.
 
 **Não inclui**
+
 - Cartas/itens que alteram a tacada (pode virar spec futura).
 
 ## Contratos / interfaces
+
 ```ts
 type ShotPhase = 'aim' | 'power' | 'impact' | 'flight' | 'done'
 interface ShotController {
   phase: ShotPhase
-  press(): void            // espaço/clique
+  press(): void // espaço/clique
   setAim(yaw: number): void
   setContact(spin: number, curve: number): void
   togglePowerShot(): void
@@ -48,6 +54,7 @@ interface ShotController {
 ```
 
 ## Critérios de aceite
+
 - [ ] Jogável no buraco procedural: mirar, escolher taco, bater, ver a bola voar.
 - [ ] Acertar a zona Pangya produz `impactError = 0` e feedback visual/sonoro.
 - [ ] As três tacadas especiais produzem trajetórias visivelmente distintas.

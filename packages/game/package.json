@@ -1,0 +1,9 @@
+{
+  "name": "@pangya/game",
+  "private": true,
+  "type": "module",
+  "description": "Regras e estado da partida",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

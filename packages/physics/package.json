@@ -1,0 +1,9 @@
+{
+  "name": "@pangya/physics",
+  "private": true,
+  "type": "module",
+  "description": "Física determinística da bola",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

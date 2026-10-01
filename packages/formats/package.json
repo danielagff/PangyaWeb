@@ -1,0 +1,9 @@
+{
+  "name": "@pangya/formats",
+  "private": true,
+  "type": "module",
+  "description": "Parsers dos formatos de arquivo do Pangya (.pak, .iff, .pet...)",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/formats" },
+    { "path": "packages/physics" },
+    { "path": "packages/game" },
+    { "path": "packages/test-utils" },
+    { "path": "apps/client" },
+    { "path": "apps/client/tsconfig.node.json" },
+    { "path": "apps/server" },
+    { "path": "tools/asset-pipeline" }
+  ]
+}

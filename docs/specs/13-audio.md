@@ -6,10 +6,13 @@
 - **Estimativa:** P
 
 ## Objetivo
+
 Efeitos sonoros e música tocando nos eventos certos.
 
 ## Escopo
+
 **Inclui**
+
 - Web Audio API com mixer (música, efeitos, vozes) e volumes configuráveis.
 - Mapa evento → som: tacada (por tipo/qualidade), Pangya, quique por superfície, água,
   entrada na cova, vozes do personagem, música por curso.
@@ -17,5 +20,6 @@ Efeitos sonoros e música tocando nos eventos certos.
 - Usar os sons, vozes e músicas originais (convertidos para formato web pelo pipeline).
 
 ## Critérios de aceite
+
 - [ ] Todos os eventos da física e da tacada têm som associado.
 - [ ] Configurações de volume persistem entre sessões.

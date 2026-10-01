@@ -6,10 +6,13 @@
 - **Estimativa:** M
 
 ## Objetivo
+
 Partida completa single-player (1, 3, 9 ou 18 buracos) sem servidor, com placar final.
 
 ## Escopo
+
 **Inclui**
+
 - `packages/game`: estado da partida puro e serializável (para reaproveitar no servidor).
 - Regras: contagem de tacadas, par, birdie/eagle/albatross/hole-in-one, penalidades de
   água (+1, reposicionar) e OB (+1/+2, voltar ao ponto anterior — verificar regra do original),
@@ -19,9 +22,11 @@ Partida completa single-player (1, 3, 9 ou 18 buracos) sem servidor, com placar 
 - Salvar progresso/configurações localmente.
 
 **Não inclui**
+
 - Economia (pang, itens), modos online.
 
 ## Contratos / interfaces
+
 ```ts
 interface MatchState { config: MatchConfig; holeIndex: number; players: PlayerState[]; wind: Wind; turn: number }
 type MatchEvent = { type: 'shot'; playerId: string; result: ShotResult } | { type: 'hole-end' } | …
@@ -29,6 +34,7 @@ function reduce(state: MatchState, event: MatchEvent): MatchState   // puro, det
 ```
 
 ## Critérios de aceite
+
 - [ ] Jogar 18 buracos de um curso (real ou procedural) do início ao fim.
 - [ ] Testes do reducer cobrindo todas as penalidades e tipos de resultado.
 - [ ] Recarregar a página no meio da partida retoma do mesmo ponto.

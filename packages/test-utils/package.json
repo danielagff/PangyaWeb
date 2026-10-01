@@ -1,0 +1,12 @@
+{
+  "name": "@pangya/test-utils",
+  "private": true,
+  "type": "module",
+  "description": "Utilitários de teste compartilhados",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "devDependencies": {
+    "vitest": "^5.0.3"
+  }
+}

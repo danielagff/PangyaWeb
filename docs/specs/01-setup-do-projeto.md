@@ -1,20 +1,24 @@
 # 01 — Setup do projeto
 
-- **Status:** rascunho
+- **Status:** concluída
 - **Fase:** 0 Fundação
 - **Depende de:** —
 - **Estimativa:** P
 
 ## Objetivo
+
 Repositório com estrutura de monorepo, build, testes e CI funcionando, abrindo uma página
 web vazia com um canvas 3D.
 
 ## Contexto
+
 Tudo o que vem depois (parsers, engine, servidor) compartilha tipos e assets. Separar em pacotes desde o início evita que o código do jogo
 dependa do pipeline de conversão.
 
 ## Escopo
+
 **Inclui**
+
 - Monorepo (pnpm workspaces) em TypeScript estrito.
 - Pacotes iniciais:
   - `packages/formats` — parsers de arquivos (`.pak`, `.iff`, `.pet`…), roda em Node e no navegador.
@@ -31,9 +35,11 @@ dependa do pipeline de conversão.
 - Helper de teste `describeWithAssets(...)` que pula testes de integração sem `PANGYA_DIR`.
 
 **Não inclui**
+
 - Qualquer lógica de jogo.
 
 ## Requisitos
+
 1. `pnpm install && pnpm dev` abre o cliente em `localhost` com uma cena Three.js
    (plano verde + esfera branca).
 2. `pnpm test` roda os testes de todos os pacotes.
@@ -43,9 +49,11 @@ dependa do pipeline de conversão.
    simplicidade e ecossistema glTF; Babylon.js é alternativa válida).
 
 ## Critérios de aceite
+
 - [ ] `pnpm dev`, `pnpm build`, `pnpm test`, `pnpm lint` funcionam.
 - [ ] CI verde no GitHub Actions.
 - [ ] Nenhum arquivo do jogo é rastreado pelo git.
 
 ## Riscos e perguntas em aberto
+
 - WebGPU vs WebGL2: começar em WebGL2 (suporte universal); Three.js permite migrar depois.
