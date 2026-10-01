@@ -1,11 +1,19 @@
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
-import { PakVfs, readPakEntry, readPakIndex, sortPaks, type PakRegion } from '@pangya/formats'
+import {
+  PakIndexError,
+  PakVfs,
+  readPakEntry,
+  readPakIndex,
+  sortPaks,
+  type PakRegion,
+} from '@pangya/formats'
 
 export interface PakSummary {
   name: string
   entries: number
   region?: PakRegion
+  error?: string
 }
 
 export const findPaks = (clientDir: string) =>
@@ -41,6 +49,10 @@ export function extractClient(
   let written = 0
 
   for (const pak of paks) {
+    if (pak.error) {
+      failures.push(`${pak.name}: ${pak.error}`)
+      continue
+    }
     const entries = byPak.get(pak.name) ?? []
     if (entries.length === 0) continue
     const bytes = readFileSync(join(clientDir, pak.name))
@@ -58,4 +70,19 @@ export function extractClient(
     log(`  ${pak.name}: ${entries.length} arquivos`)
   }
   return { written, failures, paks, vfs }
+}
+
+/** Texto do erro; para erros de índice inclui os bytes ao redor da falha. */
+export function describeError(err: unknown): string {
+  if (err instanceof PakIndexError) {
+    const d = err.details
+    return [
+      err.message,
+      `  tamanho=${d.fileSize} índice@${d.indexOffset} entradas=${d.count} versão=0x${d.version.toString(16)}`,
+      `  últimas entradas lidas:`,
+      ...d.entriesRead.map((e, i) => `    ${d.rawHeaders[i] ?? ''} → ${e.path} (${e.type})`),
+      `  bytes na posição ${d.position}: ${d.bytesAtPosition}`,
+    ].join('\n')
+  }
+  return err instanceof Error ? err.message : String(err)
 }

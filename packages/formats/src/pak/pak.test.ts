@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { lz772Decompress, lz77Decompress } from './lz77.ts'
-import { PAK_FOOTER_SIZE, PAK_VERSION, readPakEntry, readPakIndex } from './pak.ts'
+import { PAK_FOOTER_SIZE, PAK_VERSION, PakIndexError, readPakEntry, readPakIndex } from './pak.ts'
 import { PAK_KEYS, xteaBlocks, xteaDecrypt, xteaEncrypt } from './xtea.ts'
 
 const text = (s: string) => new TextEncoder().encode(s)
@@ -119,4 +119,19 @@ describe.each([1, 3] as const)('readPakIndex (entradas v%i)', (version) => {
 
 it('rejeita arquivo que não é .pak', () => {
   expect(() => readPakIndex(new Uint8Array(4))).toThrow(/pequeno demais/)
+})
+
+it('explica onde o índice quebrou', () => {
+  const pak = buildPak(FILES, 1)
+  // Aumenta o tamanho do nome da 2ª entrada: o resto do índice fica desalinhado.
+  const view = new DataView(pak.buffer)
+  const indexOffset = view.getUint32(pak.length - PAK_FOOTER_SIZE, true)
+  pak[indexOffset + 14 + 16]! += 40
+  try {
+    readPakIndex(pak)
+    expect.unreachable()
+  } catch (err) {
+    expect(err).toBeInstanceOf(PakIndexError)
+    expect((err as PakIndexError).details.entriesRead[0]?.path).toBe('data/readme.txt')
+  }
 })

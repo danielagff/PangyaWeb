@@ -44,6 +44,28 @@ function detectRegion(offset: number, size: number): PakRegion | undefined {
   return undefined
 }
 
+/** Erro de leitura do índice com o contexto necessário para diagnosticar o formato. */
+export class PakIndexError extends Error {
+  constructor(
+    message: string,
+    readonly details: {
+      fileSize: number
+      indexOffset: number
+      count: number
+      version: number
+      position: number
+      entriesRead: PakEntry[]
+      rawHeaders: string[]
+      bytesAtPosition: string
+    },
+  ) {
+    super(message)
+  }
+}
+
+const hex = (bytes: Uint8Array) =>
+  Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join(' ')
+
 export function readPakIndex(bytes: Uint8Array, region?: PakRegion): PakIndex {
   if (bytes.byteLength < PAK_FOOTER_SIZE) throw new Error('arquivo pequeno demais para ser um .pak')
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
@@ -56,10 +78,24 @@ export function readPakIndex(bytes: Uint8Array, region?: PakRegion): PakIndex {
   let key: XteaKey | undefined = region ? PAK_KEYS[region] : undefined
   let detected = region
   const entries: PakEntry[] = []
+  const rawHeaders: string[] = []
   let at = indexOffset
 
+  const fail = (message: string) =>
+    new PakIndexError(message, {
+      fileSize: bytes.byteLength,
+      indexOffset,
+      count,
+      version,
+      position: at,
+      entriesRead: entries.slice(-5),
+      rawHeaders: rawHeaders.slice(0, entries.length).slice(-5),
+      bytesAtPosition: hex(bytes.subarray(at, Math.min(at + 64, bytes.byteLength))),
+    })
+
   for (let i = 0; i < count; i++) {
-    if (at + 14 > footer) throw new Error(`índice truncado na entrada ${i}`)
+    if (at + 14 > footer) throw fail(`índice truncado na entrada ${i} de ${count}`)
+    rawHeaders.push(`@${at}: ${hex(bytes.subarray(at, at + 14))}`)
     const nameLength = view.getUint8(at)
     const flags = view.getUint8(at + 1)
     const type = flags & 0x0f
