@@ -48,7 +48,11 @@ importers:
 
   apps/server: {}
 
-  packages/formats: {}
+  packages/formats:
+    dependencies:
+      fflate:
+        specifier: ^0.8.3
+        version: 0.8.3
 
   packages/game: {}
 
