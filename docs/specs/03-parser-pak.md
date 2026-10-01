@@ -1,6 +1,6 @@
 # 03 — Parser de pacotes `.pak`
 
-- **Status:** rascunho
+- **Status:** em andamento
 - **Fase:** 1 Formatos
 - **Depende de:** 01, 02
 - **Estimativa:** M
@@ -61,6 +61,18 @@ interface Vfs {
       comuns — prova de que a descompressão está correta.
 - [ ] Testes unitários com um `.pak` sintético (CI) + teste de integração com os `.pak`
       reais (local).
+
+## Andamento
+
+- [x] Índice do `.pak` (rodapé de 9 bytes), entradas v1/v2 (XOR 0x71) e v3 (XTEA por região),
+      detecção automática da região.
+- [x] Descompressão LZ77 e LZ77-2 (ofuscada).
+- [x] `PakVfs`: base em ordem alfabética, depois patches `projectgNNN.pak` em ordem crescente
+      (o último sobrescreve) — **(verificar)** contra a ordem real do cliente.
+- [x] `pnpm assets:pak` (lista pacotes/região/extensões) e `pnpm assets:build` (extrai para
+      `assets/original/` e converte o `.iff` encontrado).
+- [x] Testes com `.pak` sintéticos.
+- [ ] Rodar contra o cliente JP real (local) e registrar o resultado.
 
 ## Riscos e perguntas em aberto
 

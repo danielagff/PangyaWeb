@@ -1,18 +1,42 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { readGameData } from '@pangya/formats'
+import { extractClient, mountClient } from './extract.ts'
 import { convertedDir, originalDir, repoRoot, resolvePangyaDir } from './config.ts'
 
 const envFile = resolve(repoRoot, '.env')
 if (existsSync(envFile)) process.loadEnvFile(envFile)
 
 const commands: Record<string, (args: string[]) => void> = {
+  /** Extrai todos os .pak do cliente para assets/original e converte o .iff. */
   build() {
     const dir = resolvePangyaDir()
     console.log(`cliente: ${dir}`)
-    console.log(`extração → ${originalDir}`)
-    console.log(`conversão → ${convertedDir}`)
-    console.log('Extração (.pak) ainda não implementada — spec 03.')
+    const { written, failures, vfs } = extractClient(dir, originalDir)
+    console.log(`${written} arquivos extraídos → ${originalDir}`)
+    if (failures.length > 0) {
+      const report = resolve(originalDir, '_falhas.txt')
+      writeFileSync(report, failures.join('\n'))
+      console.log(`${failures.length} falhas (detalhes em ${report})`)
+    }
+    const iff = vfs.list().find((e) => /^pangya_\w+\.iff$/i.test(e.path.split('/').pop() ?? ''))
+    if (iff) commands['iff']!([resolve(originalDir, iff.path)])
+    else console.log('nenhum pangya_*.iff encontrado nos pacotes')
+  },
+
+  /** Lista os .pak do cliente: entradas e região detectada. */
+  pak() {
+    const dir = resolvePangyaDir()
+    const { vfs, paks } = mountClient(dir)
+    for (const p of paks) {
+      console.log(
+        `${p.name.padEnd(28)} ${String(p.entries).padStart(6)} entradas  ${p.region ?? '-'}`,
+      )
+    }
+    const byExt = Map.groupBy(vfs.list(), (e) => e.path.split('.').pop()?.toLowerCase() ?? '')
+    const top = [...byExt].sort((a, b) => b[1].length - a[1].length).slice(0, 25)
+    console.log(`\n${vfs.size} arquivos após patches. Extensões:`)
+    console.log(top.map(([ext, list]) => `${ext}: ${list.length}`).join(', '))
   },
 
   /** Converte um pangya_<região>.iff em JSON: `pnpm assets:iff <arquivo.iff>`. */
