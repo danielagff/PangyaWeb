@@ -25,6 +25,7 @@ import {
   MeshLambertMaterial,
   PerspectiveCamera,
   PlaneGeometry,
+  Raycaster,
   Scene,
   SphereGeometry,
   Vector3,
@@ -72,7 +73,9 @@ const objectColor = (model: string) =>
       ? 0xe6d3b3
       : 0xb9b0a3
 
-function buildScene(hole: LoadedHole, scene: Scene) {
+/** Monta a cena; retorna as malhas do terreno (usadas para a câmera não atravessá-lo). */
+function buildScene(hole: LoadedHole, scene: Scene): Mesh[] {
+  const terrainMeshes: Mesh[] = []
   for (const part of hole.terrain) {
     const geometry = new BufferGeometry()
     geometry.setAttribute('position', new Float32BufferAttribute(flipZ(part.positions), 3))
@@ -81,7 +84,9 @@ function buildScene(hole: LoadedHole, scene: Scene) {
       color: SURFACE_COLORS[part.surface.kind],
       side: DoubleSide,
     })
-    scene.add(new Mesh(geometry, material))
+    const mesh = new Mesh(geometry, material)
+    terrainMeshes.push(mesh)
+    scene.add(mesh)
   }
 
   for (const object of hole.objects) {
@@ -124,6 +129,7 @@ function buildScene(hole: LoadedHole, scene: Scene) {
   flag.add(pole, cloth)
   flag.position.copy(toScene(...hole.pin))
   scene.add(flag)
+  return terrainMeshes
 }
 
 export async function startHoleMode(ref: HoleRef) {
@@ -153,7 +159,7 @@ export async function startHoleMode(ref: HoleRef) {
   document.body.appendChild(status)
 
   const hole = await loadHole(ref)
-  buildScene(hole, scene)
+  const terrainMeshes = buildScene(hole, scene)
   const grid = new TerrainGrid(hole.collision.triangles)
   const surfaceAt = (x: number, z: number): SurfaceClass | undefined => {
     const hit = grid.groundAt(x, z)
@@ -206,6 +212,7 @@ export async function startHoleMode(ref: HoleRef) {
     if (e.code === 'KeyM') aerial = !aerial
   })
   const middle = toScene((tx + px) / 2, 0, (tz + pz) / 2)
+  const ray = new Raycaster()
   const placeCamera = (target: Vector3, lerp: number) => {
     if (aerial) {
       camera.position.lerp(
@@ -218,10 +225,20 @@ export async function startHoleMode(ref: HoleRef) {
       camera.lookAt(middle)
       return
     }
-    const desired = target
+    let desired = target
       .clone()
       .addScaledVector(forward, -70)
       .add(new Vector3(0, 28, 0))
+    // Não deixa o terreno ficar entre a bola e a câmera (ex.: bola no fundo de um penhasco).
+    const toCamera = desired.clone().sub(target)
+    const distance = toCamera.length()
+    ray.set(target, toCamera.normalize())
+    ray.far = distance
+    const hit = ray.intersectObjects(terrainMeshes, false)[0]
+    if (hit) desired = target.clone().addScaledVector(toCamera, Math.max(4, hit.distance - 4))
+    // E mantém a câmera acima do chão logo abaixo dela (cena tem Z invertido).
+    const below = grid.groundAt(desired.x, -desired.z)
+    if (below && desired.y < below.y + 6) desired.y = below.y + 6
     camera.position.lerp(desired, lerp)
     camera.lookAt(target.clone().addScaledVector(forward, 60))
   }
