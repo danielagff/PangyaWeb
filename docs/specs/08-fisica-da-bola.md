@@ -105,6 +105,10 @@ medições de referência passam a servir para validar.
       cliente original jogando contra um SuperSS local, cujos logs registram a posição final
       de cada tacada.
 - [ ] Colisão com a malha do terreno (depende da spec 06).
+- [x] **Coeficientes de quique e rolagem por piso encontrados:** `<curso>_property.xml`
+      (`bound`/`roll` por classe de textura; ex. Blue Lagoon: green 0.3/0.18, fairway
+      0.4/0.2, rough 0.2/0.42, bunker 0.1/0.6, estrada 0.7/0.1). Leitor em
+      `packages/formats/src/course/property.ts`. Falta a fórmula de como o jogo os aplica.
 - [ ] Putt (spec 11).
 - [ ] Calibrar: a 100% e power 15 o voo (carry) dá ~83% do alcance do HUD; confirmar no jogo
       se o alcance exibido inclui a rolagem.

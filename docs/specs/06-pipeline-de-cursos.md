@@ -61,7 +61,10 @@ Para a física, o essencial é o **tipo de superfície** de cada triângulo:
       (cena) + `ase/*.pet` (objetos) + texturas `.dds`.
 - [x] `readGbin` (câmeras, tee/pin, elementos com matriz, par e mapCheck) portado do
       GhostMapEditor; `holePoints` para tee e pin.
-- [ ] `.sbin` (terreno/colisão) e tipos de piso.
+- [x] Tipos de piso: textura do triângulo → classe do `<curso>_property.xml`
+      (`readCourseProperty` / `surfaceOf`). Validado no Blue Lagoon buraco 1.
+- [x] `.sbin` é só sombra assada (não é colisão) — opcional para o visual.
+- [ ] O.B. (origem não confirmada).
 
 ## Riscos e perguntas em aberto
 

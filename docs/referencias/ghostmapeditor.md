@@ -65,3 +65,29 @@ referência (copiar código obrigaria o PangyaWeb a ser GPL). Pontos úteis:
   original ao converter `.pet` → glTF.
 - O cliente valida cada arquivo contra um `updatelist` cifrado (XTEA + CRC32 próprio,
   polinômio não refletido `0x04C11DB7`) — irrelevante para o PangyaWeb, que só lê.
+
+## pangya-pet_tools + guia técnico — https://github.com/lbarceloss/pangya-pet_tools
+
+Fork do pet-source_tools com `tools/gbin_dump.py`, `tools/sbin_dump.py` e o
+**`docs/Guia_PangYa_Mapas_e_Personagens.pdf`**, verificado contra arquivos reais e o
+`ProjectG.exe` no IDA. Também traz um `Blue Lagoon.zip` (curso extraído) e o repositório
+`exemplo-pink-wind-v1` traz os 18 `.gbin` do Pink Wind — usados para validar os nossos
+leitores (18 buracos do Blue Lagoon batem com a tabela do guia; par total 72; 44/44 `.pet`
+de objetos lidos).
+
+Descobertas principais:
+
+- **Tipo de piso = textura.** `<curso>_property.xml` (EUC-KR, lido com TinyXML pelo jogo)
+  lista classes (tee, fairway, rough, green, bunker, água, estrada, pedra, madeira, folhas…)
+  com **`bound` (quique), `roll` (rolagem)** e `min/max` (% de força), e as texturas de cada
+  uma. O terreno é o `.pet` do buraco; cada triângulo pertence à classe da sua textura.
+- **`.sbin` é só a sombra assada** do buraco (atlas DXT1), não colisão.
+- O **O.B.** não vem da tabela de classes (não confirmado de onde vem).
+- Tee/pin: luzes tipo 0 com nomes coreanos (`시작점`, `시작점2`, `끝점1_1..3`, `끝점2_1..3`,
+  `그리드`); duplicados no `MapCheck` (par + XZ) e no `.wep`.
+- Névoa em `<curso>_fog.txt` (cor RGB + início/fim); skybox fica no `ProjectG_Jp_ZSky.pak`.
+- Terreno é _fullbright_ (a luz global não afeta o chão, só objetos).
+- Ordem de prioridade entre `.pak`: caminho interno, depois ordem alfabética (o último
+  vence), e só os que estão no `updatelist`.
+- Soundboxes tipo 1 têm script que cria NPCs (gaivotas, borboletas…); o `script` dos
+  elementos é usado em portais que desviam a bola.
