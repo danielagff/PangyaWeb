@@ -1,6 +1,6 @@
 # 08 — Física da bola
 
-- **Status:** rascunho
+- **Status:** em andamento
 - **Fase:** 2 Engine
 - **Depende de:** 01 (usa terreno procedural até a 06 ficar pronta)
 - **Estimativa:** G
@@ -87,6 +87,19 @@ medições de referência passam a servir para validar.
 - [ ] Distâncias sem vento dentro de ±3% da tabela de referência para cada taco.
 - [ ] Bola não atravessa terreno em nenhum dos testes de stress (tacadas aleatórias).
 - [ ] Simulação completa de uma tacada de driver em < 5 ms.
+
+## Andamento
+
+- [x] Voo portado do `smart_calculator.js` (SuperSS-Dev, MIT): arrasto, Magnus, vento, curva,
+      spin, power shot e tacadas especiais (Tomahawk, Spike, Cobra), passo fixo de 0,02 s.
+- [x] Tabela dos 15 tacos, força/alcance por categoria (madeira, ferro, wedge, putter).
+- [x] Testes: determinismo, regressão de distâncias, vento, curva, tacadas especiais.
+- [x] Demonstração no cliente (`pnpm dev`) com painel de parâmetros.
+- [ ] Quique e rolagem por tipo de piso (não existem na calculadora; precisa de pesquisa).
+- [ ] Colisão com a malha do terreno (depende da spec 06).
+- [ ] Putt (spec 11).
+- [ ] Calibrar: a 100% e power 15 o voo (carry) dá ~83% do alcance do HUD; confirmar no jogo
+      se o alcance exibido inclui a rolagem.
 
 ## Riscos e perguntas em aberto
 

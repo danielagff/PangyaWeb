@@ -38,6 +38,9 @@ importers:
 
   apps/client:
     dependencies:
+      '@pangya/physics':
+        specifier: workspace:*
+        version: link:../../packages/physics
       three:
         specifier: ^0.186.1
         version: 0.186.1
