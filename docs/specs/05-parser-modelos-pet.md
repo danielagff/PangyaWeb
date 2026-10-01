@@ -39,8 +39,9 @@ no Blender ou em visualizadores online.
 ## Critérios de aceite
 - [ ] `.glb` de bola, taco e um personagem abrem corretamente no Blender e no `/viewer`.
 - [ ] Pelo menos a animação de tacada (swing) e a de espera (idle) tocam corretamente.
-- [ ] Todos os modelos e animações do jogo convertidos em lote e commitados em
-      `assets/converted/models/`; lista de arquivos que falharam no relatório do pipeline.
+- [ ] Testes unitários com chunks sintéticos no CI.
+- [ ] Todos os modelos e animações do jogo convertidos em lote para
+      `assets/converted/models/` (local); lista de arquivos que falharam no relatório do pipeline.
 
 ## Riscos e perguntas em aberto
 - É a tarefa de engenharia reversa mais pesada. Mitigação: procurar documentação da

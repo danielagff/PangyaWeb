@@ -39,8 +39,8 @@ interface Vfs { list(glob: string): string[]; read(path: string): Promise<Uint8A
 - [ ] Extrai 100% das entradas dos paks de referência sem erro.
 - [ ] Arquivos extraídos com formato conhecido (`.jpg`, `.ogg`, `.zip`) abrem em ferramentas
       comuns — prova de que a descompressão está correta.
-- [ ] Arquivos extraídos commitados em `assets/original/` (via LFS).
-- [ ] Testes unitários com um `.pak` sintético + teste de integração com um `.pak` real.
+- [ ] Testes unitários com um `.pak` sintético (CI) + teste de integração com os `.pak`
+      reais (local).
 
 ## Riscos e perguntas em aberto
 - Chave XOR desconhecida para a sua região → descobrir por análise do índice (nomes de

@@ -28,7 +28,7 @@ A versão/região do cliente importa (US, JP, BR, KR, TH, EU): chaves de criptog
 **Inclui**
 - `tools/asset-pipeline inventory` que percorre `PANGYA_DIR` (e o conteúdo dos `.pak` após
   a spec 03) e gera `docs/inventario.md` e `docs/inventario.json` com: caminho, extensão, tamanho, magic bytes, hash.
-- Documento `docs/formatos.md` (commitado) descrevendo cada formato em alto nível e
+- Documento `docs/formatos.md` (commitado; só descrições, sem conteúdo do jogo) descrevendo cada formato em alto nível e
   linkando referências da comunidade.
 - Registrar versão e região do cliente usado como referência.
 

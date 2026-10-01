@@ -5,16 +5,18 @@ possível ao original — mesmos modelos, animações, texturas, sons, cursos e 
 
 ## Política de assets
 
-- Os **assets originais entram no repositório** e são usados como estão (modelos, animações,
-  texturas, sons, UI, tabelas `.iff`, cursos).
-- Arquivos binários grandes vão pelo **Git LFS** (spec 01). O GitHub tem limite de 100 MB por
-  arquivo e a cota gratuita de LFS é pequena (≈1 GB de armazenamento e de banda/mês) — um
-  cliente completo passa disso, então é preciso comprar pacotes de dados de LFS ou guardar os
-  `.pak` brutos fora do git e commitar só o que for extraído/convertido.
-- Estrutura: `assets/original/` (arquivos extraídos dos `.pak`, intocados) e
-  `assets/converted/` (glTF, JSON, áudio web gerados pelo pipeline). O pipeline é
-  reproduzível: dá para regenerar `converted/` a partir de `original/`.
-- Testes e CI podem usar os assets reais (checkout com LFS).
+- O jogo **usa os assets originais como estão** (modelos, animações, texturas, sons, UI,
+  tabelas `.iff`, cursos) — nada de substitutos genéricos.
+- Os assets **ficam só na máquina local, fora do git**. O repositório contém apenas código
+  e documentação.
+- Estrutura local (ignorada pelo git): `assets/original/` (extraído dos `.pak`, intocado) e
+  `assets/converted/` (glTF, JSON, áudio web gerados pelo pipeline). Tudo é regenerável a
+  partir da instalação do cliente apontada por `PANGYA_DIR`:
+  `pnpm assets:build` → extrai e converte.
+- Testes em dois níveis:
+  - **unitários** com dados sintéticos gerados no próprio teste — rodam no CI e na nuvem;
+  - **de integração** com os assets reais — rodam localmente quando `PANGYA_DIR` está
+    definido e são pulados automaticamente quando não está.
 
 ## As duas abordagens
 

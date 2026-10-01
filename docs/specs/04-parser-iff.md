@@ -46,7 +46,8 @@ interface Stats         { power: number; control: number; accuracy: number; spin
 ## Critérios de aceite
 - [ ] JSON gerado para personagens, clubsets, bolas e cursos da versão de referência.
 - [ ] Nomes legíveis (encoding correto — testar Shift-JIS/CP949/Latin-1 conforme região).
-- [ ] JSON gerado commitado em `assets/converted/data/` e usado pelo cliente e pelo servidor.
+- [ ] JSON gerado em `assets/converted/data/` (local) e usado pelo cliente e pelo servidor.
+- [ ] Testes unitários com registros sintéticos no CI.
 
 ## Riscos e perguntas em aberto
 - Campos desconhecidos: manter como `unknownN` no descritor e documentar hipóteses.

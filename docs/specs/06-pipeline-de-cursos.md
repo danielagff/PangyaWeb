@@ -34,7 +34,7 @@ Para a física, o essencial é o **tipo de superfície** de cada triângulo:
   }
   ```
 - Malha de colisão otimizada (BVH pré-calculada ou gerada no carregamento).
-- Conversão em lote de todos os cursos/buracos, commitada em `assets/converted/courses/`.
+- Conversão em lote de todos os cursos/buracos, gerada em `assets/converted/courses/` (local).
 - Opcional: buraco procedural simples no mesmo formato, para testes de física com geometria
   conhecida (green plano, rampa de 5°, etc.).
 
