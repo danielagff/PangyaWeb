@@ -44,12 +44,19 @@ export interface LoadedHole {
   missingModels: string[]
 }
 
-const ASSETS = '/game-assets/original/data'
+/**
+ * Os cursos aparecem em dois lugares: `round02_blue/...` (extraídos dos .pak) ou
+ * `data/round02_blue/...` (pacote de exemplo). Tenta os dois.
+ */
+const ASSET_ROOTS = ['/game-assets/original', '/game-assets/original/data']
 
 async function fetchBytes(path: string): Promise<Uint8Array> {
-  const response = await fetch(`${ASSETS}/${path}`)
-  if (!response.ok) throw new Error(`não encontrado: ${path} (${response.status})`)
-  return new Uint8Array(await response.arrayBuffer())
+  const encoded = path.split('/').map(encodeURIComponent).join('/')
+  for (const root of ASSET_ROOTS) {
+    const response = await fetch(`${root}/${encoded}`)
+    if (response.ok) return new Uint8Array(await response.arrayBuffer())
+  }
+  throw new Error(`não encontrado: ${path} (procurado em ${ASSET_ROOTS.join(', ')})`)
 }
 
 const transform = (positions: Float32Array, matrix: Mat4x3) => {

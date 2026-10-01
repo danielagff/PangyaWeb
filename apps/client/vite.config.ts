@@ -25,10 +25,13 @@ function gameAssets(): Plugin {
   return {
     name: 'pangya-game-assets',
     configureServer(server) {
-      server.middlewares.use('/game-assets', (req, res, next) => {
+      server.middlewares.use('/game-assets', (req, res) => {
         const path = normalize(join(assetsDir, decodeURIComponent((req.url ?? '/').split('?')[0]!)))
         if (!path.startsWith(assetsDir) || !existsSync(path) || !statSync(path).isFile()) {
-          return next()
+          // 404 de verdade (sem cair na página do app), para o cliente tentar outro caminho.
+          res.statusCode = 404
+          res.end()
+          return
         }
         res.setHeader('Content-Type', mimeTypes[extname(path)] ?? 'application/octet-stream')
         createReadStream(path).pipe(res)
