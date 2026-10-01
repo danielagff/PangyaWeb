@@ -29,10 +29,10 @@ const commands: Record<string, (args: string[]) => void> = {
     const dir = resolvePangyaDir()
     const { vfs, paks } = mountClient(dir)
     for (const p of paks) {
-      console.log(
-        `${p.name.padEnd(28)} ${String(p.entries).padStart(6)} entradas  ${p.region ?? '-'}`,
-      )
+      const status = p.error ? 'ERRO' : (p.region ?? '-')
+      console.log(`${p.name.padEnd(28)} ${String(p.entries).padStart(6)} entradas  ${status}`)
     }
+    for (const p of paks.filter((p) => p.error)) console.log(`\nERRO em ${p.name}: ${p.error}`)
     const byExt = Map.groupBy(vfs.list(), (e) => e.path.split('.').pop()?.toLowerCase() ?? '')
     const top = [...byExt].sort((a, b) => b[1].length - a[1].length).slice(0, 25)
     console.log(`\n${vfs.size} arquivos após patches. Extensões:`)

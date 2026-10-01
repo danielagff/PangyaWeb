@@ -24,13 +24,17 @@ export function mountClient(clientDir: string): { vfs: PakVfs; paks: PakSummary[
   const vfs = new PakVfs()
   const paks: PakSummary[] = []
   for (const name of findPaks(clientDir)) {
-    const index = readPakIndex(readFileSync(join(clientDir, name)))
-    vfs.mount(name, index.entries)
-    paks.push({
-      name,
-      entries: index.entries.length,
-      ...(index.region ? { region: index.region } : {}),
-    })
+    try {
+      const index = readPakIndex(readFileSync(join(clientDir, name)))
+      vfs.mount(name, index.entries)
+      paks.push({
+        name,
+        entries: index.entries.length,
+        ...(index.region ? { region: index.region } : {}),
+      })
+    } catch (err) {
+      paks.push({ name, entries: 0, error: describeError(err) })
+    }
   }
   return { vfs, paks }
 }
