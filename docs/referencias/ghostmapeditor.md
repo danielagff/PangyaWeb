@@ -49,3 +49,19 @@ por buraco, de 15 cursos: para cada objeto, o nome do `.pet` e caixas orientadas
 Mostra que a colisão com objetos (árvores, postes…) usa caixas definidas nos próprios `.pet`
 (o pet-source_tools também lê essas "collision box"). Não cobre terreno, tipo de piso nem
 quique/rolagem. Pode servir para validar nossa leitura de caixas de colisão dos `.pet`.
+
+## PangYa-Map-Toolkit — https://github.com/lbarceloss/PangYa-Map-Toolkit (GPL-3.0)
+
+Ferramentas para editar mapas e recolocá-los no jogo. Por ser **GPL-3.0**, usar como
+referência (copiar código obrigaria o PangyaWeb a ser GPL). Pontos úteis:
+
+- **Estrutura de um buraco** (dentro do `.pak` do curso, ex. `round10_spring wind/`):
+  `map/pink_NN.pet` = **malha do terreno** (um `.pet` por buraco); `map/pink_NN.gbin` = cena
+  (objetos e posições); `ase/*.pet` = objetos (árvores, casas…); `texture_dds/` = texturas.
+- `tools/pak_check.py` abre os `.pak` originais (`ProjectG_Jp_Pink.pak`) com a **chave JP
+  padrão** — confirma que só o cliente do Reborn tem chave própria.
+- O renderizador do jogo depende da **ordem dos vértices** de cada triângulo (decals de
+  fairway/green sobrepostos ficam transparentes se a ordem mudar) — manter a ordem
+  original ao converter `.pet` → glTF.
+- O cliente valida cada arquivo contra um `updatelist` cifrado (XTEA + CRC32 próprio,
+  polinômio não refletido `0x04C11DB7`) — irrelevante para o PangyaWeb, que só lê.
