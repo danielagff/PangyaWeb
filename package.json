@@ -17,7 +17,8 @@
     "format": "prettier --write .",
     "assets:build": "pnpm --filter @pangya/asset-pipeline cli build",
     "assets:iff": "pnpm --filter @pangya/asset-pipeline cli iff",
-    "assets:pak": "pnpm --filter @pangya/asset-pipeline cli pak"
+    "assets:pak": "pnpm --filter @pangya/asset-pipeline cli pak",
+    "assets:pak-dump": "pnpm --filter @pangya/asset-pipeline cli pak-dump"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

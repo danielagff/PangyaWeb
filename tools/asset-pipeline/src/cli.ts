@@ -39,6 +39,32 @@ const commands: Record<string, (args: string[]) => void> = {
     console.log(top.map(([ext, list]) => `${ext}: ${list.length}`).join(', '))
   },
 
+  /** Mostra rodapé e índice de um .pak em hexadecimal: `pnpm assets:pak-dump <arquivo.pak>`. */
+  'pak-dump'(args) {
+    const file = args.join(' ')
+    if (!existsSync(file)) throw new Error(`arquivo não encontrado: ${file}`)
+    const bytes = readFileSync(file)
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+    const footer = bytes.byteLength - 9
+    const indexOffset = view.getUint32(footer, true)
+    const count = view.getUint32(footer + 4, true)
+    console.log(`tamanho=${bytes.byteLength} índice@${indexOffset} entradas=${count}`)
+    console.log(`versão=0x${view.getUint8(footer + 8).toString(16)}`)
+    const dump = (from: number, to: number) => {
+      for (let at = from; at < to; at += 16) {
+        const row = Array.from(bytes.subarray(at, Math.min(at + 16, to)), (b) =>
+          b.toString(16).padStart(2, '0'),
+        )
+        console.log(`${at.toString(16).padStart(8, '0')}  ${row.join(' ')}`)
+      }
+    }
+    console.log('\n-- início do arquivo --')
+    dump(0, Math.min(64, bytes.byteLength))
+    console.log('\n-- índice + rodapé (até 2 KB) --')
+    const start = Math.max(0, Math.min(indexOffset, bytes.byteLength - 2048))
+    dump(start, bytes.byteLength)
+  },
+
   /** Converte um pangya_<região>.iff em JSON: `pnpm assets:iff <arquivo.iff>`. */
   iff(args) {
     // Junta os argumentos: caminhos com espaço funcionam mesmo sem aspas.
