@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { readGameData } from '@pangya/formats'
-import { extractClient, mountClient } from './extract.ts'
+import { extractClient, findPaks, mountClient, searchPakKey } from './extract.ts'
 import { convertedDir, originalDir, repoRoot, resolvePangyaDir } from './config.ts'
 
 const envFile = resolve(repoRoot, '.env')
@@ -37,6 +37,28 @@ const commands: Record<string, (args: string[]) => void> = {
     const top = [...byExt].sort((a, b) => b[1].length - a[1].length).slice(0, 25)
     console.log(`\n${vfs.size} arquivos após patches. Extensões:`)
     console.log(top.map(([ext, list]) => `${ext}: ${list.length}`).join(', '))
+  },
+
+  /** Procura a chave XTEA de um .pak no cliente: `pnpm assets:pak-key [arquivo.pak]`. */
+  'pak-key'(args) {
+    const dir = resolvePangyaDir()
+    const pakFile = args.length > 0 ? args.join(' ') : resolve(dir, findPaks(dir)[0] ?? '')
+    if (!existsSync(pakFile)) throw new Error(`arquivo não encontrado: ${pakFile}`)
+    console.log(`procurando a chave de ${pakFile} nos arquivos .exe/.dll/.dat de ${dir}…`)
+    let found = false
+    for (const { file, keys } of searchPakKey(dir, pakFile)) {
+      console.log(`  ${file}: ${keys.length > 0 ? 'ACHOU' : 'nada'}`)
+      for (const key of keys) {
+        found = true
+        const hex = key.map((k) => '0x' + k.toString(16).padStart(8, '0')).join(',')
+        console.log(`\n    PAK_KEY=${hex}\n`)
+      }
+    }
+    console.log(
+      found
+        ? 'Coloque a linha PAK_KEY=... no arquivo .env do PangyaWeb e rode "pnpm assets:pak" de novo.'
+        : 'Chave não encontrada nos arquivos (o executável pode estar compactado/protegido).',
+    )
   },
 
   /** Mostra rodapé e índice de um .pak em hexadecimal: `pnpm assets:pak-dump <arquivo.pak>`. */

@@ -18,7 +18,8 @@
     "assets:build": "pnpm --filter @pangya/asset-pipeline cli build",
     "assets:iff": "pnpm --filter @pangya/asset-pipeline cli iff",
     "assets:pak": "pnpm --filter @pangya/asset-pipeline cli pak",
-    "assets:pak-dump": "pnpm --filter @pangya/asset-pipeline cli pak-dump"
+    "assets:pak-dump": "pnpm --filter @pangya/asset-pipeline cli pak-dump",
+    "assets:pak-key": "pnpm --filter @pangya/asset-pipeline cli pak-key"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

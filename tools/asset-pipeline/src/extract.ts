@@ -1,12 +1,14 @@
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import {
+  findPakKey,
   PakIndexError,
   PakVfs,
   readPakEntry,
   readPakIndex,
   sortPaks,
   type PakRegion,
+  type XteaKey,
 } from '@pangya/formats'
 
 export interface PakSummary {
@@ -19,13 +21,35 @@ export interface PakSummary {
 export const findPaks = (clientDir: string) =>
   sortPaks(readdirSync(clientDir).filter((f) => f.toLowerCase().endsWith('.pak')))
 
+/** Chave XTEA customizada no formato "a,b,c,d" (hex), vinda de PAK_KEY no .env. */
+export function parsePakKey(value: string | undefined): XteaKey | undefined {
+  if (!value?.trim()) return undefined
+  const parts = value.split(',').map((p) => Number.parseInt(p.trim().replace(/^0x/i, ''), 16))
+  if (parts.length !== 4 || parts.some((n) => !Number.isFinite(n) || n < 0 || n > 0xffffffff)) {
+    throw new Error(`PAK_KEY inválida: "${value}" (esperado 4 números hex separados por vírgula)`)
+  }
+  return parts as unknown as XteaKey
+}
+
+/** Tenta as chaves padrão por região e, se falhar, a PAK_KEY customizada. */
+function readPakIndexWithFallback(bytes: Uint8Array) {
+  try {
+    return readPakIndex(bytes)
+  } catch (err) {
+    const custom = parsePakKey(process.env['PAK_KEY'])
+    if (!custom) throw err
+    return readPakIndex(bytes, custom)
+  }
+}
+
 /** Lê o índice de todos os .pak e monta o sistema de arquivos virtual. */
 export function mountClient(clientDir: string): { vfs: PakVfs; paks: PakSummary[] } {
   const vfs = new PakVfs()
   const paks: PakSummary[] = []
   for (const name of findPaks(clientDir)) {
     try {
-      const index = readPakIndex(readFileSync(join(clientDir, name)))
+      const bytes = readFileSync(join(clientDir, name))
+      const index = readPakIndexWithFallback(bytes)
       vfs.mount(name, index.entries)
       paks.push({
         name,
@@ -89,4 +113,16 @@ export function describeError(err: unknown): string {
     ].join('\n')
   }
   return err instanceof Error ? err.message : String(err)
+}
+
+/** Procura a chave XTEA de um .pak nos executáveis, DLLs e .dat do cliente. */
+export function searchPakKey(clientDir: string, pakFile: string) {
+  const pak = readFileSync(pakFile)
+  const candidates = readdirSync(clientDir).filter((f) => /\.(exe|dll|dat)$/i.test(f))
+  const results: { file: string; keys: XteaKey[] }[] = []
+  for (const file of candidates) {
+    const keys = findPakKey(pak, readFileSync(join(clientDir, file)))
+    results.push({ file, keys })
+  }
+  return results
 }

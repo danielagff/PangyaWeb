@@ -72,6 +72,11 @@ interface Vfs {
 - [x] `pnpm assets:pak` (lista pacotes/região/extensões) e `pnpm assets:build` (extrai para
       `assets/original/` e converte o `.iff` encontrado).
 - [x] Testes com `.pak` sintéticos.
+- [x] Versões de entrada como no `lzpak.cpp`: 0/1 = XOR, **2 = XTEA**, 0xF = sem cifra
+      (confirmado com o índice real do `ProjectG_Jp_Tuto.pak` do Reborn: 28 entradas fecham
+      exatamente no rodapé).
+- [x] Chave customizada via `PAK_KEY` e busca da chave nos `.exe/.dll/.dat` do cliente
+      (`pnpm assets:pak-key`). Os patches do **Reborn** não abrem com nenhuma chave padrão.
 - [ ] Rodar contra o cliente JP real (local) e registrar o resultado.
 
 ## Riscos e perguntas em aberto

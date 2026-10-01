@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { lz772Decompress, lz77Decompress } from './lz77.ts'
-import { PAK_FOOTER_SIZE, PAK_VERSION, PakIndexError, readPakEntry, readPakIndex } from './pak.ts'
-import { PAK_KEYS, xteaBlocks, xteaDecrypt, xteaEncrypt } from './xtea.ts'
+import {
+  findPakKey,
+  PAK_FOOTER_SIZE,
+  PAK_VERSION,
+  PakIndexError,
+  readPakEntry,
+  readPakIndex,
+} from './pak.ts'
+import { PAK_KEYS, xteaBlocks, xteaDecrypt, xteaEncrypt, type XteaKey } from './xtea.ts'
 
 const text = (s: string) => new TextEncoder().encode(s)
 
@@ -17,8 +24,12 @@ interface FakeEntry {
   type: 0 | 1 | 2 | 3
 }
 
-/** Monta um .pak sintético; versão 1 (XOR) ou 3 (XTEA com chave JP). */
-function buildPak(entries: FakeEntry[], entryVersion: 1 | 3): Uint8Array {
+/** Monta um .pak sintético; entradas versão 1 (XOR) ou 2 (XTEA). */
+function buildPak(
+  entries: FakeEntry[],
+  entryVersion: 1 | 2,
+  key: XteaKey = PAK_KEYS.jp,
+): Uint8Array {
   const parts: Uint8Array[] = []
   const index: Uint8Array[] = []
   let offset = 0
@@ -35,14 +46,14 @@ function buildPak(entries: FakeEntry[], entryVersion: 1 | 3): Uint8Array {
     } else {
       const padded = new Uint8Array(Math.ceil(name.length / 8) * 8)
       padded.set(name)
-      xteaBlocks(PAK_KEYS.jp, padded, true)
+      xteaBlocks(key, padded, true)
       name = padded
-      ;[off, size] = xteaEncrypt(PAK_KEYS.jp, off, size)
+      ;[off, size] = xteaEncrypt(key, off, size)
     }
 
     const head = new Uint8Array(14)
     const view = new DataView(head.buffer)
-    head[0] = entryVersion === 3 ? name.length : name.length - 1
+    head[0] = entryVersion === 2 ? name.length : name.length - 1
     head[1] = (entryVersion << 4) | e.type
     view.setUint32(2, off, true)
     view.setUint32(6, e.data.length, true)
@@ -94,7 +105,7 @@ describe('lz77', () => {
   })
 })
 
-describe.each([1, 3] as const)('readPakIndex (entradas v%i)', (version) => {
+describe.each([1, 2] as const)('readPakIndex (entradas v%i)', (version) => {
   const pak = buildPak(FILES, version)
 
   it('lista as entradas com caminho e tipo', () => {
@@ -105,7 +116,7 @@ describe.each([1, 3] as const)('readPakIndex (entradas v%i)', (version) => {
       ['model/ball.pet', 'lz77'],
       ['model/club.pet', 'lz772'],
     ])
-    if (version === 3) expect(index.region).toBe('jp')
+    if (version === 2) expect(index.region).toBe('jp')
   })
 
   it('extrai o conteúdo de cada entrada', () => {
@@ -134,4 +145,24 @@ it('explica onde o índice quebrou', () => {
     expect(err).toBeInstanceOf(PakIndexError)
     expect((err as PakIndexError).details.entriesRead[0]?.path).toBe('data/readme.txt')
   }
+})
+
+describe('chave customizada', () => {
+  const custom: XteaKey = [0x11223344, 0x55667788, 0x99aabbcc, 0xddeeff00]
+  const pak = buildPak([{ path: 'model', data: new Uint8Array(), type: 2 }, ...FILES], 2, custom)
+
+  it('sem a chave, explica que ela é desconhecida', () => {
+    expect(() => readPakIndex(pak)).toThrow(/chave XTEA desconhecida/)
+  })
+
+  it('com a chave, lê o índice', () => {
+    expect(readPakIndex(pak, custom).entries.map((e) => e.path)).toContain('model/ball.pet')
+  })
+
+  it('encontra a chave escondida em outro arquivo', () => {
+    const exe = new Uint8Array(4096).map((_, i) => (i * 37) & 0xff)
+    const view = new DataView(exe.buffer)
+    custom.forEach((k, i) => view.setUint32(1000 + i * 4, k, true))
+    expect(findPakKey(pak, exe)).toEqual([custom])
+  })
 })
