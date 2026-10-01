@@ -1,6 +1,6 @@
 # 06 — Pipeline de cursos (mapas)
 
-- **Status:** rascunho
+- **Status:** em andamento
 - **Fase:** 1 Formatos
 - **Depende de:** 03, 05
 - **Estimativa:** G
@@ -54,6 +54,14 @@ Para a física, o essencial é o **tipo de superfície** de cada triângulo:
 - [ ] Um buraco real convertido e renderizado com colisão alinhada ao visual.
 - [ ] Debug view colorindo cada triângulo pelo tipo de superfície.
 - [ ] Todos os cursos da versão de referência convertidos.
+
+## Andamento
+
+- [x] Estrutura confirmada: buraco = `map/<curso>_NN.pet` (terreno) + `map/<curso>_NN.gbin`
+      (cena) + `ase/*.pet` (objetos) + texturas `.dds`.
+- [x] `readGbin` (câmeras, tee/pin, elementos com matriz, par e mapCheck) portado do
+      GhostMapEditor; `holePoints` para tee e pin.
+- [ ] `.sbin` (terreno/colisão) e tipos de piso.
 
 ## Riscos e perguntas em aberto
 

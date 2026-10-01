@@ -1,6 +1,6 @@
 # 05 — Parser de modelos `.pet` → glTF
 
-- **Status:** rascunho
+- **Status:** em andamento
 - **Fase:** 1 Formatos
 - **Depende de:** 03
 - **Estimativa:** G
@@ -49,6 +49,13 @@ no Blender ou em visualizadores online.
 - [ ] Testes unitários com chunks sintéticos no CI.
 - [ ] Todos os modelos e animações do jogo convertidos em lote para
       `assets/converted/models/` (local); lista de arquivos que falharam no relatório do pipeline.
+
+## Andamento
+
+- [x] `readPet` (TEXT, BONE, MESH, ANIM, MOTI, COLL) portado do GhostMapEditor; `.apet/.bpet/.mpet`.
+- [x] `petToSubMeshes`: pose de repouso agrupada por textura, ordem dos cantos preservada.
+- [x] Testes com `.pet` sintético.
+- [ ] Exportar para glTF e testar com arquivos reais (depende de um cliente com chave conhecida).
 
 ## Riscos e perguntas em aberto
 

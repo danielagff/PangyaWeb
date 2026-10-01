@@ -1,53 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { petToSubMeshes } from './mesh.ts'
 import { boneWorldMatrix, petKindFromPath, readPet } from './pet.ts'
-
-/** Escritor mínimo de blocos .pet para os testes. */
-class Writer {
-  private parts: number[] = []
-  u8(v: number) {
-    this.parts.push(v & 0xff)
-    return this
-  }
-  u16(v: number) {
-    return this.u8(v).u8(v >> 8)
-  }
-  u32(v: number) {
-    return this.u16(v & 0xffff).u16(v >>> 16)
-  }
-  f32(...vs: number[]) {
-    for (const v of vs) {
-      const b = new Uint8Array(new Float32Array([v]).buffer)
-      this.parts.push(...b)
-    }
-    return this
-  }
-  bytes(b: ArrayLike<number>) {
-    this.parts.push(...Array.from(b))
-    return this
-  }
-  fixed(s: string, size: number) {
-    const b = new Uint8Array(size)
-    b.set(new TextEncoder().encode(s))
-    return this.bytes(b)
-  }
-  cstr(s: string) {
-    return this.bytes(new TextEncoder().encode(s)).u8(0)
-  }
-  lstr(s: string) {
-    const b = new TextEncoder().encode(s)
-    return this.u32(b.length + 1)
-      .bytes(b)
-      .u8(0)
-  }
-  block(id: string, body: Writer) {
-    const data = body.done()
-    return this.bytes(new TextEncoder().encode(id)).u32(data.length).bytes(data)
-  }
-  done() {
-    return Uint8Array.from(this.parts)
-  }
-}
+import { Writer } from '../test-writer.ts'
 
 const corner = (w: Writer, index: number, u: number) =>
   w
