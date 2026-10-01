@@ -45,3 +45,22 @@
   min-height: 2.6em;
   font-variant-numeric: tabular-nums;
 }
+
+.hole-status {
+  position: fixed;
+  right: 12px;
+  bottom: 12px;
+  max-width: 60vw;
+  margin: 0;
+  padding: 8px 12px;
+  font:
+    13px/1.4 system-ui,
+    sans-serif;
+  color: #fff;
+  background: rgba(10, 30, 60, 0.75);
+  border-radius: 8px;
+  white-space: pre-wrap;
+}
+.hole-status.error {
+  background: rgba(120, 20, 20, 0.85);
+}

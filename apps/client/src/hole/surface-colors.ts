@@ -1,0 +1,48 @@
+import type { SurfaceKind } from '@pangya/formats'
+
+/** Cores de depuração por tipo de piso (até termos as texturas .dds). */
+export const SURFACE_COLORS: Record<SurfaceKind, number> = {
+  default: 0x4a7a3a,
+  tee: 0x9be08a,
+  fairway: 0x5fbf4a,
+  rough: 0x3d8b37,
+  highRough: 0x2f6e2c,
+  tallGrass: 0x2b5e27,
+  green: 0xa6f08f,
+  bunker: 0xe8d9a0,
+  sand: 0xf3e6bf,
+  water: 0x3a7bd5,
+  waterPass: 0x3a7bd5,
+  road: 0xa89f91,
+  rock: 0x8a8a8a,
+  cliff: 0x7a6a5a,
+  hardWood: 0x8b5a2b,
+  softWood: 0xa0703c,
+  leafBlock: 0x2e8b57,
+  leafPass: 0x3fa66a,
+  fruit: 0xc0392b,
+  other: 0x999999,
+}
+
+export const SURFACE_LABELS: Record<SurfaceKind, string> = {
+  default: 'chão',
+  tee: 'tee',
+  fairway: 'fairway',
+  rough: 'rough',
+  highRough: 'high rough',
+  tallGrass: 'grama alta',
+  green: 'green',
+  bunker: 'bunker',
+  sand: 'areia',
+  water: 'água',
+  waterPass: 'água',
+  road: 'estrada',
+  rock: 'pedra',
+  cliff: 'penhasco',
+  hardWood: 'madeira',
+  softWood: 'madeira',
+  leafBlock: 'folhagem',
+  leafPass: 'folhagem',
+  fruit: 'fruta',
+  other: 'outro',
+}

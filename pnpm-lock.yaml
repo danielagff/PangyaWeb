@@ -38,6 +38,9 @@ importers:
 
   apps/client:
     dependencies:
+      '@pangya/formats':
+        specifier: workspace:*
+        version: link:../../packages/formats
       '@pangya/physics':
         specifier: workspace:*
         version: link:../../packages/physics

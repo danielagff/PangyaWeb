@@ -2,7 +2,7 @@ import { createReadStream, existsSync, statSync } from 'node:fs'
 import { extname, join, normalize, resolve } from 'node:path'
 import { defineConfig, type Plugin } from 'vite'
 
-const convertedDir = resolve(import.meta.dirname, '../../assets/converted')
+const assetsDir = resolve(import.meta.dirname, '../../assets')
 
 const mimeTypes: Record<string, string> = {
   '.json': 'application/json',
@@ -13,19 +13,21 @@ const mimeTypes: Record<string, string> = {
   '.jpg': 'image/jpeg',
   '.ogg': 'audio/ogg',
   '.wav': 'audio/wav',
+  '.xml': 'application/xml',
+  '.dds': 'application/octet-stream',
 }
 
 /**
- * Serve os assets convertidos localmente (fora do git) em /game-assets/ durante o dev.
- * Gerados por `pnpm assets:build` a partir de PANGYA_DIR.
+ * Serve a pasta assets/ (local, fora do git) em /game-assets/ durante o dev:
+ * /game-assets/original/... (extraído dos .pak) e /game-assets/converted/....
  */
 function gameAssets(): Plugin {
   return {
     name: 'pangya-game-assets',
     configureServer(server) {
       server.middlewares.use('/game-assets', (req, res, next) => {
-        const path = normalize(join(convertedDir, decodeURIComponent(req.url ?? '/')))
-        if (!path.startsWith(convertedDir) || !existsSync(path) || !statSync(path).isFile()) {
+        const path = normalize(join(assetsDir, decodeURIComponent((req.url ?? '/').split('?')[0]!)))
+        if (!path.startsWith(assetsDir) || !existsSync(path) || !statSync(path).isFile()) {
           return next()
         }
         res.setHeader('Content-Type', mimeTypes[extname(path)] ?? 'application/octet-stream')

@@ -8,6 +8,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@pangya/formats": "workspace:*",
     "@pangya/physics": "workspace:*",
     "three": "^0.186.1"
   },
