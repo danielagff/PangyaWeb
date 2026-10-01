@@ -28,13 +28,14 @@ pnpm dev            # cliente em http://localhost:5173
 
 ## Assets do jogo
 
-1. Copie `.env.example` para `.env` e defina `PANGYA_DIR` com a pasta da sua instalação
-   (a que contém os `projectg*.pak`).
+1. Coloque o cliente JP (com os patches aplicados) numa pasta `cliente-jp` **ao lado** deste
+   repositório — ex.: `C:\Projects\PangyaWeb\cliente-jp` e `C:\Projects\PangyaWeb\PangyaWeb`.
+   Para usar outro lugar, defina `PANGYA_DIR` no `.env` (veja `.env.example`).
 2. Rode `pnpm assets:build`. Os arquivos vão para `assets/original/` e `assets/converted/`,
    que ficam fora do git.
 3. Em dev, o cliente serve `assets/converted/` em `/game-assets/`.
 
-Com `PANGYA_DIR` definido, `pnpm test` também roda os testes de integração com os assets reais.
+Com o cliente disponível, `pnpm test` também roda os testes de integração com os assets reais.
 
 ## Estrutura
 
