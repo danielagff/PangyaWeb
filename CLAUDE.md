@@ -6,6 +6,10 @@ que falta, decisões e projetos de referência. Mantenha esse arquivo atualizado
 - Converse em **português**. O usuário (Daniel) usa Windows e não gosta de passos manuais:
   entregue tudo por `servidor.cmd` / `mapeador.cmd` / `jogar.cmd` (scripts em `scripts/`).
 - **Nunca** coloque arquivos do jogo no git: `assets/` é local (gitignored). Testes usam dados
-  sintéticos; na nuvem existe um personagem de teste em `assets/original/data/avatar/teste`.
+  sintéticos. Na nuvem (sem os arquivos do jogo), prepare o ambiente com
+  `pnpm assets:exemplo` (curso Blue Lagoon) e `pnpm assets:teste` (personagem de teste com
+  rosto, acessório, taco e animações com nomes reais); depois `pnpm build` e
+  `pnpm --filter @pangya/server start` (porta 7777; mapeador em `/mapeador.html`).
+- O branch de trabalho é o padrão do repositório (`claude/pensive-dirac-7v6qp7`).
 - Checagens antes de cada commit: `pnpm typecheck`, `pnpm lint`, `pnpm test`.
 - Specs por área em `docs/specs/` (atualize o "Progresso" da spec que mudar).

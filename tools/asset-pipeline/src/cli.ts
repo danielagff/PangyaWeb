@@ -4,6 +4,7 @@ import { readGameData } from '@pangya/formats'
 import { extractClient, findPaks, mountClient, searchPakKey } from './extract.ts'
 import { writeAssetIndex } from './asset-index.ts'
 import { exampleUrl, installExampleCourse } from './example-course.ts'
+import { installTestCharacter } from './test-character.ts'
 import { convertedDir, originalDir, repoRoot, resolvePangyaDir } from './config.ts'
 
 const envFile = resolve(repoRoot, '.env')
@@ -47,6 +48,12 @@ const commands: Record<string, (args: string[]) => void> = {
   /** Refaz o índice de nomes de assets/original: `pnpm assets:index`. */
   index() {
     console.log(`índice: ${writeAssetIndex(originalDir)} arquivos em ${originalDir}`)
+  },
+
+  /** Gera o personagem de teste sintético (sem arquivos do jogo): `pnpm assets:teste`. */
+  teste() {
+    installTestCharacter()
+    writeAssetIndex(originalDir)
   },
 
   exemplo() {
