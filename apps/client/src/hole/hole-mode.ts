@@ -1,12 +1,14 @@
 import {
   FlightSimulator,
+  simulateGround,
   STEP_TIME,
   TerrainGrid,
   unitsToYards,
-  type FlightResult,
+  type GroundAt,
+  type GroundResult,
   type ShotInput,
 } from '@pangya/physics'
-import type { Mat4x3, SurfaceClass } from '@pangya/formats'
+import type { Mat4x3, SurfaceKind } from '@pangya/formats'
 import {
   AmbientLight,
   BufferGeometry,
@@ -161,10 +163,6 @@ export async function startHoleMode(ref: HoleRef) {
   const hole = await loadHole(ref)
   const terrainMeshes = buildScene(hole, scene)
   const grid = new TerrainGrid(hole.collision.triangles)
-  const surfaceAt = (x: number, z: number): SurfaceClass | undefined => {
-    const hit = grid.groundAt(x, z)
-    return hit ? hole.collision.surfaces[hit.triangle] : undefined
-  }
 
   const [tx, , tz] = hole.tee
   const [px, , pz] = hole.pin
@@ -249,7 +247,26 @@ export async function startHoleMode(ref: HoleRef) {
   }
   placeCamera(ball.position, 1)
 
-  let flight: { result: FlightResult; start: number } | undefined
+  /** Terreno visto pela física do chão: altura, normal e piso (bound/roll do property.xml). */
+  const groundAt: GroundAt = (x, z) => {
+    const hit = grid.groundAt(x, z)
+    if (!hit) return undefined
+    return {
+      y: hit.y,
+      normal: grid.normalOf(hit.triangle),
+      surface: hole.collision.surfaces[hit.triangle]!,
+    }
+  }
+  const pinGround = grid.groundAt(px, pz)?.y ?? hole.pin[1]
+
+  interface Shot {
+    /** Voo + quiques/rolagem, concatenados. */
+    frames: Float32Array
+    carry: number
+    ground: GroundResult
+    start: number
+  }
+  let flight: Shot | undefined
   const panel = createShotPanel((input: ShotInput) => {
     const sim = new FlightSimulator({ ...input, aim, targetDistance: pinYards }, origin)
     const result = sim.flyOverGround((x, z) => grid.groundAt(x, z)?.y)
@@ -259,9 +276,21 @@ export async function startHoleMode(ref: HoleRef) {
       )
       return
     }
-    flight = { result, start: performance.now() }
+    const ground = simulateGround(
+      {
+        position: result.landing,
+        velocity: result.velocity,
+        spin: result.spin,
+        cup: { x: px, y: pinGround, z: pz },
+      },
+      groundAt,
+    )
+    const frames = new Float32Array(result.frames.length + ground.frames.length)
+    frames.set(result.frames)
+    frames.set(ground.frames, result.frames.length)
+    flight = { frames, carry: result.carry, ground, start: performance.now() }
     // Nova tacada: câmera volta direto para trás do tee (sem deslizar pelo mapa).
-    ball.position.copy(frameAt(result.frames, 0))
+    ball.position.copy(frameAt(frames, 0))
     placeCamera(ball.position, 1)
     panel.showResult('…')
   })
@@ -288,25 +317,37 @@ export async function startHoleMode(ref: HoleRef) {
 
   function frame(now: number) {
     if (flight) {
-      const { result } = flight
-      const count = result.frames.length / 3
+      const { frames } = flight
+      const count = frames.length / 3
       const index = Math.min(Math.floor((now - flight.start) / 1000 / STEP_TIME), count - 1)
-      ball.position.copy(frameAt(result.frames, index))
+      ball.position.copy(frameAt(frames, index))
       const shown = Math.min(index + 1, MAX_TRAIL)
       for (let i = 0; i < shown; i++) {
-        const p = frameAt(result.frames, i)
+        const p = frameAt(frames, i)
         trailPositions.setXYZ(i, p.x, p.y, p.z)
       }
       trailPositions.needsUpdate = true
       trailGeometry.setDrawRange(0, shown)
 
       if (index === count - 1) {
-        const { x, z } = result.landing
-        const surface = surfaceAt(x, z)
+        const { ground } = flight
+        const { x, z } = ground.final
+        const total = unitsToYards(Math.hypot(x - tx, z - tz))
         const left = unitsToYards(Math.hypot(px - x, pz - z))
+        const where = ground.surface
+          ? (SURFACE_LABELS[ground.surface as SurfaceKind] ?? ground.surface)
+          : '?'
+        const bounces = ground.events.filter((e) => e.type === 'bounce').length
+        const ending = {
+          hole: '⛳ NA COVA!',
+          water: '💧 caiu na água',
+          outOfBounds: '🚫 fora do mapa (O.B.)',
+          stop: `parou em: ${where} · faltam ${left.toFixed(1)}y`,
+          bounce: '',
+        }[ground.outcome]
         panel.showResult(
-          `${result.carry.toFixed(1)}y · caiu em: ${surface ? SURFACE_LABELS[surface.kind] : 'fora do mapa'}` +
-            ` · faltam ${left.toFixed(1)}y para o pin`,
+          `voo ${flight.carry.toFixed(1)}y + rolagem ${(total - flight.carry).toFixed(1)}y ` +
+            `(${bounces} quiques) · ${ending}`,
         )
         flight = undefined
       }
