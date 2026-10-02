@@ -113,6 +113,21 @@ medições de referência passam a servir para validar.
 - [ ] Calibrar: a 100% e power 15 o voo (carry) dá ~83% do alcance do HUD; confirmar no jogo
       se o alcance exibido inclui a rolagem.
 
+## Calibração final do quique e da rolagem (adiada para o fim)
+
+Os valores de `GROUND_TUNING` são uma estimativa: nenhuma referência pública tem essa parte
+(a calculadora do SuperSS e o GhostPro só fazem o voo). Plano para deixar igual ao original,
+combinado para depois de terminar o resto do jogo:
+
+1. Ferramenta de calibração: lê tacadas reais (CSV), simula no mesmo buraco, mostra o erro
+   e ajusta as constantes automaticamente.
+2. Gravar tacadas reais: o cliente original manda ao servidor `ShotData` (entradas),
+   `ShotEndLocationData` (estado da bola) e `ShotSyncData` (onde parou, O.B., cova) — ver
+   `game_type.cs` do Pangya-Server-Community. Adicionar log em CSV no servidor local e
+   jogar ~40–60 tacadas variadas (pisos, spin, putts planos e inclinados).
+3. Se o erro continuar grande em algum caso, mudar o formato do modelo, não só os números.
+4. Último recurso: engenharia reversa do executável (parece compactado/protegido).
+
 ## Riscos e perguntas em aberto
 
 - Falta de dados de referência: montar a tabela assistindo vídeos/replays com distância
