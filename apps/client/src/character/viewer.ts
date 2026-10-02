@@ -1,14 +1,16 @@
 /**
- * Visualizador de personagens (?personagens): escolhe personagem, taco, peças por slot e
- * toca cada animação, com campo de anotação por item. "Copiar lista" gera um texto com
+ * Visualizador de personagens (?personagens), no estilo do Mixamo: o boneco no centro de um
+ * estúdio, girando com o mouse (arrastar = girar, roda = zoom, botão direito = mover),
+ * linha do tempo para pausar e ver quadro a quadro. Escolhe personagem, taco, peças por slot
+ * e toca cada animação, com campo de anotação por item. "Copiar lista" gera um texto com
  * tudo numerado, para dizer o que é cada animação/peça e corrigir os nomes do jogo.
  */
 import {
-  AmbientLight,
-  CircleGeometry,
+  Box3,
   Color,
   DirectionalLight,
   GridHelper,
+  HemisphereLight,
   Mesh,
   MeshBasicMaterial,
   MeshLambertMaterial,
@@ -82,17 +84,17 @@ export async function startCharacterViewer() {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
   document.body.appendChild(renderer.domElement)
   const scene = new Scene()
-  scene.background = new Color(0x87c5ff)
-  scene.add(new AmbientLight(0xffffff, 1.2))
-  const sun = new DirectionalLight(0xffffff, 1.6)
-  sun.position.set(-20, 40, 30)
-  scene.add(sun)
-  const ground = new Mesh(new CircleGeometry(12, 48), new MeshLambertMaterial({ color: 0x5fae4a }))
-  ground.rotation.x = -Math.PI / 2
-  scene.add(ground)
-  const grid = new GridHelper(24, 24, 0x2e6b22, 0x4b8f3a)
-  grid.position.y = 0.01
+  scene.background = new Color(0x4a4f57)
+  scene.add(new HemisphereLight(0xffffff, 0x50555c, 2.2))
+  const key = new DirectionalLight(0xffffff, 1.4)
+  key.position.set(20, 40, 30)
+  scene.add(key)
+  const back = new DirectionalLight(0xffffff, 0.6)
+  back.position.set(-20, 20, -30)
+  scene.add(back)
+  const grid = new GridHelper(40, 40, 0x8a9099, 0x63686f)
   scene.add(grid)
+  // Objetos da "posição de jogo" (bola, alvo, cabeça do taco); escondidos no estúdio.
   const ball = new Mesh(
     new SphereGeometry(BALL_RADIUS, 20, 10),
     new MeshLambertMaterial({ color: 0xffffff }),
@@ -114,10 +116,12 @@ export async function startCharacterViewer() {
   target.position.set(0, 0.15, -10)
   scene.add(target)
 
-  const camera = new PerspectiveCamera(45, 1, 0.1, 500)
+  const camera = new PerspectiveCamera(35, 1, 0.1, 500)
   camera.position.set(0, 5, 15)
   const controls = new OrbitControls(camera, renderer.domElement)
-  controls.target.set(-1.5, 2.5, 0)
+  controls.target.set(0, 3, 0)
+  controls.enableDamping = true
+  controls.autoRotateSpeed = 4
   controls.update()
 
   const resize = () => {
@@ -135,7 +139,13 @@ export async function startCharacterViewer() {
     <h1>Personagens</h1>
     <label>Personagem <select name="character"></select></label>
     <label>Taco <select name="club">${CLUBS.map((c) => `<option value="${c.value}">${c.label}</option>`).join('')}</select></label>
-    <label><input type="checkbox" name="atBall" checked /> ao lado da bola (posição de jogo)</label>
+    <label>Ver <select name="mode">
+      <option value="studio">estúdio (girar e ver)</option>
+      <option value="ball">posição de jogo (na bola)</option>
+    </select></label>
+    <label><input type="checkbox" name="spin" /> girar sozinho</label>
+    <p class="views">Câmera: <button data-view="0">frente</button><button data-view="90">lado</button><button data-view="180">costas</button><button data-view="270">outro lado</button><button data-view="top">de cima</button></p>
+    <p class="hint">Arrastar = girar · roda = zoom · botão direito = mover · H = esconder painéis</p>
     <label><input type="checkbox" name="loop" checked /> repetir animação</label>
     <label>Velocidade <input type="range" name="speed" min="0" max="2" step="0.05" value="1" /> <output>1×</output></label>
     <p class="status"></p>
@@ -146,12 +156,23 @@ export async function startCharacterViewer() {
   right.className = 'viewer-side right'
   right.innerHTML = `<h2>Peças (skins) por slot</h2><div class="parts"></div>
     <h2>Texturas não achadas</h2><ul class="missing"></ul>`
-  document.body.append(left, right)
+  const timeline = document.createElement('div')
+  timeline.className = 'viewer-timeline'
+  timeline.innerHTML = `<button class="toggle" title="Espaço">⏸</button>
+    <button class="step" data-step="-1" title="← quadro anterior">◀</button>
+    <input type="range" min="0" max="1" step="0.001" value="0" />
+    <button class="step" data-step="1" title="→ próximo quadro">▶</button>
+    <span class="frame">—</span>`
+  document.body.append(left, right, timeline)
   const $ = <T extends Element>(root: Element, selector: string) =>
     root.querySelector(selector) as T
   const characterInput = $<HTMLSelectElement>(left, 'select[name=character]')
   const clubInput = $<HTMLSelectElement>(left, 'select[name=club]')
-  const atBallInput = $<HTMLInputElement>(left, 'input[name=atBall]')
+  const modeInput = $<HTMLSelectElement>(left, 'select[name=mode]')
+  const spinInput = $<HTMLInputElement>(left, 'input[name=spin]')
+  const scrub = $<HTMLInputElement>(timeline, 'input')
+  const toggleButton = $<HTMLButtonElement>(timeline, '.toggle')
+  const frameLabel = $<HTMLSpanElement>(timeline, '.frame')
   const loopInput = $<HTMLInputElement>(left, 'input[name=loop]')
   const speedInput = $<HTMLInputElement>(left, 'input[name=speed]')
   const status = (text: string) => ($(left, '.status').textContent = text)
@@ -197,10 +218,12 @@ export async function startCharacterViewer() {
       return
     }
     if (token !== loadToken) return
+    const first = !model
     if (model) scene.remove(model.root)
     model = next
     scene.add(model.root)
     await applyClub()
+    if (first) frame()
     if (token !== loadToken) return
     renderMotions()
     renderMissing()
@@ -217,14 +240,45 @@ export async function startCharacterViewer() {
     if (motion) model.play(motion, loopInput.checked, 0)
   }
 
+  const studio = () => modeInput.value === 'studio'
+
   function place() {
     if (!model) return
-    if (atBallInput.checked) {
+    const atBall = !studio()
+    ball.visible = target.visible = atBall
+    if (atBall) {
       placeAtBall(model, ball.position, new Vector3(1, 0, 0), () => 0)
     } else {
-      model.root.position.set(0, 0, -2)
-      model.root.rotation.y = 0
+      model.root.position.set(0, 0, 0)
+      // De frente para +Z (para a câmera): o modelo olha para -X no próprio espaço
+      // (o mesmo ajuste de CHARACTER_TUNING.facingDegrees no buraco).
+      model.root.rotation.y = Math.PI / 2
     }
+  }
+
+  /** Enquadra o personagem (ou a cena da bola) de um ângulo, em graus em volta do Y. */
+  function frame(view: number | 'top' = 0) {
+    const box = new Box3()
+    if (model) box.setFromObject(model.root, true)
+    if (!studio()) box.expandByObject(ball)
+    if (box.isEmpty()) box.set(new Vector3(-1, 0, -1), new Vector3(1, 6, 1))
+    const center = box.getCenter(new Vector3())
+    const size = box.getSize(new Vector3())
+    const radius = Math.max(size.y, size.x, size.z) / 2
+    const distance = (radius / Math.tan((camera.fov * Math.PI) / 360)) * 1.7
+    const direction =
+      view === 'top'
+        ? new Vector3(0, 1, 0.01)
+        : new Vector3(Math.sin((view * Math.PI) / 180), 0.15, Math.cos((view * Math.PI) / 180))
+    controls.target.copy(center)
+    camera.position.copy(center).addScaledVector(direction.normalize(), distance)
+    controls.update()
+  }
+
+  function setPaused(paused: boolean) {
+    if (!model) return
+    model.paused = paused
+    toggleButton.textContent = paused ? '▶' : '⏸'
   }
 
   function renderMotions() {
@@ -245,6 +299,7 @@ export async function startCharacterViewer() {
       $(li, '.play').addEventListener('click', () => {
         motion = m.name
         model?.play(m.name, loopInput.checked, 0)
+        setPaused(false)
         list.querySelectorAll('li').forEach((x) => x.classList.toggle('active', x === li))
       })
       const note = $<HTMLInputElement>(li, '.note')
@@ -368,7 +423,40 @@ export async function startCharacterViewer() {
 
   characterInput.addEventListener('change', () => selectCharacter(Number(characterInput.value)))
   clubInput.addEventListener('change', () => void applyClub())
-  atBallInput.addEventListener('change', place)
+  modeInput.addEventListener('change', () => {
+    place()
+    frame()
+  })
+  spinInput.addEventListener('change', () => (controls.autoRotate = spinInput.checked))
+  left.querySelectorAll<HTMLButtonElement>('[data-view]').forEach((button) =>
+    button.addEventListener('click', () => {
+      const view = button.dataset.view!
+      frame(view === 'top' ? 'top' : Number(view))
+    }),
+  )
+  const step = (frames: number) => {
+    if (!model) return
+    setPaused(true)
+    model.seek(Math.round(model.time * 30 + frames) / 30)
+  }
+  toggleButton.addEventListener('click', () => setPaused(!model?.paused))
+  timeline
+    .querySelectorAll<HTMLButtonElement>('.step')
+    .forEach((button) => button.addEventListener('click', () => step(Number(button.dataset.step))))
+  scrub.addEventListener('input', () => {
+    if (!model) return
+    setPaused(true)
+    model.seek(Number(scrub.value) * model.duration)
+  })
+  window.addEventListener('keydown', (e) => {
+    if (e.target instanceof HTMLInputElement && e.target.type !== 'range') return
+    if (e.code === 'KeyH') document.body.classList.toggle('viewer-clean')
+    else if (e.code === 'Space') {
+      e.preventDefault()
+      setPaused(!model?.paused)
+    } else if (e.code === 'ArrowLeft') step(-1)
+    else if (e.code === 'ArrowRight') step(1)
+  })
   loopInput.addEventListener('change', () => {
     if (motion) model?.play(motion, loopInput.checked, 0)
   })
@@ -385,9 +473,14 @@ export async function startCharacterViewer() {
     const dt = Math.min(timer.getDelta(), 0.1)
     if (model) {
       model.update(dt * Number(speedInput.value))
-      const head = model.clubHead()
+      const head = studio() ? undefined : model.clubHead()
       headMarker.visible = Boolean(head)
       if (head) headMarker.position.copy(model.root.localToWorld(head))
+      const duration = model.duration
+      if (duration > 0) {
+        if (document.activeElement !== scrub) scrub.value = String(model.time / duration)
+        frameLabel.textContent = `quadro ${Math.round(model.time * 30)} / ${Math.round(duration * 30)}`
+      }
     }
     controls.update()
     renderer.render(scene, camera)

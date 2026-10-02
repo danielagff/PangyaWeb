@@ -318,6 +318,26 @@ export class CharacterModel {
     return [...this.rig.textures.missing]
   }
 
+  /** Tempo (s) e duração do movimento tocando agora, para a linha do tempo. */
+  get time() {
+    return this.current?.time ?? 0
+  }
+  get duration() {
+    return this.current?.getClip().duration ?? 0
+  }
+  get paused() {
+    return this.current?.paused ?? false
+  }
+  set paused(value: boolean) {
+    if (this.current) this.current.paused = value
+  }
+  /** Vai para o instante `t` (s) do movimento atual e aplica a pose. */
+  seek(t: number) {
+    if (!this.current) return
+    this.current.time = Math.max(0, Math.min(t, this.duration))
+    this.mixer.update(0)
+  }
+
   /** Movimento tocando agora. */
   get playing() {
     return this.current?.getClip().name
