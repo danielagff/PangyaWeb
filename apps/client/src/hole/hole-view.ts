@@ -14,7 +14,9 @@ import {
   CUP_DEPTH,
   dropIntoCup,
   STEP_TIME,
+  unitsToMeters,
   unitsToYards,
+  yardsToUnits,
   type Wind,
 } from '@pangya/physics'
 import {
@@ -45,7 +47,6 @@ import {
   SphereGeometry,
   Sprite,
   SpriteMaterial,
-  Vector2,
   Vector3,
   WebGLRenderer,
 } from 'three'
@@ -80,10 +81,32 @@ const FREE_CAMERA_UNTIL_LANDING = 0.8
 const UP = new Vector3(0, 1, 0)
 /** Altura da vista aérea (unidades): perto da cova até o buraco inteiro. */
 const AERIAL = { minHeight: 12, maxHeight: 1500 }
-/** Quanto cada Shift+↑/↓ aproxima/afasta a vista aérea (e a câmera livre). */
-const AERIAL_ZOOM_STEP = 1.25
-/** Pixels que o mouse precisa andar com o botão apertado para soltar a câmera livre. */
-const DRAG_THRESHOLD = 6
+/**
+ * Vista aérea segurando as teclas: Shift+↑/↓ = zoom (fator por segundo); ↑/↓ = andar pela
+ * linha da mira (fração da altura por segundo, para valer em qualquer zoom).
+ */
+const AERIAL_ZOOM_RATE = 1
+/** ↑/↓: começa devagar (`slow`) e acelera até `fast` (fração da altura por segundo). */
+const AERIAL_PAN = { slow: 0.1, fast: 0.45, rampSeconds: 1.5 }
+
+/**
+ * Mira (graus): um toque gira um passo fino; segurando, depois de `holdDelay` s, gira sozinha
+ * cada vez mais rápido (de `speed[0]` a `speed[1]` graus/s em `rampSeconds`). No green, tudo
+ * mais fino.
+ */
+const AIM_TUNING = {
+  step: 0.1,
+  greenStep: 0.05,
+  holdDelay: 0.25,
+  speed: [2, 25],
+  greenSpeed: [0.6, 8],
+  rampSeconds: 2.5,
+}
+/** Segundos entre os recálculos exatos do ponto de queda enquanto a mira gira. */
+const LANDING_REFRESH = 0.12
+const DEG = Math.PI / 180
+/** Teclas de mira e o sentido (positivo = esquerda). */
+const AIM_KEYS: Record<string, 1 | -1> = { ArrowLeft: 1, KeyA: 1, ArrowRight: -1, KeyD: -1 }
 
 /** "Sempre PANGYA" (desenvolvimento, só sozinho), lembrado neste navegador. */
 const AUTO_PANGYA_KEY = 'pangyaweb.semprePangya'
@@ -102,12 +125,24 @@ function saveAutoPangya(on: boolean) {
   }
 }
 
-/** Bonequinho da vista aérea: onde a bola cai com o taco atual a 100%. */
-const AERIAL_FIGURE = `<svg viewBox="0 0 24 40" width="24" height="40" aria-hidden="true">
-  <ellipse cx="12" cy="37" rx="10" ry="3" fill="rgba(0,0,0,0.35)" />
-  <path d="M7 36 L9 24 L6 23 L8 14 Q12 12 16 14 L18 23 L15 24 L17 36 L13 36 L12 27 L11 36 Z"
-    fill="#ffeb3b" stroke="#0b2a4a" stroke-width="1.5" stroke-linejoin="round" />
-  <circle cx="12" cy="8" r="5" fill="#ffeb3b" stroke="#0b2a4a" stroke-width="1.5" />
+/**
+ * Desenho da vista aérea como no original: linha vermelha da bola até o X (onde a bola cai a
+ * 100% com o taco e a mira atuais) com a distância, e no pin a bandeira com o desnível (m) e a
+ * distância (y).
+ */
+const AERIAL_OVERLAY = `<svg class="aerial-overlay" width="100%" height="100%" aria-hidden="true">
+  <line class="aim-line" />
+  <g class="x-mark">
+    <path d="M-7 -7 L7 7 M7 -7 L-7 7" class="x-outline" />
+    <path d="M-7 -7 L7 7 M7 -7 L-7 7" class="x-cross" />
+    <text class="x-label" y="-14" text-anchor="middle"></text>
+  </g>
+  <g class="pin-mark">
+    <path d="M0 0 L0 -26" class="pin-pole" />
+    <path d="M0 -26 L14 -21 L0 -16 Z" class="pin-flag" />
+    <text class="pin-height" x="12" y="-2"></text>
+    <text class="pin-distance" y="20" text-anchor="middle"></text>
+  </g>
 </svg>`
 
 /**
@@ -308,9 +343,6 @@ export class HoleView {
   private readonly bar: PowerBar
   private readonly windBox: HTMLElement
   private beamMaterial!: MeshBasicMaterial
-  /** Câmera livre mirando (arrastar o mouse; roda = zoom). undefined = câmera padrão. */
-  private orbit: { yaw: number; pitch: number; distance: number } | undefined
-  private dragging: { x: number; y: number } | undefined
   /** Câmera livre no voo: giro (A/D) e vista de cima (S), até a bola quase cair. */
   private flightYaw = 0
   private flightTop = false
@@ -326,16 +358,25 @@ export class HoleView {
   private shotForward = aimDirection(0)
   private targetDirty = true
   private readyAt = 0
+  /** Quando começou o toque de mira atual (segurando, gira sozinha depois de um tempo). */
+  private turnStart = 0
   /**
-   * Vista aérea (M ou 0): centro e altura (Shift+↑/↓ aproxima/afasta). `follow`: o centro
-   * acompanha o bonequinho (onde a bola cai a 100%) quando o taco ou a mira mudam.
+   * Pontos de queda exatos (cena), calculados com a mira `aim`: `ring` com a força atual (anel
+   * amarelo) e `full` a 100% (o X da vista aérea). Enquanto a mira gira, eles giram junto em
+   * volta da bola e o cálculo exato (caro) é refeito a cada `LANDING_REFRESH` s.
    */
-  private aerial: { center: Vector3; height: number; follow: boolean } | undefined
-  /** Onde a bola cai a 100% com o taco atual (bonequinho da vista aérea) e o texto dele. */
-  private aerialLanding: Vector3 | undefined
-  private aerialLabel = ''
-
-  private readonly aerialMarker: HTMLDivElement
+  private landing: { aim: number; at: number; ring: Vector3; full: Vector3 } | undefined
+  /**
+   * Vista aérea (M ou 0), olhando a linha da mira de cima: `along` = quanto o centro está à
+   * frente da bola na linha (↑/↓), `height` = altura (Shift+↑/↓). `follow`: o centro fica no X
+   * (Delete+0) até a câmera ser movida.
+   */
+  private aerial: { along: number; height: number; follow: boolean } | undefined
+  /** Ponto para onde a câmera aérea olha (suavizado). */
+  private aerialLook: Vector3 | undefined
+  /** Quando ↑/↓ começaram a ser segurados (acelera andando pela linha). */
+  private aerialMoveStart = 0
+  private readonly aerialOverlay: HTMLDivElement
   /** Ferramentas de desenvolvimento (tecla P: sempre PANGYA) — só no modo sozinho. */
   private readonly devTools: boolean
   private autoPangya = false
@@ -464,15 +505,15 @@ export class HoleView {
     this.hud.dataset.title = options.title
     this.windBox = document.createElement('div')
     this.windBox.className = 'wind'
-    this.aerialMarker = document.createElement('div')
-    this.aerialMarker.className = 'aerial-marker'
-    this.aerialMarker.innerHTML = `${AERIAL_FIGURE}<span></span>`
-    this.aerialMarker.hidden = true
-    document.body.appendChild(this.aerialMarker)
-    this.elements.push(this.aerialMarker)
+    this.aerialOverlay = document.createElement('div')
+    this.aerialOverlay.className = 'aerial-overlay-box'
+    this.aerialOverlay.innerHTML = AERIAL_OVERLAY
+    this.aerialOverlay.hidden = true
+    document.body.appendChild(this.aerialOverlay)
+    this.elements.push(this.aerialOverlay)
     if (this.devTools) {
       this.setAutoPangya(readAutoPangya(), false)
-      // A régua vale como "calibrador": o 2º espaço usa a força da marca selecionada.
+      // Calibrador da régua: o 2º espaço usa a força dele.
       this.bar.setSnapToMark(true)
     }
     this.windBox.innerHTML = WIND_DIAL
@@ -500,79 +541,39 @@ export class HoleView {
           this.sounds.toggleMute() ? '🔇 som desligado (V)' : '🔊 som ligado (V)',
         )
       }
-      if (key === 'KeyR') this.orbit = undefined
       if (key === 'KeyP' && this.devTools && !(e as KeyboardEvent).repeat) {
         this.setAutoPangya(!this.autoPangya)
       }
-      // Shift+↑/↓: zoom (como no jogo) — na vista aérea, aproximando do bonequinho; na
-      // câmera livre, da bola.
-      if ((key === 'ArrowUp' || key === 'ArrowDown') && (e as KeyboardEvent).shiftKey) {
-        e.preventDefault()
-        const factor = key === 'ArrowUp' ? 1 / AERIAL_ZOOM_STEP : AERIAL_ZOOM_STEP
-        if (this.aerial) this.zoomAerial(factor)
-        else if (this.orbit) this.zoomOrbit(factor)
-      }
       if (key === 'KeyS' && this.flight && this.freeFlightCamera()) this.flightTop = !this.flightTop
-      if (['ArrowLeft', 'ArrowRight', 'KeyA', 'KeyD'].includes(key)) {
-        e.preventDefault()
+      // Vista aérea: ↑/↓ andam pela linha da mira, Shift+↑/↓ = zoom (segurando, suave).
+      if (['ArrowUp', 'ArrowDown', 'ShiftLeft', 'ShiftRight'].includes(key)) {
+        if (key.startsWith('Arrow')) e.preventDefault()
+        if (key.startsWith('Arrow') && !(e as KeyboardEvent).repeat) {
+          this.aerialMoveStart = performance.now()
+        }
         this.keys.add(key)
       }
+      // Mira: um toque = passo fino; segurando, gira sozinha cada vez mais rápido.
+      const turn = AIM_KEYS[key]
+      if (turn) {
+        e.preventDefault()
+        this.keys.add(key)
+        if (!(e as KeyboardEvent).repeat) this.nudgeAim(turn)
+      }
     })
-    // Câmera livre antes da tacada: arrastar gira em volta da bola (Shift+↑/↓ aproxima).
-    // Só um clique não solta a câmera — precisa arrastar um pouco.
+    // O mouse nunca move a câmera (como no jogo). A roda sempre troca o taco — também na
+    // vista aérea, onde o X vai para onde o novo taco alcança.
     const canvas = renderer.domElement
     this.listen(canvas, 'contextmenu', (e) => e.preventDefault())
-    this.listen(canvas, 'pointerdown', (e) => {
-      const p = e as PointerEvent
-      if (this.aerial || this.phase === 'aim') this.dragging = { x: p.clientX, y: p.clientY }
-    })
-    this.listen(window, 'pointerup', () => (this.dragging = undefined))
-    this.listen(window, 'pointermove', (e) => {
-      const p = e as PointerEvent
-      if (this.dragging && this.aerial) {
-        // Vista aérea: arrastar move o mapa (e para de seguir o bonequinho).
-        this.aerial.follow = false
-        const scale = this.aerial.height / window.innerHeight
-        const right = new Vector3()
-          .setFromMatrixColumn(this.camera.matrixWorld, 0)
-          .setY(0)
-          .normalize()
-        const ahead = new Vector3(-right.z, 0, right.x)
-        this.aerial.center
-          .addScaledVector(right, -(p.clientX - this.dragging.x) * scale)
-          .addScaledVector(ahead, -(p.clientY - this.dragging.y) * scale)
-        this.dragging = { x: p.clientX, y: p.clientY }
-        return
-      }
-      if (!this.dragging || this.phase !== 'aim') return
-      if (!this.orbit) {
-        const moved = Math.hypot(p.clientX - this.dragging.x, p.clientY - this.dragging.y)
-        if (moved < DRAG_THRESHOLD) return
-        this.orbit = this.defaultOrbit()
-      }
-      this.orbit.yaw -= (p.clientX - this.dragging.x) * 0.006
-      this.orbit.pitch = Math.min(
-        1.5,
-        Math.max(0.03, this.orbit.pitch + (p.clientY - this.dragging.y) * 0.004),
-      )
-      this.dragging = { x: p.clientX, y: p.clientY }
-    })
-    // Roda do mouse: sempre troca o taco (também na vista aérea e na câmera livre, como no
-    // jogo: o bonequinho vai para onde o novo taco alcança). Ctrl+roda (ou pinça no
-    // touchpad) dá zoom: na vista aérea para onde o mouse aponta, na câmera livre na bola.
     this.listen(canvas, 'wheel', (e) => {
-      const wheel = e as WheelEvent
       e.preventDefault()
-      const out = wheel.deltaY > 0
-      if (wheel.ctrlKey) {
-        const factor = out ? AERIAL_ZOOM_STEP : 1 / AERIAL_ZOOM_STEP
-        if (this.aerial) this.zoomAerial(factor, wheel)
-        else if (this.orbit) this.zoomOrbit(factor)
-        return
+      if (this.phase === 'aim' && this.controllable) {
+        this.panel.cycleClub((e as WheelEvent).deltaY > 0 ? 1 : -1)
       }
-      if (this.phase === 'aim' && this.controllable) this.panel.cycleClub(out ? 1 : -1)
     })
     this.listen(window, 'keyup', (e) => this.keys.delete((e as KeyboardEvent).code))
+    // Janela perdeu o foco com tecla apertada: solta tudo (senão a mira gira sozinha).
+    this.listen(window, 'blur', () => this.keys.clear())
     this.listen(window, 'resize', () => {
       camera.aspect = window.innerWidth / window.innerHeight
       camera.updateProjectionMatrix()
@@ -599,7 +600,6 @@ export class HoleView {
     // Depuração (testes automatizados): câmera perto da cova para ver a luz.
     ;(window as unknown as { __debugCup: (near?: boolean) => void }).__debugCup = (near) => {
       const at = toScene(world.cup.x, world.cup.y, world.cup.z)
-      this.orbit = undefined
       this.aerial = undefined
       this.phase = 'idle'
       camera.position.copy(at).add(near ? new Vector3(0.7, 2.4, 0.7) : new Vector3(14, 7, 14))
@@ -685,12 +685,11 @@ export class HoleView {
         ` · ${course.texturesLoaded} texturas` +
         (course.texturesMissing.length ? ` (${course.texturesMissing.length} faltando)` : '') +
         ` · ${world.obstacles.size} caixas de colisão (${data.obstacleSource})` +
-        ' · A/D mirar · roda: taco · Alt: power shot (2× = 2 PS) · espaço: barra (3 toques)' +
-        ' · clique na bola do mostrador: spin/curva · arrastar: câmera livre (R volta; Shift+↑/↓ zoom)' +
-        ' · M ou 0: vista aérea (roda: taco; Shift+↑/↓: zoom; Delete+0: onde a tacada cai)' +
-        ' · régua: mouse na barra, Z/X marcam' +
-        (options.devTools ? ' (o 2º espaço usa a força da marca)' : '') +
-        (options.devTools ? ' · P: sempre PANGYA' : '') +
+        ' · A/D mirar (toque = passo fino) · roda: taco · Alt: power shot (2× = 2 PS)' +
+        ' · espaço: barra (3 toques) · clique na bola do mostrador: spin/curva' +
+        ' · M ou 0: vista aérea (↑/↓ anda na linha, Shift+↑/↓ zoom, espaço volta;' +
+        ' Delete+0: no X) · calibrador: clique na barra, Z desce, X sobe' +
+        (options.devTools ? ' (o 2º espaço usa a força dele) · P: sempre PANGYA' : '') +
         ' · no voo: A/D gira, S de cima · T pisos · F névoa · C colisão'
       if (course.texturesMissing.length) {
         console.info('texturas não encontradas:', course.texturesMissing)
@@ -786,7 +785,6 @@ export class HoleView {
     const state = this.active.state
     this.showCharacter(this.active)
     if (changedTurn) {
-      this.orbit = undefined
       this.bar.cancel()
       this.backswing = false
       this.aim = this.world.aimAtPin(state.ball)
@@ -954,6 +952,11 @@ export class HoleView {
     if (this.phase !== 'aim' || !this.controllable || performance.now() - this.readyAt < 600) {
       return
     }
+    // Na vista aérea, o espaço só volta para a câmera normal; o próximo começa a barra.
+    if (this.aerial && !this.bar.active) {
+      this.toggleAerial()
+      return
+    }
     if (this.bar.active) {
       this.bar.press()
       return
@@ -964,7 +967,6 @@ export class HoleView {
       model.play(backswing, false, 0.15)
       this.backswing = true
     }
-    this.orbit = undefined
     this.bar.start(
       ({ percent, impact }) => {
         this.panel.setPercent(percent)
@@ -986,95 +988,153 @@ export class HoleView {
     if (!this.active) return
     const state = this.active.state
     this.bar.setScale(this.world.shotRange(state, this.request()))
-    const rise = unitsToYards(this.world.cup.y - state.ball.y)
+    const rise = unitsToMeters(this.world.cup.y - state.ball.y)
     const pin = this.world.distanceToPin(state.ball)
-    this.bar.setPin(pin, `${pin.toFixed(0)}y ${rise >= 0 ? '↑' : '↓'}${Math.abs(rise).toFixed(1)}`)
+    this.bar.setPin(pin, `${pin.toFixed(0)}y ${rise >= 0 ? '↑' : '↓'}${Math.abs(rise).toFixed(2)}m`)
   }
 
   /**
-   * Liga/desliga a vista aérea; `onTarget` (Delete+0) já abre aproximada no bonequinho
-   * (onde a tacada cai a 100%) e fica seguindo ele.
+   * Liga/desliga a vista aérea, olhando de cima a linha da mira (a bola embaixo, o X em
+   * cima, como no original). M/0: a linha inteira e o pin; Delete+0: já perto do X.
    */
   private toggleAerial(onTarget = false) {
     if (this.aerial && !onTarget) {
       this.aerial = undefined
-      this.aerialMarker.hidden = true
+      this.aerialOverlay.hidden = true
       return
     }
-    const { world } = this
-    this.updateAerialLanding()
-    if (onTarget && this.aerialLanding) {
-      this.aerial = { center: this.aerialLanding.clone(), height: 90, follow: true }
+    if (!this.active) return
+    this.refreshLanding()
+    const reach = this.landingReach()
+    this.aerialLook = undefined
+    if (onTarget) {
+      this.aerial = { along: reach, height: 90, follow: true }
       return
     }
-    const tee = toScene(world.tee.x, world.tee.y, world.tee.z)
-    const pin = toScene(world.cup.x, world.cup.y, world.cup.z)
-    this.aerial = { center: tee.add(pin).multiplyScalar(0.5), height: 1100, follow: false }
+    const ball = this.active.state.ball
+    const pin = Math.hypot(this.world.cup.x - ball.x, this.world.cup.z - ball.z)
+    const span = Math.max(reach, pin, 30)
+    // A linha inteira e o pin, com a bola acima do HUD de baixo.
+    this.aerial = {
+      along: span * 0.42,
+      height: Math.min(AERIAL.maxHeight, Math.max(AERIAL.minHeight, span * 1.35 + 60)),
+      follow: false,
+    }
   }
 
-  /**
-   * Bonequinho: onde a bola do jogador da vez cai a 100% com o taco e a mira atuais (sem
-   * vento), com o taco e o alcance da barra.
-   */
-  private updateAerialLanding() {
-    if (!this.active) {
-      this.aerialLanding = undefined
-      return
-    }
+  /** Bola do jogador da vez, parada (cena). */
+  private restingBall(): Vector3 | undefined {
+    const ball = this.active?.state.ball
+    return ball && toScene(ball.x, ball.y, ball.z)
+  }
+
+  /** Ponto de queda (`ring`: força atual; `full`: 100%), girado para a mira atual. */
+  private landingPoint(which: 'ring' | 'full'): Vector3 | undefined {
+    const ball = this.restingBall()
+    if (!this.landing || !ball) return undefined
+    const point = this.landing[which].clone().sub(ball)
+    return point.applyAxisAngle(UP, this.aim - this.landing.aim).add(ball)
+  }
+
+  /** Distância (unidades, no plano) da bola até o X (100%). */
+  private landingReach() {
+    const ball = this.restingBall()
+    const full = this.landingPoint('full')
+    return ball && full ? Math.hypot(full.x - ball.x, full.z - ball.z) : 0
+  }
+
+  /** Recalcula os pontos de queda exatos (física) com a mira atual. */
+  private refreshLanding() {
+    if (!this.active) return
+    const state = this.active.state
     const request = this.request()
-    const p = this.world.predictLanding(this.active.state, { ...request, percent: 1 })
-    this.aerialLanding = toScene(p.x, p.y, p.z)
-    const range = this.world.shotRange(this.active.state, request)
-    this.aerialLabel = `${request.club === 'PT1' ? 'PT' : request.club} · ${Math.round(range)}y`
+    const ring = this.world.predictLanding(state, request)
+    const full = this.world.predictLanding(state, { ...request, percent: 1 })
+    this.landing = {
+      aim: this.aim,
+      at: performance.now(),
+      ring: toScene(ring.x, ring.y, ring.z),
+      full: toScene(full.x, full.y, full.z),
+    }
   }
 
-  /**
-   * Zoom da vista aérea: aproximando, puxa o centro para o ponto sob o mouse (Ctrl+roda)
-   * ou para o bonequinho (Shift+↑), que passa a ser seguido.
-   */
-  private zoomAerial(factor: number, at?: { clientX: number; clientY: number }) {
-    const aerial = this.aerial!
-    let point = this.aerialLanding
-    if (at) {
-      const mouse = new Vector2(
-        (at.clientX / window.innerWidth) * 2 - 1,
-        -(at.clientY / window.innerHeight) * 2 + 1,
+  /** Um toque de mira: passo fino (mais fino no green). Segurando, `frame` continua. */
+  private nudgeAim(direction: 1 | -1) {
+    if (this.phase !== 'aim' || !this.controllable || this.bar.active) return
+    const step = this.greenGrid.visible ? AIM_TUNING.greenStep : AIM_TUNING.step
+    this.aim += direction * step * DEG
+    this.turnStart = performance.now()
+    const model = this.active && this.ready.get(this.active.id)
+    if (model?.root.visible) this.placeCharacter(model)
+  }
+
+  /** ↑/↓ e Shift+↑/↓ segurados na vista aérea: anda pela linha e zoom, suaves. */
+  private moveAerial(dt: number, now: number) {
+    const aerial = this.aerial
+    if (!aerial) return
+    const move = (this.keys.has('ArrowUp') ? 1 : 0) - (this.keys.has('ArrowDown') ? 1 : 0)
+    const shift = this.keys.has('ShiftLeft') || this.keys.has('ShiftRight')
+    if (move && shift) {
+      aerial.height = Math.min(
+        AERIAL.maxHeight,
+        Math.max(AERIAL.minHeight, aerial.height * Math.exp(-move * AERIAL_ZOOM_RATE * dt)),
       )
-      this.ray.setFromCamera(mouse, this.camera)
-      this.ray.far = Infinity
-      point = this.ray.intersectObjects(this.course.terrainMeshes, false)[0]?.point
+    } else if (move) {
+      aerial.follow = false
+      const ball = this.active?.state.ball
+      const pin = ball ? Math.hypot(this.world.cup.x - ball.x, this.world.cup.z - ball.z) : 0
+      const limit = Math.max(this.landingReach(), pin) + yardsToUnits(60)
+      const held = Math.min(1, (now - this.aerialMoveStart) / 1000 / AERIAL_PAN.rampSeconds)
+      const speed = AERIAL_PAN.slow + (AERIAL_PAN.fast - AERIAL_PAN.slow) * held
+      aerial.along = Math.min(
+        limit,
+        Math.max(-yardsToUnits(30), aerial.along + move * aerial.height * speed * dt),
+      )
     }
-    const height = Math.min(AERIAL.maxHeight, Math.max(AERIAL.minHeight, aerial.height * factor))
-    if (point && factor < 1) {
-      aerial.center.lerp(point, 1 - height / aerial.height)
-      aerial.follow = !at && point === this.aerialLanding
-    }
-    aerial.height = height
+    if (aerial.follow) aerial.along = this.landingReach()
   }
 
-  /** Zoom da câmera livre (distância até a bola). */
-  private zoomOrbit(factor: number) {
-    if (!this.orbit) return
-    this.orbit.distance = Math.min(400, Math.max(6, this.orbit.distance * factor))
-  }
-
-  /** Bonequinho da vista aérea na tela, com o taco e o alcance a 100%. */
-  private updateAerialMarker() {
+  /** Linha até o X com a distância e o pin com desnível e distância (vista aérea). */
+  private updateAerialOverlay() {
+    const ball = this.restingBall()
+    const full = this.landingPoint('full')
     const show =
-      this.aerial !== undefined &&
-      this.phase === 'aim' &&
-      this.controllable &&
-      this.aerialLanding !== undefined
-    this.aerialMarker.hidden = !show
+      this.aerial !== undefined && this.phase === 'aim' && this.controllable && !!ball && !!full
+    this.aerialOverlay.hidden = !show
     if (!show) return
-    const p = this.aerialLanding!.clone().project(this.camera)
-    if (p.z > 1) {
-      this.aerialMarker.hidden = true
-      return
+    const screen = (p: Vector3) => {
+      const v = p.clone().project(this.camera)
+      return v.z > 1
+        ? undefined
+        : { x: ((v.x + 1) / 2) * window.innerWidth, y: ((1 - v.y) / 2) * window.innerHeight }
     }
-    this.aerialMarker.style.left = `${((p.x + 1) / 2) * window.innerWidth}px`
-    this.aerialMarker.style.top = `${((1 - p.y) / 2) * window.innerHeight}px`
-    this.aerialMarker.querySelector('span')!.textContent = this.aerialLabel
+    const svg = this.aerialOverlay
+    const $ = (selector: string) => svg.querySelector(selector) as SVGElement
+    const from = screen(ball!)
+    const to = screen(full!)
+    const line = $('.aim-line')
+    const mark = $('.x-mark')
+    line.style.display = mark.style.display = from && to ? '' : 'none'
+    if (from && to) {
+      line.setAttribute('x1', String(from.x))
+      line.setAttribute('y1', String(from.y))
+      line.setAttribute('x2', String(to.x))
+      line.setAttribute('y2', String(to.y))
+      mark.setAttribute('transform', `translate(${to.x} ${to.y})`)
+      $('.x-label').textContent = `${unitsToYards(this.landingReach()).toFixed(2)}y`
+    }
+    const cup = this.world.cup
+    const pin = screen(toScene(cup.x, cup.y, cup.z))
+    const pinMark = $('.pin-mark')
+    pinMark.style.display = pin ? '' : 'none'
+    if (pin) {
+      pinMark.setAttribute('transform', `translate(${pin.x} ${pin.y})`)
+      const state = this.active!.state
+      const rise = unitsToMeters(cup.y - state.ball.y)
+      $('.pin-height').textContent =
+        `${rise >= 0 ? '▲' : '▼'} ${rise >= 0 ? '+' : ''}${rise.toFixed(2)} m`
+      $('.pin-distance').textContent = `${this.world.distanceToPin(state.ball).toFixed(2)}y`
+    }
   }
 
   /** Tecla P (só sozinho): impacto sempre PANGYA, para testar a física. */
@@ -1115,7 +1175,6 @@ export class HoleView {
     if (player) this.ballOf(player, this.players.length > 1)
     this.flightYaw = 0
     this.flightTop = false
-    this.orbit = undefined
     return new Promise((resolve) => {
       this.flight = {
         playerId,
@@ -1148,14 +1207,6 @@ export class HoleView {
     const f = this.flight
     if (!f || f.start === -Infinity) return false
     return f.index < f.landing - FREE_CAMERA_UNTIL_LANDING / STEP_TIME
-  }
-
-  /** Câmera livre começa onde a câmera padrão está (atrás da bola). */
-  private defaultOrbit() {
-    const putting = this.greenGrid.visible
-    const back = putting ? 18 : 22
-    const up = putting ? 9 : 8
-    return { yaw: 0, pitch: Math.atan2(up, back), distance: Math.hypot(back, up) }
   }
 
   showResult(text: string) {
@@ -1204,7 +1255,7 @@ export class HoleView {
     const label = SURFACE_LABELS[kind as SurfaceKind] ?? kind
     const lie = state.lie === 'tee' ? undefined : this.world.surfaceAt(state.ball.x, state.ball.z)
     const power = lie ? ` (${lie.power.min}–${lie.power.max}%)` : ''
-    const rise = unitsToYards(this.world.cup.y - state.ball.y)
+    const rise = unitsToMeters(this.world.cup.y - state.ball.y)
     const who = this.players.length > 1 ? `<strong>${p.name}</strong> · ` : ''
     this.hud.innerHTML =
       who +
@@ -1212,58 +1263,40 @@ export class HoleView {
       `Tacada ${state.strokes + 1}` +
       (state.penalties ? ` (${state.penalties} de penalidade)` : '') +
       ` · <strong>${this.world.distanceToPin(state.ball).toFixed(1)}y</strong> até o pin` +
-      ` (${rise >= 0 ? '↑' : '↓'} ${Math.abs(rise).toFixed(2)}y) · Piso: ${label}${power}` +
+      ` (${rise >= 0 ? '↑' : '↓'} ${Math.abs(rise).toFixed(2)} m) · Piso: ${label}${power}` +
       (this.hudExtra ? `<br>${this.hudExtra}` : '')
   }
 
-  private updateTarget() {
-    this.targetDirty = false
-    if (!this.active) return
-    const p = this.world.predictLanding(this.active.state, this.request())
-    this.target.position.copy(toScene(p.x, p.y + 0.3, p.z))
-    if (this.aerial) this.updateAerialLanding()
+  /** Anel amarelo onde a tacada cai com a força atual (girando junto com a mira). */
+  private placeTarget() {
+    const ring = this.landingPoint('ring')
+    if (ring) this.target.position.copy(ring).setY(ring.y + 0.3)
   }
 
   private placeCamera(focus: Vector3, lerp: number) {
     const { camera, world } = this
-    if (this.aerial) {
-      // Olhando para baixo, levemente inclinada na direção do buraco (tee → pin).
-      if (this.aerial.follow && this.aerialLanding) {
-        this.aerial.center.lerp(this.aerialLanding, Math.max(lerp, 0.15))
-      }
-      const { center, height } = this.aerial
-      const forward = toScene(world.cup.x, 0, world.cup.z)
-        .sub(toScene(world.tee.x, 0, world.tee.z))
-        .setY(0)
-        .normalize()
-      const ground = world.grid.groundAt(center.x, -center.z)?.y ?? center.y
-      const look = new Vector3(center.x, ground, center.z)
+    const ball = this.restingBall()
+    if (this.aerial && ball) {
+      // De cima, com a linha da mira subindo na tela (a bola embaixo, o X em cima).
+      const { along, height } = this.aerial
+      const forward = aimDirection(this.aim)
+      const center = ball.clone().addScaledVector(forward, along)
+      center.y = world.grid.groundAt(center.x, -center.z)?.y ?? ball.y
+      this.aerialLook = (this.aerialLook ?? center.clone()).lerp(center, 0.25)
       camera.position.lerp(
-        look
+        this.aerialLook
           .clone()
           .add(new Vector3(0, height, 0))
-          .addScaledVector(forward, -height * 0.3),
-        Math.max(lerp, 0.2),
+          .addScaledVector(forward, -height * 0.12),
+        0.25,
       )
-      camera.lookAt(look)
+      camera.lookAt(this.aerialLook)
       return
     }
     let forward = this.phase === 'flying' ? this.shotForward : aimDirection(this.aim)
     const putting = this.phase === 'aim' && this.greenGrid.visible
     const free = this.phase === 'flying' && this.freeFlightCamera()
     if (free) forward = forward.clone().applyAxisAngle(UP, this.flightYaw)
-    if (this.phase === 'aim' && this.orbit) {
-      // Câmera livre: gira em volta da bola olhando para ela.
-      const { yaw, pitch, distance } = this.orbit
-      const back = forward.clone().negate().applyAxisAngle(UP, yaw)
-      const desired = focus
-        .clone()
-        .addScaledVector(back, Math.cos(pitch) * distance)
-        .add(new Vector3(0, Math.sin(pitch) * distance, 0))
-      this.moveCamera(focus, desired, Math.max(lerp, 0.25))
-      camera.lookAt(focus)
-      return
-    }
     if (free && this.flightTop) {
       // Vista de cima da bola em voo (S).
       this.moveCamera(
@@ -1347,17 +1380,20 @@ export class HoleView {
         done()
       }
     } else if (this.phase === 'aim') {
-      // Mira só antes de começar a barra.
-      const turn =
-        this.controllable && !this.bar.active
-          ? (this.keys.has('ArrowLeft') || this.keys.has('KeyA') ? 1 : 0) -
-            (this.keys.has('ArrowRight') || this.keys.has('KeyD') ? 1 : 0)
-          : 0
+      // Mira só antes de começar a barra: um toque = passo fino (nudgeAim); segurando, gira
+      // sozinha cada vez mais rápido. O passo por quadro é limitado (sem pulos se o PC
+      // engasgar).
+      let turn = 0
+      for (const [key, direction] of Object.entries(AIM_KEYS)) {
+        if (this.keys.has(key)) turn = direction
+      }
+      if (!this.controllable || this.bar.active) turn = 0
       const model = this.active && this.ready.get(this.active.id)
-      if (turn) {
-        this.orbit = undefined // mirar volta a câmera para trás do jogador
-        this.aim += turn * dt * (this.greenGrid.visible ? 0.25 : 0.6)
-        this.targetDirty = true
+      const held = (now - this.turnStart) / 1000 - AIM_TUNING.holdDelay
+      if (turn && held > 0) {
+        const [slow, fast] = this.greenGrid.visible ? AIM_TUNING.greenSpeed : AIM_TUNING.speed
+        const speed = slow! + (fast! - slow!) * Math.min(1, held / AIM_TUNING.rampSeconds)
+        this.aim += turn * speed * DEG * Math.min(dt, 1 / 30)
         if (model?.root.visible) this.placeCharacter(model)
       }
       // Andando de lado enquanto gira a mira; parado, volta à preparação.
@@ -1368,17 +1404,27 @@ export class HoleView {
         else this.idle(model)
       }
       if (this.targetDirty) {
-        this.updateWind()
+        this.targetDirty = false
         this.updateBarScale()
+        if (this.controllable) this.refreshLanding()
+      } else if (
+        this.controllable &&
+        this.landing &&
+        this.landing.aim !== this.aim &&
+        (!turn || now - this.landing.at > LANDING_REFRESH * 1000)
+      ) {
+        this.refreshLanding() // mira girou: recálculo exato (no máximo a cada 0,12 s)
       }
-      if (this.controllable && this.targetDirty) this.updateTarget()
+      this.updateWind()
+      this.placeTarget()
       this.target.visible = this.controllable
+      this.moveAerial(dt, now)
       this.placeCamera(this.ballPosition(), turn ? 0.3 : 0.08)
     } else if (!this.debugFreeze) {
       this.placeCamera(this.ballPosition(), 0.08)
     }
     for (const model of this.ready.values()) if (model.root.visible) model.update(dt)
-    this.updateAerialMarker()
+    this.updateAerialOverlay()
     this.beamMaterial.opacity = 0.8 + 0.2 * Math.sin(now / 300)
     this.course.update(this.camera)
     this.renderer.render(this.scene, this.camera)

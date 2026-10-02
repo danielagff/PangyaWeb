@@ -8,10 +8,11 @@
  * ("PANGYA") marcado no meio dela. Se o marcador passa da zona sem o 3º toque, a tacada é
  * cancelada (o jogador desistiu de bater naquela hora) e ele volta a mirar.
  *
- * Régua (para acertar uma força exata): com o mouse em cima da barra aparecem marcas a cada
- * 1% e a força/jardas daquele ponto; Z e X marcam esse ponto na barra (fora da barra, apagam).
- * A última marca feita fica selecionada; com `setSnapToMark` (desenvolvimento, só sozinho),
- * o 2º toque de espaço fixa exatamente a força dela.
+ * Calibrador (para acertar uma força exata): um ponteiro na barra com a força e as jardas.
+ * Com o mouse em cima da barra aparecem marcas a cada 1% e a leitura do ponto; clicar (ou
+ * arrastar) põe o ponteiro ali, botão direito tira. Sem mouse: X sobe e Z desce 0,1%
+ * (Shift: 1%); segurando, continua. Com `setSnapToMark` (desenvolvimento, só sozinho), o 2º
+ * toque de espaço fixa exatamente a força do ponteiro.
  * "Sempre PANGYA" (desenvolvimento): o impacto sai sempre perfeito — sozinho, no ponto
  * PANGYA, ou no 3º toque.
  *
@@ -51,34 +52,32 @@ export interface PowerBarOptions {
 
 const IDLE_LABEL = 'Espaço: começar · roda do mouse: taco · Alt: power shot'
 
-/**
- * Marcas da régua (Z e X), em fração da barra, e qual está selecionada (a última feita);
- * ficam salvas neste navegador.
- */
-type MarkKey = 'z' | 'x'
-type RulerMarks = Partial<Record<MarkKey, number>> & { sel?: MarkKey }
-const MARKS_KEY = 'pangyaweb.regua'
-function readMarks(): RulerMarks {
+/** Ponteiro do calibrador (fração da barra), salvo neste navegador. */
+const CALIBRATOR_KEY = 'pangyaweb.calibrador'
+function readCalibrator(): number | undefined {
   try {
-    const value = JSON.parse(localStorage.getItem(MARKS_KEY) ?? '{}') as RulerMarks
-    const valid = (n: unknown) => typeof n === 'number' && n >= 0 && n <= 1
-    const marks: RulerMarks = {
-      ...(valid(value.z) && { z: value.z! }),
-      ...(valid(value.x) && { x: value.x! }),
-    }
-    const sel = value.sel && marks[value.sel] !== undefined ? value.sel : marks.x ? 'x' : 'z'
-    return marks[sel] === undefined ? marks : { ...marks, sel }
+    const raw = localStorage.getItem(CALIBRATOR_KEY)
+    const value = raw === null ? NaN : Number(raw)
+    return Number.isFinite(value) && value >= 0 && value <= 1 ? value : undefined
   } catch {
-    return {}
+    return undefined
   }
 }
-function saveMarks(marks: RulerMarks) {
+function saveCalibrator(value: number | undefined) {
   try {
-    localStorage.setItem(MARKS_KEY, JSON.stringify(marks))
+    if (value === undefined) localStorage.removeItem(CALIBRATOR_KEY)
+    else localStorage.setItem(CALIBRATOR_KEY, String(value))
   } catch {
-    // sem armazenamento: as marcas valem só nesta página
+    // sem armazenamento: vale só nesta página
   }
 }
+
+/** Passo do Z/X no calibrador (fração da barra): 0,1%; com Shift, 1%. */
+export const CALIBRATOR_STEP = { fine: 0.001, coarse: 0.01 }
+
+/** Novo valor do calibrador depois de um passo, preso entre 0 e 100%, em décimos de %. */
+export const stepCalibrator = (value: number, steps: number, step = CALIBRATOR_STEP.fine) =>
+  Math.min(1, Math.max(0, Math.round((value + steps * step) * 1000) / 1000))
 
 /** "73,5%" (uma casa, vírgula como no Brasil). */
 export const percentText = (fraction: number) =>
@@ -96,15 +95,14 @@ export function createPowerBar(parent: HTMLElement = document.body) {
       <span class="tag max"></span>
       <span class="tag pin-tag"></span>
     </div>
-    <div class="track" title="Régua: o mouse mostra a força e as jardas; Z/X marcam o ponto (fora da barra, apagam)">
+    <div class="track" title="Calibrador: clique para pôr o ponteiro (botão direito tira); X sobe, Z desce (Shift: 1%)">
       <div class="ticks"></div>
       <div class="ruler"></div>
       <div class="fill"></div>
       <div class="zone"><div class="pangya"></div></div>
       <div class="power"><span></span></div>
       <div class="pin"></div>
-      <div class="mark" data-mark="z" hidden><span></span></div>
-      <div class="mark" data-mark="x" hidden><span></span></div>
+      <div class="mark" hidden><span></span></div>
       <div class="guide" hidden></div>
       <div class="marker"></div>
     </div>
@@ -147,10 +145,13 @@ export function createPowerBar(parent: HTMLElement = document.body) {
   let autoPangya = false
   /** Ponto da régua sob o mouse (fração da barra), undefined = mouse fora. */
   let hover: number | undefined
-  let marks = readMarks()
-  /** O 2º toque usa a força da marca selecionada (desenvolvimento, só sozinho). */
+  /** Ponteiro do calibrador (fração da barra). */
+  let calibrator = readCalibrator()
+  /** Linha do pin (fração da barra), para o calibrador começar nela. */
+  let pinFraction: number | undefined
+  /** O 2º toque usa a força do calibrador (desenvolvimento, só sozinho). */
   let snap = false
-  const snapTarget = () => (snap && marks.sel ? marks[marks.sel] : undefined)
+  const snapTarget = () => (snap ? calibrator : undefined)
 
   /** Posição atual do marcador (fração da barra). */
   const position = (now: number) => {
@@ -168,7 +169,7 @@ export function createPowerBar(parent: HTMLElement = document.body) {
   const rulerText = (fraction: number) =>
     [percentText(fraction), fineYards(fraction)].filter(Boolean).join(' · ')
 
-  /** Desenha a linha do mouse e as marcas Z/X com a força e as jardas de cada uma. */
+  /** Desenha a linha do mouse (com a leitura) e o ponteiro do calibrador. */
   const drawRuler = () => {
     guide.hidden = readout.hidden = hover === undefined
     root.classList.toggle('ruling', hover !== undefined)
@@ -176,47 +177,62 @@ export function createPowerBar(parent: HTMLElement = document.body) {
       guide.style.left = readout.style.left = `${hover * 100}%`
       readout.textContent = rulerText(hover)
     }
-    for (const key of ['z', 'x'] as const) {
-      const at = marks[key]
-      const line = root.querySelector<HTMLElement>(`.mark[data-mark="${key}"]`)!
-      line.hidden = at === undefined
-      line.classList.toggle('selected', at !== undefined && marks.sel === key)
-      if (at === undefined) continue
-      line.style.left = `${at * 100}%`
-      // Perto do fim da barra, o texto fica do lado esquerdo da linha.
-      line.classList.toggle('flip', at > 0.85)
-      line.querySelector('span')!.textContent = `${key.toUpperCase()} ${rulerText(at)}`
-    }
+    const line = $<HTMLDivElement>('.mark')
+    line.hidden = calibrator === undefined
+    if (calibrator === undefined) return
+    line.style.left = `${calibrator * 100}%`
+    // Perto do fim da barra, o texto fica do lado esquerdo da linha.
+    line.classList.toggle('flip', calibrator > 0.85)
+    line.querySelector('span')!.textContent = rulerText(calibrator)
   }
-  const hoverAt = (e: PointerEvent) => {
-    const rect = track.getBoundingClientRect()
-    hover = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width))
+  const setCalibrator = (value: number | undefined) => {
+    calibrator = value
+    saveCalibrator(value)
     drawRuler()
   }
-  track.addEventListener('pointermove', hoverAt)
-  track.addEventListener('pointerenter', hoverAt)
+  const fractionAt = (e: PointerEvent) => {
+    const rect = track.getBoundingClientRect()
+    return Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width))
+  }
+  let dragging = false
+  track.addEventListener('pointerenter', (e) => {
+    hover = fractionAt(e)
+    drawRuler()
+  })
+  track.addEventListener('pointermove', (e) => {
+    hover = fractionAt(e)
+    if (dragging) setCalibrator(stepCalibrator(hover, 0))
+    else drawRuler()
+  })
   track.addEventListener('pointerleave', () => {
     hover = undefined
     drawRuler()
   })
-  /**
-   * Z/X: marca o ponto sob o mouse (e seleciona essa marca); com o mouse fora da barra,
-   * apaga a marca (a outra, se houver, fica selecionada).
-   */
+  // Clique põe o ponteiro (arrastando, ele acompanha); botão direito tira.
+  track.addEventListener('pointerdown', (e) => {
+    if (e.button === 2) {
+      setCalibrator(undefined)
+      return
+    }
+    if (e.button !== 0) return
+    dragging = true
+    track.setPointerCapture(e.pointerId)
+    setCalibrator(stepCalibrator(fractionAt(e), 0))
+  })
+  track.addEventListener('pointerup', () => (dragging = false))
+  track.addEventListener('pointercancel', () => (dragging = false))
+  track.addEventListener('contextmenu', (e) => e.preventDefault())
+  /** X sobe, Z desce o calibrador (0,1%; Shift: 1%). Sem ponteiro, começa no pin. */
   const onKey = (e: KeyboardEvent) => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
-    const key: MarkKey | undefined = e.code === 'KeyZ' ? 'z' : e.code === 'KeyX' ? 'x' : undefined
-    if (!key || e.repeat) return
-    if (hover === undefined) {
-      const other: MarkKey = key === 'z' ? 'x' : 'z'
-      const rest: RulerMarks = marks[other] === undefined ? {} : { [other]: marks[other] }
-      const sel = marks.sel === key ? (rest[other] !== undefined ? other : undefined) : marks.sel
-      marks = sel ? { ...rest, sel } : rest
-    } else {
-      marks = { ...marks, [key]: hover, sel: key }
+    const direction = e.code === 'KeyX' ? 1 : e.code === 'KeyZ' ? -1 : 0
+    if (!direction) return
+    if (calibrator === undefined) {
+      setCalibrator(stepCalibrator(pinFraction ?? 1, 0))
+      return
     }
-    saveMarks(marks)
-    drawRuler()
+    const step = e.shiftKey ? CALIBRATOR_STEP.coarse : CALIBRATOR_STEP.fine
+    setCalibrator(stepCalibrator(calibrator, direction, step))
   }
   window.addEventListener('keydown', onKey)
   drawRuler()
@@ -232,7 +248,7 @@ export function createPowerBar(parent: HTMLElement = document.body) {
       label.textContent =
         target === undefined
           ? `${percentText(p)} ${yards(p)} · espaço: fixar a força`
-          : `${percentText(p)} · espaço: força da marca ${marks.sel!.toUpperCase()} (${percentText(target)})`
+          : `${percentText(p)} · espaço: força do calibrador (${percentText(target)})`
       if (p >= 1) setPower(now, 1) // chegou no máximo: 100%
     } else if (autoPangya && p <= ZONE) {
       // Sempre PANGYA: bate sozinho no centro da zona.
@@ -315,7 +331,7 @@ export function createPowerBar(parent: HTMLElement = document.body) {
       max.textContent = yards(1)
       drawRuler()
     },
-    /** Liga/desliga o 2º toque usar a força da marca selecionada da régua. */
+    /** Liga/desliga o 2º toque usar a força do calibrador. */
     setSnapToMark(on: boolean) {
       snap = on
       root.classList.toggle('snap', on)
@@ -329,6 +345,7 @@ export function createPowerBar(parent: HTMLElement = document.body) {
     setPin(yardsToPin: number | undefined, text = '') {
       const fraction = yardsToPin !== undefined && maxYards ? yardsToPin / maxYards : undefined
       const visible = fraction !== undefined && fraction <= 1.02
+      pinFraction = visible ? Math.min(1, fraction) : undefined
       pin.hidden = pinTag.hidden = !visible
       if (!visible) return
       pin.style.left = pinTag.style.left = `${Math.min(1, fraction) * 100}%`
