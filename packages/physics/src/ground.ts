@@ -82,7 +82,7 @@ export function simulateGround(input: GroundInput, groundAt: GroundAt): GroundRe
   const events: GroundEvent[] = []
   let p = { ...input.position }
   let v = { ...input.velocity }
-  let airborne = false
+  let airborne: boolean
   let firstBounce = true
   let lastSurface: string | undefined
 
