@@ -13,17 +13,22 @@ function* walk(dir: string): Generator<string> {
 
 /**
  * Índice nome-do-arquivo (minúsculo) → caminho relativo, para achar modelos e texturas
- * referenciados só pelo nome. Em caso de nome repetido vence o caminho mais curto
- * (mesmo critério do GhostMapEditor).
+ * referenciados só pelo nome. Nomes repetidos (ex.: grass10.dds em vários cursos) viram
+ * uma lista ordenada do caminho mais curto ao mais longo; o cliente prefere o da pasta
+ * do curso e, sem ela, o mais curto (mesmo critério do GhostMapEditor).
  */
-export function buildAssetIndex(root: string): Record<string, string> {
-  const index: Record<string, string> = {}
+export function buildAssetIndex(root: string): Record<string, string | string[]> {
+  const all = new Map<string, string[]>()
   for (const path of walk(root)) {
     const rel = relative(root, path).replaceAll('\\', '/')
     if (rel === INDEX_FILE || rel.startsWith('.')) continue
     const name = rel.split('/').pop()!.toLowerCase()
-    const current = index[name]
-    if (current === undefined || rel.length < current.length) index[name] = rel
+    all.set(name, [...(all.get(name) ?? []), rel])
+  }
+  const index: Record<string, string | string[]> = {}
+  for (const [name, paths] of all) {
+    paths.sort((a, b) => a.length - b.length || a.localeCompare(b))
+    index[name] = paths.length === 1 ? paths[0]! : paths
   }
   return index
 }

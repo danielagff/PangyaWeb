@@ -77,6 +77,11 @@ export interface Gbin {
   nodes: GbinNode[]
   /** Elemento base: a malha do terreno do buraco. */
   base: GbinElement | undefined
+  /**
+   * Cor pré-calculada (iluminação "assada", 0xAARRGGBB) de cada canto do terreno, em
+   * 3 por face. Só nas versões 0x70/0x71; ver `baseCornerColors` para a ordem.
+   */
+  baseColors: Uint32Array | undefined
   elements: GbinElement[]
   newElements: GbinNewElement[]
   mapCheck: GbinMapCheck | undefined
@@ -197,10 +202,12 @@ export function readGbin(bytes: Uint8Array, options: { aibin?: boolean } = {}): 
 
   const elementCount = counts.global + counts.type0 + counts.type1
   let base: GbinElement | undefined
+  let baseColors: Uint32Array | undefined
   if (elementCount > 0) {
     base = readElement(r, version)
     if (version < V72) {
-      r.skip(checkCount('base', base.faceCount) * 3 * 4) // cor por vértice da base
+      const n = checkCount('base', base.faceCount) * 3
+      baseColors = Uint32Array.from({ length: n }, () => r.u32())
     } else {
       const maps = r.u32()
       for (let i = 0; i < maps; i++) {
@@ -242,6 +249,7 @@ export function readGbin(bytes: Uint8Array, options: { aibin?: boolean } = {}): 
     textures,
     nodes,
     base,
+    baseColors,
     elements,
     newElements,
     mapCheck,
