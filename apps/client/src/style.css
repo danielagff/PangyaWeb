@@ -91,6 +91,10 @@
   left: 50%;
   transform: translate(-50%, -50%);
   min-width: 320px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  box-sizing: border-box;
   padding: 20px 28px;
   font:
     15px/1.5 system-ui,
@@ -205,15 +209,94 @@
   color: #fff;
   background: rgba(255, 255, 255, 0.2);
 }
-.scoreboard {
-  margin: 8px auto;
+/* Cartão de placar (fim do buraco/rodada, sozinho e na sala). */
+.card-wrap {
+  max-width: calc(100vw - 72px);
+  margin: 10px auto;
+  overflow-x: auto;
+}
+.scorecard {
+  margin: 0 auto;
   border-collapse: collapse;
   font-variant-numeric: tabular-nums;
+  font-size: 14px;
 }
-.scoreboard th,
-.scoreboard td {
-  padding: 2px 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+.scorecard th,
+.scorecard td {
+  min-width: 26px;
+  padding: 3px 4px;
+  text-align: center;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+.scorecard .name {
+  min-width: 70px;
+  padding: 3px 8px;
+  text-align: left;
+  white-space: nowrap;
+}
+.scorecard .holes th {
+  color: #0b2a4a;
+  background: #ffeb3b;
+}
+.scorecard .pars {
+  color: rgba(255, 255, 255, 0.75);
+}
+.scorecard .sub,
+.scorecard .total {
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.08);
+}
+.scorecard .total {
+  min-width: 70px;
+  white-space: nowrap;
+}
+.scorecard td span {
+  display: inline-block;
+  min-width: 20px;
+  line-height: 20px;
+}
+/* Como num cartão de golfe: círculo abaixo do par, quadrado acima. */
+.scorecard .s-birdie span {
+  border: 2px solid #4fc3f7;
+  border-radius: 50%;
+}
+.scorecard .s-eagle span,
+.scorecard .s-albatross span {
+  color: #0b2a4a;
+  background: #4fc3f7;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px #4fc3f7;
+}
+.scorecard .s-hio span {
+  color: #0b2a4a;
+  background: #ffeb3b;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px #ffeb3b;
+}
+.scorecard .s-bogey span {
+  border: 2px solid #ff8a65;
+}
+.scorecard .s-double span {
+  color: #0b2a4a;
+  background: #ff8a65;
+}
+.hole-end .round-total {
+  margin: 0;
+  font-size: 22px;
+}
+.hole-end .round-total strong {
+  font-size: 34px;
+  color: #ffeb3b;
+}
+.hole-end .record {
+  margin: 4px 0;
+  opacity: 0.85;
+}
+.hole-end .record.new {
+  font-size: 20px;
+  font-weight: 700;
+  color: #ffeb3b;
+  opacity: 1;
 }
 .hole-end .results {
   list-style: none;
@@ -713,4 +796,302 @@
 }
 .shot-hud.waiting .dial {
   opacity: 0.6;
+}
+
+/* ---- Menu (título → personagem → curso) ---- */
+.menu {
+  position: fixed;
+  inset: 0;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 24px 16px;
+  overflow: auto;
+  font:
+    15px/1.5 system-ui,
+    sans-serif;
+  color: #0b2a4a;
+  /* Céu e um morro de grama, como a tela de entrada do jogo. */
+  background:
+    radial-gradient(ellipse 90% 40% at 50% 115%, #7cd34f 0 70%, #5cb83a 71% 100%, transparent 101%),
+    linear-gradient(#3d9bf0, #9fd8ff 65%, #e3f5ff);
+}
+.menu-logo {
+  margin-top: 6vh;
+  text-align: center;
+}
+.menu-logo h1 {
+  margin: 0;
+  font-size: clamp(48px, 11vw, 96px);
+  font-style: italic;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  color: #fff;
+  -webkit-text-stroke: 3px #1f6fc5;
+  paint-order: stroke fill;
+  text-shadow: 0 6px 0 #0b2a4a33;
+}
+.menu-logo h1 span {
+  color: #ffeb3b;
+}
+.menu-logo .version {
+  margin: 0;
+  font-size: 12px;
+  color: #0b2a4a99;
+}
+.menu-buttons {
+  display: grid;
+  gap: 10px;
+  width: min(320px, 100%);
+}
+.menu-button {
+  display: block;
+  padding: 10px 22px;
+  font-weight: 700;
+  text-align: center;
+  text-decoration: none;
+  color: #0b2a4a;
+  background: #fff;
+  border: 3px solid #1f6fc5;
+  border-radius: 999px;
+  box-shadow: 0 4px 0 #1f6fc5;
+  transition:
+    transform 0.08s,
+    box-shadow 0.08s;
+  cursor: pointer;
+}
+.menu-button.primary {
+  background: #ffeb3b;
+}
+.menu-button:hover,
+.menu-button:focus-visible {
+  outline: none;
+  transform: translateY(-2px) scale(1.03);
+  box-shadow:
+    0 6px 0 #1f6fc5,
+    0 0 0 4px #ffffffaa;
+}
+.menu-button:active {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 #1f6fc5;
+}
+.menu-hint {
+  margin: 0;
+  font-size: 12px;
+  color: #0b2a4a99;
+}
+.menu-header {
+  text-align: center;
+}
+.menu-header h2 {
+  margin: 0;
+  font-size: 28px;
+  font-style: italic;
+  color: #fff;
+  -webkit-text-stroke: 2px #1f6fc5;
+  paint-order: stroke fill;
+}
+.menu-header p {
+  margin: 0;
+  font-size: 13px;
+  color: #0b2a4acc;
+}
+.menu-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: min(1100px, 100%);
+}
+.menu-footer .menu-button {
+  min-width: 140px;
+}
+
+/* Painéis brancos com borda azul (listas e opções). */
+.character-list,
+.course-list,
+.character-info,
+.course-options {
+  margin: 0;
+  padding: 10px;
+  list-style: none;
+  background: #ffffffd9;
+  border: 3px solid #1f6fc5;
+  border-radius: 16px;
+}
+.character-list,
+.course-list {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  overflow-y: auto;
+}
+.character-list button,
+.course-list button {
+  display: flex;
+  width: 100%;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  color: inherit;
+  background: #e8f4ff;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  cursor: pointer;
+}
+.character-list button:hover,
+.course-list button:hover {
+  border-color: #1f6fc580;
+}
+.character-list button.selected,
+.course-list button.selected {
+  background: #ffeb3b;
+  border-color: #1f6fc5;
+}
+.course-list small {
+  font-weight: 400;
+  color: #0b2a4a99;
+}
+.character-list .loading,
+.course-list .loading {
+  padding: 8px;
+  color: #0b2a4a99;
+}
+
+.character-screen,
+.course-screen {
+  flex: 1;
+  display: grid;
+  gap: 16px;
+  width: min(1100px, 100%);
+  min-height: 0;
+}
+.character-screen {
+  grid-template-columns: 220px 1fr 260px;
+}
+.course-screen {
+  grid-template-columns: 1fr 300px;
+}
+.character-stage {
+  position: relative;
+  min-height: 320px;
+}
+.character-preview {
+  position: absolute;
+  inset: 0;
+}
+.character-preview canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+}
+.character-preview .preview-status {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 12px;
+  margin: 0;
+  text-align: center;
+  font-weight: 600;
+  color: #0b2a4acc;
+  pointer-events: none;
+}
+.character-info,
+.course-options {
+  align-self: start;
+}
+.character-info h3,
+.course-options h3 {
+  margin: 0 0 8px;
+  font-size: 22px;
+}
+.character-info .power-setting {
+  display: grid;
+  gap: 4px;
+}
+.character-info input,
+.course-options select {
+  padding: 6px;
+  font: inherit;
+  border: 2px solid #1f6fc5;
+  border-radius: 8px;
+}
+.course-options .course-folder {
+  margin: -6px 0 8px;
+  font-size: 12px;
+  color: #0b2a4a80;
+}
+.course-options p {
+  margin: 8px 0 4px;
+}
+.hole-counts {
+  display: flex;
+  gap: 6px;
+}
+.hole-counts button {
+  flex: 1;
+  padding: 8px 0;
+  font: inherit;
+  font-weight: 700;
+  color: inherit;
+  background: #e8f4ff;
+  border: 2px solid #1f6fc5;
+  border-radius: 10px;
+  cursor: pointer;
+}
+.hole-counts button.selected {
+  background: #ffeb3b;
+}
+.hole-counts button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.course-options label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+}
+.course-options .course-plan {
+  font-weight: 700;
+}
+.course-options .course-record {
+  color: #1f6fc5;
+  font-weight: 600;
+}
+
+@media (max-width: 760px) {
+  .character-screen,
+  .course-screen {
+    flex: none;
+    grid-template-columns: 1fr;
+  }
+  .character-stage {
+    order: -1;
+    min-height: 45vh;
+  }
+  .character-list,
+  .course-list {
+    max-height: 30vh;
+  }
+  .menu-footer {
+    flex-wrap: nowrap;
+  }
+  .menu-footer .menu-hint {
+    display: none;
+  }
+  .menu-footer .menu-button {
+    flex: 1;
+    min-width: 0;
+    padding: 10px 12px;
+  }
 }

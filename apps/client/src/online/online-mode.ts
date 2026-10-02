@@ -9,6 +9,8 @@ import {
 } from '@pangya/game'
 import { characterSelect } from '../character/character.ts'
 import { HoleView, type ViewPlayer } from '../hole/hole-view.ts'
+import { courseName, HOLE_COUNTS, planHoles } from '../menu/courses.ts'
+import { scorecardHtml } from '../menu/scorecard.ts'
 import { playerPower, powerInput } from '../settings.ts'
 import { connect } from './connection.ts'
 
@@ -31,27 +33,21 @@ function rememberName(name: string) {
   }
 }
 
-/** Placar da partida, ordenado pelo total (menor primeiro). */
+/** Cartão da partida (como no fim da rodada), ordenado pelo total (menor primeiro). */
 function scoreboard(match: MatchState) {
   const holes = match.course?.holes ?? []
   const ranked = [...match.players].sort((a, b) => totals(a).strokes - totals(b).strokes)
-  const head = holes.map((h) => `<th>${h}</th>`).join('')
-  const rows = ranked
-    .map((p) => {
-      const cells = holes
-        .map((h) => {
-          const c = p.card.find((x) => x.hole === h)
-          return `<td>${c ? c.strokes : ''}</td>`
-        })
-        .join('')
-      const t = totals(p)
-      return (
-        `<tr><td style="color:${colorCss(p.color)}">${escapeHtml(p.name)}${p.connected ? '' : ' (saiu)'}</td>` +
-        `${cells}<td><strong>${t.strokes}</strong> (${scoreToPar(t.strokes, t.par)})</td></tr>`
-      )
-    })
-    .join('')
-  return `<table class="scoreboard"><tr><th>Jogador</th>${head}<th>Total</th></tr>${rows}</table>`
+  const pars = holes.map((h) => match.players.flatMap((p) => p.card).find((c) => c.hole === h)?.par)
+  return scorecardHtml(
+    holes,
+    pars,
+    ranked.map((p) => ({
+      name: p.name,
+      color: p.color,
+      strokes: holes.map((h) => p.card.find((c) => c.hole === h)?.strokes),
+      ...(!p.connected && { note: '(saiu)' }),
+    })),
+  )
 }
 
 /** Multiplayer: sala de espera, chat e o buraco em turnos, com o servidor como juiz. */
@@ -84,10 +80,10 @@ export function startOnlineMode() {
       <div class="host" hidden>
         <h2>Partida</h2>
         <label>Curso <select name="course"></select></label>
-        <label>Buracos <select name="holes">
-          <option value="1">1 buraco</option><option value="3">3 buracos</option>
-          <option value="9">9 buracos</option><option value="18">18 buracos</option>
-        </select></label>
+        <label>Buracos <select name="holes">${HOLE_COUNTS.map(
+          (n) =>
+            `<option value="${n}"${n === 18 ? ' selected' : ''}>${n} buraco${n === 1 ? '' : 's'}</option>`,
+        ).join('')}</select></label>
         <label>Começar no buraco <input name="first" type="number" min="1" max="18" value="1" /></label>
         <button class="start">Começar partida</button>
       </div>
@@ -150,8 +146,7 @@ export function startOnlineMode() {
     if (!course) return
     const count = Number($<HTMLSelectElement>('select[name=holes]').value)
     const first = Number($<HTMLInputElement>('input[name=first]').value) || 1
-    const start = Math.max(0, course.holes.indexOf(first))
-    const holes = course.holes.slice(start, start + count)
+    const holes = planHoles(course.holes, first, count)
     server.send({ t: 'start', course: { ...course, holes } })
   })
 
@@ -160,7 +155,7 @@ export function startOnlineMode() {
     .then((list) => {
       courses = list
       $<HTMLSelectElement>('select[name=course]').innerHTML = list
-        .map((c, i) => `<option value="${i}">${c.round} (${c.holes.length} buracos)</option>`)
+        .map((c, i) => `<option value="${i}">${courseName(c)} (${c.holes.length} buracos)</option>`)
         .join('')
     })
     .catch(() => {})
@@ -251,7 +246,7 @@ export function startOnlineMode() {
       const box = view.overlay(`
         <h2>${finished ? 'Fim da partida!' : `Buraco ${m.course!.holes[m.holeIndex]} concluído`}</h2>
         <ul class="results">${results}</ul>
-        ${scoreboard(m)}
+        <div class="card-wrap">${scoreboard(m)}</div>
         <p>${finished ? '' : 'Próximo buraco em alguns segundos…'}</p>
         ${finished ? '<div><a class="button" href="#" data-back>Voltar à sala</a></div>' : ''}`)
       box.querySelector('[data-back]')?.addEventListener('click', (e) => {

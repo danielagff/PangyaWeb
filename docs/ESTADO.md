@@ -37,17 +37,24 @@ jogar com amigos, com o **PC do Daniel como servidor**. Não é vendido nem publ
 | Regras                  | Buraco completo (par, penalidades, chip-in), placar entre buracos.                                                                                                                                                                                                            |
 | Multiplayer             | Servidor no PC do anfitrião; sala com chat, escolha de personagem, curso e buracos; turnos (honra no tee, depois o mais longe do pin); placar; o servidor simula as tacadas.                                                                                                  |
 | Personagens             | 15 personagens montados com skinning; animações reais do jogo (preparação, backswing, swing, andar de lado, comemorações); taco na mão (Bone01); rosto pelo bloco FANM; posicionado com a cabeça do taco na bola.                                                             |
+| Menus                   | Título no estilo do jogo → personagem (lista + **prévia 3D** girável + força) → curso (nome do jogo, 1/3/9/18 buracos, buraco inicial, recorde). Teclado (setas/Enter/Esc) e mouse; "voltar" do navegador funciona.                                                           |
+| Rodada                  | Sozinho segue o plano de buracos escolhido; fim de cada buraco e da rodada com **cartão de placar** (par, birdie/bogey marcados, ida/volta, total); recorde por curso salvo no navegador. A sala usa o mesmo cartão e os nomes dos cursos.                                    |
 | Mapeador de personagens | Estilo Mixamo (girar, zoom, linha do tempo quadro a quadro); animações **traduzidas e separadas por categoria**; peças por categoria com **base × acessório**; anotações salvas; "usar como roupa padrão"; "copiar lista".                                                    |
 | Sons                    | Linha do tempo da tacada (batida, quiques, rolagem, colisão, cova) com os sons de piso do jogo ou sintetizados.                                                                                                                                                               |
 | Atualização             | Scripts avisam se o `git pull` falhar; o navegador sempre confere se os arquivos mudaram (sem precisar limpar cache).                                                                                                                                                         |
 
 ## Em andamento agora
 
-Última entrega (versão `4191877`, 02/10/2026): HUD do original embaixo (taco na roda do
-mouse, power shot no Alt, spin/curva na bola do mostrador, barra sempre visível com escala e
-pin), força do personagem escolhida antes da partida, cova de verdade (a bola cai dentro),
-luz da cova no lugar da bandeira, vista aérea com zoom (M/0, Delete+0), câmera livre e mira
-A/D. **Esperando o Daniel testar no PC** e responder as perguntas abaixo.
+Última entrega (02/10/2026): **menus novos** (spec 15) — título, escolha de personagem com
+prévia 3D, escolha de curso e de quantos buracos (1/3/9/18, começando em qualquer buraco),
+rodada seguindo esse plano e **resultado final com cartão de placar** e recorde. Atalhos:
+setas escolhem, Enter confirma/próximo buraco, Esc volta.
+
+Antes dela (versão `4191877`): HUD do original embaixo (taco na roda do mouse, power shot no
+Alt, spin/curva na bola do mostrador, barra sempre visível com escala e pin), força do
+personagem escolhida antes da partida, cova de verdade (a bola cai dentro), luz da cova no
+lugar da bandeira, vista aérea com zoom (M/0, Delete+0), câmera livre e mira A/D.
+**Esperando o Daniel testar no PC** e responder as perguntas abaixo.
 
 ### Perguntas em aberto para o Daniel
 
@@ -60,6 +67,9 @@ A/D. **Esperando o Daniel testar no PC** e responder as perguntas abaixo.
 - **Mapeador**: a lista "Copiar lista" com as anotações das animações (quadro do impacto do
   swing de cada taco) e das peças.
 - **Sons**: a parte "== SONS" do diagnóstico (`?diagnostico`).
+- **Nomes dos cursos no menu**: só Blue Lagoon (`blue`) e Pink Wind (`pink`) têm o nome do
+  jogo; os outros aparecem pelo nome da pasta (ex.: "Spring Wind"). Quais estão errados? (a
+  pasta aparece embaixo do nome na tela do curso; tabela em `apps/client/src/menu/courses.ts`).
 
 ### Personagens corretos, com a ajuda do Daniel no mapeador
 
@@ -89,8 +99,9 @@ Regras de nomes de peças já confirmadas pelo Daniel (implementadas em
    Daniel (a física já suporta `shot`; o HUD só manda tacada normal).
 3. **Sons**: mapear os efeitos e as vozes ("Pangya!", birdie…) — falta a parte "== SONS" do
    diagnóstico (`?diagnostico`) para saber os nomes dos arquivos; música do curso; volume.
-4. **Interface e menus** (spec 15): escolha de personagem/curso mais bonita, fluxo de 18
-   buracos, resultado final.
+4. **Interface e menus** (spec 15): feito o menu, o fluxo de buracos e o resultado final.
+   Falta: telas/sprites originais do cliente (achar os arquivos de UI na extração),
+   equipamento (tacos/bolas do `.iff`) mudando a física, configurações (gráficos, volume).
 5. **Problema conhecido**: tela inteira azul depois de várias tacadas no Pink Wind 1 (spec 10)
    — ainda não reproduzido.
 6. **Calibração final do quique e da rolagem** (spec 08), combinada para o fim: gravar
