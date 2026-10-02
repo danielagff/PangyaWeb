@@ -31,13 +31,16 @@ export interface GroundQuery {
 /** Terreno visto pela fase no chão; undefined = fora do mapa. */
 export type GroundAt = (x: number, z: number) => GroundQuery | undefined
 
-export type GroundEvent =
+/** Evento da bola no chão; `step` é o índice do quadro em `frames` (para sons/efeitos). */
+export type GroundEvent = (
   | { type: 'bounce'; surface: string; at: Vec3 }
+  | { type: 'roll'; surface: string; at: Vec3 }
   | { type: 'obstacle'; name: string; at: Vec3 }
   | { type: 'water'; at: Vec3 }
   | { type: 'outOfBounds'; at: Vec3 }
   | { type: 'hole'; at: Vec3 }
   | { type: 'stop'; surface: string; at: Vec3 }
+) & { step?: number }
 
 export interface GroundResult {
   /** Posições a cada passo (x, y, z intercalados), começando no ponto de pouso. */
@@ -106,7 +109,7 @@ export function simulateGround(
 
   const push = () => frames.push(p.x, p.y, p.z)
   const finish = (event: GroundEvent): GroundResult => {
-    events.push(event)
+    events.push({ ...event, step: frames.length / 3 })
     push()
     return {
       frames: Float32Array.from(frames),
@@ -131,7 +134,7 @@ export function simulateGround(
     }
     p = { ...pushOut(hit) }
     v = { ...deflect(v, hit.normal) }
-    events.push({ type: 'obstacle', name: hit.name, at: { ...p } })
+    events.push({ type: 'obstacle', name: hit.name, at: { ...p }, step: frames.length / 3 })
     return true
   }
   // Tacada normal: o primeiro contato é tratado como impacto (quique). Putt: já rola.
@@ -183,8 +186,11 @@ export function simulateGround(
         y: vt.y * tangentScale + out * n[1],
         z: vt.z * tangentScale + out * n[2],
       }
-      events.push({ type: 'bounce', surface: surface.kind, at: { ...p } })
+      events.push({ type: 'bounce', surface: surface.kind, at: { ...p }, step: frames.length / 3 })
       airborne = out > k.minBounceSpeed
+      if (!airborne) {
+        events.push({ type: 'roll', surface: surface.kind, at: { ...p }, step: frames.length / 3 })
+      }
       if (!airborne) {
         // Vira rolagem: mantém só a parte tangencial.
         const vn2 = dot(v, n)

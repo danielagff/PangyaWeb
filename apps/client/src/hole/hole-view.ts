@@ -1,6 +1,8 @@
 import {
   HoleWorld,
+  isPangya,
   loadHoleData,
+  type ShotEvent,
   type HoleRef,
   type HoleState,
   type ShotRequest,
@@ -33,6 +35,7 @@ import {
   Vector3,
   WebGLRenderer,
 } from 'three'
+import { SoundLibrary, type SynthSound } from '../audio/sounds.ts'
 import { createShotPanel, type ShotPanel } from '../shot-panel.ts'
 import { browserFiles } from './assets.ts'
 import { aimDirection, toScene } from './coords.ts'
@@ -113,7 +116,18 @@ export class HoleView {
   private surfaceView = false
   private fogOn = true
   private flight:
-    { playerId: string; frames: Float32Array; start: number; done: () => void } | undefined
+    | {
+        playerId: string
+        frames: Float32Array
+        start: number
+        done: () => void
+        events: ShotEvent[]
+        /** Quantos eventos da linha do tempo já tocaram. */
+        fired: number
+        impact: number | undefined
+      }
+    | undefined
+  readonly sounds: SoundLibrary
 
   /** Chamado quando o jogador da vez bate (espaço ou botão). */
   onShoot: (request: ShotRequest) => void = () => {}
@@ -128,6 +142,7 @@ export class HoleView {
     options: { lockWind: boolean; title: string },
   ) {
     this.world = world
+    this.sounds = new SoundLibrary(world.data.ref.round)
     this.renderer = renderer
     this.camera = camera
     this.scene = scene
@@ -237,6 +252,11 @@ export class HoleView {
       if (key === 'KeyT') this.course.setSurfaceView((this.surfaceView = !this.surfaceView))
       if (key === 'KeyF') this.course.setFog((this.fogOn = !this.fogOn))
       if (key === 'KeyC') this.boxLines.visible = !this.boxLines.visible
+      if (key === 'KeyV') {
+        this.panel.showResult(
+          this.sounds.toggleMute() ? '🔇 som desligado (V)' : '🔊 som ligado (V)',
+        )
+      }
       if (key === 'ArrowLeft' || key === 'ArrowRight') {
         e.preventDefault()
         this.keys.add(key)
@@ -474,8 +494,16 @@ export class HoleView {
     this.onShoot(request)
   }
 
-  /** Anima a trajetória da bola de `playerId`; resolve quando ela para. */
-  animateShot(playerId: string, frames: Float32Array, aim?: number): Promise<void> {
+  /**
+   * Anima a trajetória da bola de `playerId`, tocando os sons da linha do tempo;
+   * `delay` (s) segura a bola parada antes de sair (tempo do swing). Resolve quando ela para.
+   */
+  animateShot(
+    playerId: string,
+    frames: Float32Array,
+    options: { aim?: number; events?: ShotEvent[]; impact?: number; delay?: number } = {},
+  ): Promise<void> {
+    const { aim, events = [], impact, delay = 0 } = options
     this.flight?.done()
     this.phase = 'flying'
     this.shotForward = aimDirection(aim ?? this.aim)
@@ -485,12 +513,51 @@ export class HoleView {
     const player = this.players.find((p) => p.id === playerId)
     if (player) this.ballOf(player, this.players.length > 1)
     return new Promise((resolve) => {
-      this.flight = { playerId, frames, start: performance.now(), done: resolve }
+      this.flight = {
+        playerId,
+        frames,
+        start: performance.now() + delay * 1000,
+        done: resolve,
+        events,
+        fired: 0,
+        impact,
+      }
     })
   }
 
   showResult(text: string) {
     this.panel.showResult(text)
+  }
+
+  /** Som de cada piso, do property.xml (bound_sound / roll_sound). */
+  private surfaceSound(kind: string | undefined, which: 'boundSound' | 'rollSound') {
+    return this.world.data.collision.surfaces.find((s) => s.kind === kind)?.[which] || undefined
+  }
+
+  /** Toca os eventos da linha do tempo até o quadro `index` (pulando: só o final). */
+  private playEvents(index: number, skipped: boolean) {
+    const flight = this.flight!
+    while (flight.fired < flight.events.length && flight.events[flight.fired]!.frame <= index) {
+      const e = flight.events[flight.fired++]!
+      const last = flight.fired === flight.events.length
+      if (skipped && !last && e.type !== 'hit') continue
+      const sound: Partial<Record<ShotEvent['type'], [SynthSound, (string | undefined)?]>> = {
+        hit: [
+          flight.impact === undefined || isPangya(flight.impact)
+            ? 'pangya'
+            : Math.abs(flight.impact) > 1
+              ? 'miss'
+              : 'hit',
+        ],
+        bounce: ['bounce', this.surfaceSound(e.surface, 'boundSound')],
+        roll: ['roll', this.surfaceSound(e.surface, 'rollSound')],
+        obstacle: ['wood'],
+        water: ['water'],
+        hole: ['cup'],
+      }
+      const play = sound[e.type]
+      if (play) void this.sounds.play(play[0], play[1])
+    }
   }
 
   updateHud() {
@@ -573,7 +640,10 @@ export class HoleView {
     if (this.flight) {
       const { frames, playerId } = this.flight
       const count = frames.length / 3
-      const index = Math.min(Math.floor((now - this.flight.start) / 1000 / STEP_TIME), count - 1)
+      const skipped = this.flight.start === -Infinity
+      const elapsed = (now - this.flight.start) / 1000
+      const index = Math.max(0, Math.min(Math.floor(elapsed / STEP_TIME), count - 1))
+      if (elapsed >= 0) this.playEvents(index, skipped)
       this.placeBall(playerId, this.frameAt(frames, index))
       const shown = Math.min(index + 1, MAX_TRAIL)
       for (let i = 0; i < shown; i++) {

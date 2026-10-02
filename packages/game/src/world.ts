@@ -60,6 +60,14 @@ export const isPangya = (impact: number | undefined) =>
   impact === undefined || Math.abs(impact) <= IMPACT_TUNING.pangyaZone
 
 /** Resultado completo de uma tacada, pronto para animar e aplicar às regras. */
+/** Algo que acontece durante a tacada, no quadro `frame` da trajetória (sons e efeitos). */
+export interface ShotEvent {
+  frame: number
+  type: 'hit' | 'bounce' | 'roll' | 'obstacle' | 'water' | 'outOfBounds' | 'hole' | 'stop'
+  /** Piso (tipo do property.xml) onde aconteceu, quando houver. */
+  surface?: string
+}
+
 export interface PlayedShot {
   /** Posições a cada 0,02 s (x, y, z intercalados). */
   frames: Float32Array
@@ -68,6 +76,8 @@ export interface PlayedShot {
   outcome: ShotOutcome
   /** Quantas vezes bateu em objetos. */
   hits: number
+  /** Linha do tempo: batida, quiques, colisões, rolagem e como terminou. */
+  events: ShotEvent[]
   /** Força do piso aplicada (%). */
   groundPower: number
   /** Erro de impacto da barra (ver ShotRequest.impact). */
@@ -209,7 +219,7 @@ export class HoleWorld {
         this.groundAt,
         this.obstacles,
       )
-      return { frames: ground.frames, carry: 0, ground, hitObject: false }
+      return { frames: ground.frames, carry: 0, ground, hitObject: false, flightFrames: 0 }
     }
     const flight = new FlightSimulator(input, origin).flyOverGround(
       (x, z) => this.grid.groundAt(x, z)?.y,
@@ -218,7 +228,13 @@ export class HoleWorld {
     )
     const hitObject = flight.obstacle !== undefined
     if (!withGround || !flight.landed) {
-      return { frames: flight.frames, carry: flight.carry, ground: undefined, hitObject }
+      return {
+        frames: flight.frames,
+        carry: flight.carry,
+        ground: undefined,
+        hitObject,
+        flightFrames: flight.frames.length / 3,
+      }
     }
     const ground: GroundResult = simulateGround(
       { position: flight.landing, velocity: flight.velocity, spin: flight.spin, cup: this.cup },
@@ -228,7 +244,13 @@ export class HoleWorld {
     const frames = new Float32Array(flight.frames.length + ground.frames.length)
     frames.set(flight.frames)
     frames.set(ground.frames, flight.frames.length)
-    return { frames, carry: flight.carry, ground, hitObject }
+    return {
+      frames,
+      carry: flight.carry,
+      ground,
+      hitObject,
+      flightFrames: flight.frames.length / 3,
+    }
   }
 
   /** Ponto onde a tacada cai (sem vento, piso 100%), como o anel de mira do jogo. */
@@ -286,6 +308,16 @@ export class HoleWorld {
     } else if (how === 'outOfBounds') outcome = { type: 'outOfBounds', at: end }
     else outcome = { type: 'stop', at: end, surface: result.ground?.surface ?? 'default' }
 
+    const events: ShotEvent[] = [{ frame: 0, type: 'hit' }]
+    if (result.hitObject) events.push({ frame: result.flightFrames - 1, type: 'obstacle' })
+    for (const e of result.ground?.events ?? []) {
+      events.push({
+        frame: result.flightFrames + (e.step ?? 0),
+        type: e.type,
+        ...('surface' in e && { surface: e.surface }),
+      })
+    }
+    if (!result.ground) events.push({ frame: n / 3 - 1, type: 'outOfBounds' })
     const hits =
       (result.hitObject ? 1 : 0) +
       (result.ground?.events.filter((e) => e.type === 'obstacle').length ?? 0)
@@ -294,6 +326,7 @@ export class HoleWorld {
       carry: result.carry,
       outcome,
       hits,
+      events,
       groundPower: input.ground ?? 100,
       ...(request.impact !== undefined && { impact: request.impact }),
     }

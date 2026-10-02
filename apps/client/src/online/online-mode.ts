@@ -268,7 +268,10 @@ export function startOnlineMode() {
         animating = animating.then(async () => {
           if (loading) await loading
           if (!view) return
-          await view.animateShot(message.playerId, frames)
+          await view.animateShot(message.playerId, frames, {
+            events: message.events,
+            ...(message.impact !== undefined && { impact: message.impact }),
+          })
           view.showResult(`${name}: ${message.message}`)
           say(`<strong>${escapeHtml(name)}</strong>: ${escapeHtml(message.message)}`)
         })

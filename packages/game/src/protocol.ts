@@ -5,10 +5,10 @@
 
 import type { Course, MatchState } from './match.ts'
 import type { ShotOutcome } from './hole.ts'
-import type { ShotRequest } from './world.ts'
+import type { ShotEvent, ShotRequest } from './world.ts'
 
 export type ClientMessage =
-  | { t: 'hello'; name: string }
+  | { t: 'hello'; name: string; character?: string }
   | { t: 'start'; course: Course }
   | { t: 'shot'; request: ShotRequest }
   | { t: 'chat'; text: string }
@@ -23,6 +23,9 @@ export type ServerMessage =
       frames: string
       carry: number
       hits: number
+      events: ShotEvent[]
+      /** Erro de impacto da barra (para o som/efeito de "Pangya!"). */
+      impact?: number
       outcome: ShotOutcome
       message: string
     }

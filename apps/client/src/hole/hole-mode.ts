@@ -50,7 +50,11 @@ export async function startHoleMode(ref: HoleRef) {
     const panelWind = view.panel.read().wind ?? wind
     const played = world.play(state, request, panelWind)
     const from = state.ball
-    await view.animateShot(me.id, played.frames, request.aim)
+    await view.animateShot(me.id, played.frames, {
+      aim: request.aim,
+      events: played.events,
+      ...(played.impact !== undefined && { impact: played.impact }),
+    })
     state = applyShot(state, played.outcome)
     view.showResult(describeShot(from, played))
     view.setPlayers([{ ...me, state }], state.finished ? undefined : me.id, true)

@@ -148,6 +148,8 @@ export class Room {
       frames: encodeFrames(played.frames),
       carry: played.carry,
       hits: played.hits,
+      events: played.events,
+      ...(played.impact !== undefined && { impact: played.impact }),
       outcome: played.outcome,
       message: describeShot(player.state!.ball, played),
     })

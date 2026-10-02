@@ -15,6 +15,11 @@ function loadIndex() {
   return index
 }
 
+/** Todos os nomes de arquivo conhecidos (minúsculos), para procurar por padrão. */
+export async function assetNames(): Promise<string[]> {
+  return Object.keys(await loadIndex())
+}
+
 /** Caminho (relativo a ASSET_BASE) de um arquivo pelo nome, preferindo a pasta do curso. */
 export async function findAsset(name: string, round: string): Promise<string | undefined> {
   return pickIndexed(await loadIndex(), name, round)

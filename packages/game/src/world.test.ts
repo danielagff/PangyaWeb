@@ -85,6 +85,20 @@ describe('HoleWorld', () => {
     expect(describeShot(state.ball, shot)).toMatch(/^voo \d+\.\dy \+ rolagem/)
   })
 
+  it('a linha do tempo vai da batida ao fim, em quadros crescentes', () => {
+    const state = startHole(4, world.tee)
+    const shot = world.play(state, { club: '1W', percent: 1, aim: 0 }, calm)
+    const types = shot.events.map((e) => e.type)
+    expect(types[0]).toBe('hit')
+    expect(types).toContain('bounce')
+    expect(types).toContain('roll')
+    expect(types.at(-1)).toBe('stop')
+    const frames = shot.events.map((e) => e.frame)
+    expect(frames).toEqual([...frames].sort((a, b) => a - b))
+    expect(frames.at(-1)).toBeLessThan(shot.frames.length / 3)
+    expect(shot.events.find((e) => e.type === 'bounce')?.surface).toBe('fairway')
+  })
+
   it('putt na direção do pin entra na cova', () => {
     const state = { ...startHole(4, world.tee), ball: { x: 0, y: 0, z: 1390 }, lie: 'green' }
     const request = { club: 'PT1' as const, percent: 4 / 30, aim: world.aimAtPin(state.ball) }
