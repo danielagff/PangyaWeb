@@ -430,3 +430,13 @@
   font-weight: normal;
   opacity: 0.6;
 }
+.viewer-side .note.saved {
+  outline: 2px solid #4caf50;
+  background: #eaf7ea;
+}
+.viewer-side .note.failed {
+  outline: 2px solid #e53935;
+}
+.viewer-side .saved-count {
+  color: #9be59b;
+}

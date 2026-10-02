@@ -67,12 +67,26 @@ function readNote(key: string) {
     return ''
   }
 }
-function writeNote(key: string, value: string) {
+/** Grava a nota e confere lendo de volta; false se o navegador não deixou salvar. */
+function writeNote(key: string, value: string): boolean {
   try {
     if (value) localStorage.setItem(`pangyaweb.nota.${key}`, value)
     else localStorage.removeItem(`pangyaweb.nota.${key}`)
+    return readNote(key) === value
   } catch {
-    // sem armazenamento: a nota só vale nesta página
+    return false // sem armazenamento (janela anônima): a nota só vale nesta página
+  }
+}
+
+/** Quantas notas salvas começam com `prefix`. */
+function countNotes(prefix: string) {
+  try {
+    let n = 0
+    for (let i = 0; i < localStorage.length; i++)
+      if (localStorage.key(i)?.startsWith(`pangyaweb.nota.${prefix}`)) n++
+    return n
+  } catch {
+    return 0
   }
 }
 
@@ -149,6 +163,7 @@ export async function startCharacterViewer() {
     <label><input type="checkbox" name="loop" checked /> repetir animação</label>
     <label>Velocidade <input type="range" name="speed" min="0" max="2" step="0.05" value="1" /> <output>1×</output></label>
     <p class="status"></p>
+    <p class="saved-count"></p>
     <p><button class="copy">Copiar lista (com anotações)</button> <a href="/">Menu</a></p>
     <h2>Animações</h2>
     <ol class="motions"></ol>`
@@ -176,6 +191,32 @@ export async function startCharacterViewer() {
   const loopInput = $<HTMLInputElement>(left, 'input[name=loop]')
   const speedInput = $<HTMLInputElement>(left, 'input[name=speed]')
   const status = (text: string) => ($(left, '.status').textContent = text)
+
+  /** Salva a cada letra digitada e mostra ✓ salvo (borda verde) no campo. */
+  function bindNote(input: HTMLInputElement, key: string) {
+    const mark = (state: '' | 'saved' | 'failed') => {
+      input.classList.toggle('saved', state === 'saved')
+      input.classList.toggle('failed', state === 'failed')
+      input.title =
+        state === 'saved'
+          ? 'Salvo neste navegador'
+          : state === 'failed'
+            ? 'NÃO salvou (janela anônima?)'
+            : ''
+    }
+    mark(input.value ? 'saved' : '')
+    input.addEventListener('input', () => {
+      const value = input.value.trim()
+      const ok = writeNote(key, value)
+      mark(!ok ? 'failed' : value ? 'saved' : '')
+      updateCount()
+    })
+  }
+  function updateCount() {
+    const n = countNotes(`${entry.id}|`)
+    $(left, '.saved-count').textContent =
+      `📝 ${n} anotaç${n === 1 ? 'ão salva' : 'ões salvas'} deste personagem (ficam neste navegador, mesmo fechando)`
+  }
 
   if (catalog.length === 0) {
     status('Nenhum personagem no catálogo (rode a extração dos assets).')
@@ -303,7 +344,7 @@ export async function startCharacterViewer() {
         list.querySelectorAll('li').forEach((x) => x.classList.toggle('active', x === li))
       })
       const note = $<HTMLInputElement>(li, '.note')
-      note.addEventListener('change', () => writeNote(noteKey('anim', m.name), note.value.trim()))
+      bindNote(note, noteKey('anim', m.name))
     })
   }
 
@@ -335,11 +376,8 @@ export async function startCharacterViewer() {
     )
     box
       .querySelectorAll<HTMLInputElement>('input.note')
-      .forEach((note) =>
-        note.addEventListener('change', () =>
-          writeNote(noteKey('peca', note.dataset.path!), note.value.trim()),
-        ),
-      )
+      .forEach((note) => bindNote(note, noteKey('peca', note.dataset.path!)))
+    updateCount()
     box.querySelectorAll<HTMLDetailsElement>('details').forEach((details) =>
       details.addEventListener('toggle', () => {
         const target = $<HTMLDivElement>(details, 'div')
