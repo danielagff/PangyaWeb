@@ -1,4 +1,5 @@
 import { characterSelect } from './character/character.ts'
+import { startCharacterViewer } from './character/viewer.ts'
 import { showDiagnostics } from './diagnostics.ts'
 import { startHoleMode } from './hole/hole-mode.ts'
 import { startOnlineMode } from './online/online-mode.ts'
@@ -6,7 +7,7 @@ import { startRangeMode } from './range-mode.ts'
 import './style.css'
 
 // Rotas: ?curso=…&prefixo=…&buraco=N (sozinho), ?online (sala multiplayer),
-// ?treino (campo de treino); sem parâmetros, o menu.
+// ?treino (campo de treino), ?personagens (visualizador); sem parâmetros, o menu.
 const params = new URLSearchParams(location.search)
 const round = params.get('curso')
 
@@ -20,6 +21,8 @@ if (round) {
   startOnlineMode()
 } else if (params.has('treino')) {
   startRangeMode()
+} else if (params.has('personagens')) {
+  void startCharacterViewer()
 } else if (params.has('diagnostico')) {
   void showDiagnostics()
 } else {
@@ -43,6 +46,7 @@ function showMenu() {
     <h2>Sozinho</h2>
     <div class="courses"><p>Procurando cursos…</p></div>
     <p><a class="button secondary" href="?treino">Campo de treino</a>
+      <a class="button secondary" href="?personagens">Personagens e animações</a>
       <a class="button secondary" href="?diagnostico">Diagnóstico</a></p>
   `
   document.body.appendChild(menu)

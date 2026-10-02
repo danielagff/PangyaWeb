@@ -214,9 +214,12 @@ async function readFile(path: string, kind: 'bpet' | 'apet' | 'mpet') {
 
 /** Ajustes do personagem em cena (estimativas, a conferir com o jogo). */
 export const CHARACTER_TUNING = {
-  /** Rotação extra (graus) se o modelo não olhar para +Z no espaço do Pangya. */
-  facingDegrees: 180,
-  /** Distância (unidades) do personagem até a bola, para o lado. */
+  /**
+   * Rotação extra (graus) quando não dá para medir a postura pelo taco (sem taco carregado).
+   * Com taco, o personagem é virado e posicionado para a cabeça do taco ficar na bola.
+   */
+  facingDegrees: 270,
+  /** Distância (unidades) do personagem até a bola, para o lado (sem taco). */
   ballDistance: 3.2,
   /** Momento do swing em que o taco acerta a bola (fração da duração). */
   impactAt: 0.55,
@@ -227,6 +230,46 @@ export const CHARACTER_TUNING = {
  * ficam nele em todos os personagens do cliente JP). Senão, a mão.
  */
 const CLUB_BONES = [/^bone01$/i, /club/i, /l\s*hand$/i, /r\s*hand$/i]
+
+/**
+ * Coloca o personagem de destro ao lado da bola: com taco medido (`addressHead`), gira o
+ * corpo para o taco apontar para a bola (à direita, `right`) e recua até a cabeça do taco
+ * encostar nela; sem taco, usa `CHARACTER_TUNING`. `groundY` dá a altura do chão.
+ */
+export function placeAtBall(
+  model: CharacterModel,
+  ball: Vector3,
+  right: Vector3,
+  groundY: (at: Vector3) => number,
+) {
+  const head = model.addressHead
+  let at: Vector3
+  if (head && Math.hypot(head.x, head.z) > 0.2) {
+    const angle = Math.atan2(right.x, right.z) - Math.atan2(head.x, head.z)
+    model.root.rotation.y = angle
+    const offset = new Vector3(head.x, 0, head.z).applyAxisAngle(new Vector3(0, 1, 0), angle)
+    at = ball.clone().sub(offset)
+  } else {
+    at = ball.clone().addScaledVector(right, -CHARACTER_TUNING.ballDistance)
+    model.root.rotation.y =
+      Math.atan2(-right.x, -right.z) + (CHARACTER_TUNING.facingDegrees * Math.PI) / 180
+  }
+  at.y = groundY(at)
+  model.root.position.copy(at)
+}
+
+/** Texturas e rostos (FANM) de uma peça, para o visualizador. */
+export async function readPartInfo(path: string) {
+  const bytes = await tryFetchBytes(path)
+  if (!bytes) return undefined
+  const pet = readPet(bytes, 'mpet')
+  return {
+    bones: pet.bones.length,
+    triangles: pet.triangles.length,
+    textures: pet.textures.map((t, i) => ({ name: t.name, files: partTextureNames(pet, i) })),
+    faces: pet.faceAnimations,
+  }
+}
 
 export class CharacterModel {
   /** Nó na cena (posição/rotação); dentro dele o modelo fica no espaço do Pangya. */
@@ -241,6 +284,11 @@ export class CharacterModel {
 
   /** Movimentos do .apet (nome e quadros), para escolher pelo nome real. */
   motions: MotionInfo[] = []
+
+  /** Cabeça do taco na postura de preparação (espaço de `root`), medida por `address`. */
+  addressHead: Vector3 | undefined
+  /** Para qual taco/movimento `addressHead` foi medida. */
+  addressKey = ''
 
   private constructor(
     readonly entry: CharacterEntry,
@@ -265,6 +313,11 @@ export class CharacterModel {
     return undefined
   }
 
+  /** Texturas que não foram achadas na extração. */
+  get missingTextures() {
+    return [...this.rig.textures.missing]
+  }
+
   /** Movimento tocando agora. */
   get playing() {
     return this.current?.getClip().name
@@ -279,7 +332,9 @@ export class CharacterModel {
     action.time = from
     action.setLoop(loop ? LoopRepeat : LoopOnce, Infinity)
     action.clampWhenFinished = !loop
-    if (this.current && this.current !== action) action.crossFadeFrom(this.current, fade, false)
+    if (fade <= 0) this.mixer.stopAllAction()
+    else if (this.current && this.current !== action)
+      action.crossFadeFrom(this.current, fade, false)
     action.play()
     this.current = action
     return clip.duration
@@ -287,6 +342,42 @@ export class CharacterModel {
 
   update(dt: number) {
     this.mixer.update(dt)
+  }
+
+  /** Ponto mais baixo do taco na pose atual (a cabeça), no espaço de `root`. */
+  clubHead(): Vector3 | undefined {
+    const object = this.club?.object
+    if (!object) return undefined
+    this.root.updateMatrixWorld(true)
+    const toRoot = this.root.matrixWorld.clone().invert()
+    const v = new Vector3()
+    let best: Vector3 | undefined
+    object.traverse((o) => {
+      if (!(o instanceof Mesh)) return
+      const position = o.geometry.getAttribute('position')
+      if (!position) return
+      const m = toRoot.clone().multiply(o.matrixWorld)
+      for (let i = 0; i < position.count; i++) {
+        o.getVertexPosition(i, v).applyMatrix4(m)
+        if (!best || v.y < best.y) best = v.clone()
+      }
+    })
+    return best
+  }
+
+  /**
+   * Põe o personagem na postura `idle` (sem transição) e mede onde fica a cabeça do taco;
+   * é por ela que a cena vira e posiciona o personagem ao lado da bola.
+   */
+  address(idle: string | undefined) {
+    const key = `${this.club?.path ?? ''}|${idle ?? ''}`
+    if (idle) {
+      this.play(idle, true, 0)
+      this.update(0)
+    }
+    if (key === this.addressKey) return
+    this.addressKey = key
+    this.addressHead = this.clubHead()
   }
 
   /**
@@ -396,6 +487,29 @@ export class CharacterModel {
   }
 }
 
+/**
+ * Textura de um material da peça. Rostos usam o bloco FANM: o material (ex.: "face") aponta
+ * para a imagem da expressão (ex.: um .png), que é o arquivo de verdade. Se não achar,
+ * tenta o próprio nome do material.
+ */
+export function partTextureNames(pet: Pet, textureIndex: number): string[] {
+  const name = pet.textures[textureIndex]?.name
+  if (!name) return []
+  const lower = name.toLowerCase()
+  const faces = pet.faceAnimations
+    .filter((f) => f.material.toLowerCase() === lower && f.name)
+    .map((f) => f.name)
+  return [...faces, name]
+}
+
+async function partTexture(pet: Pet, textureIndex: number, textures: TextureLibrary) {
+  for (const name of partTextureNames(pet, textureIndex)) {
+    const texture = await textures.get(name)
+    if (texture) return texture
+  }
+  return undefined
+}
+
 /** Uma peça (.mpet) como SkinnedMesh presa aos ossos do personagem. */
 async function buildPart(
   pet: Pet,
@@ -451,7 +565,7 @@ async function buildPart(
     g.setAttribute('skinIndex', new Uint16BufferAttribute(skinIndex, 4))
     g.setAttribute('skinWeight', new Float32BufferAttribute(skinWeight, 4))
     geometries.push(g)
-    const texture = await textures.get(pet.textures[textureIndex]?.name)
+    const texture = await partTexture(pet, textureIndex, textures)
     materials.push(
       new MeshLambertMaterial({
         ...(texture ? { map: texture } : { color: 0xd8c0a8 }),

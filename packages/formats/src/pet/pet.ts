@@ -76,9 +76,21 @@ export interface PetCollision {
   max: [number, number, number]
 }
 
+/**
+ * Bloco FANM ("face animations"): variantes de textura de um material. O arquivo de imagem
+ * de um material com FANM é `name` (ex.: a expressão do rosto em .png), não o nome do
+ * material (pet-source_tools, texture_util.import_material_v280).
+ */
+export interface PetFaceAnimation {
+  group: number
+  name: string
+  material: string
+}
+
 export interface Pet {
   version: { major: number; minor: number }
   textures: PetTexture[]
+  faceAnimations: PetFaceAnimation[]
   bones: PetBone[]
   vertices: PetVertex[]
   /** Triângulos: 3 cantos cada, na ordem original (o jogo depende dela). */
@@ -117,6 +129,7 @@ export function readPet(bytes: Uint8Array, kind: PetKind = 'pet'): Pet {
   const pet: Pet = {
     version: { major: 1, minor: 0 },
     textures: [],
+    faceAnimations: [],
     bones: [],
     vertices: [],
     triangles: [],
@@ -156,7 +169,17 @@ export function readPet(bytes: Uint8Array, kind: PetKind = 'pet'): Pet {
       case 'COLL':
         readCollisions(b, pet)
         break
-      // SMTL, FANM, FRAM, EXTR: ainda não usados
+      case 'FANM': {
+        const count = b.u32()
+        for (let i = 0; i < count && b.remaining >= 65; i++) {
+          const group = b.u8()
+          const name = b.fixedString(32, 'euc-kr')
+          const material = b.fixedString(32, 'euc-kr')
+          pet.faceAnimations.push({ group, name, material })
+        }
+        break
+      }
+      // SMTL, FRAM, EXTR: ainda não usados
     }
   }
 

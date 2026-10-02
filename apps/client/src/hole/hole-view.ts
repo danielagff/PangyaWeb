@@ -40,7 +40,7 @@ import { SoundLibrary, type SynthSound } from '../audio/sounds.ts'
 import { categoryOfClub, clubModelFor } from '../character/clubs.ts'
 import { golfMotions, reactionMotion, type Reaction } from '../character/motions.ts'
 import {
-  CHARACTER_TUNING,
+  placeAtBall,
   CharacterModel,
   loadCatalog,
   type CharacterEntry,
@@ -146,6 +146,8 @@ export class HoleView {
   readonly sounds: SoundLibrary
   private readonly characters = new Map<string, Promise<CharacterModel | undefined>>()
   private readonly ready = new Map<string, CharacterModel>()
+  /** Taco sendo preparado por personagem (evita repetir a cada mudança do painel). */
+  private readonly addressing = new Map<CharacterModel, string>()
   /** Movimento escolhido com a tecla N (depuração). */
   private motionIndex = -1
   /** O backswing já começou com a barra (a tacada continua do topo). */
@@ -277,10 +279,7 @@ export class HoleView {
     this.panel.onChange(() => {
       this.targetDirty = true
       const model = this.active && this.ready.get(this.active.id)
-      if (model?.root.visible && this.phase === 'aim' && !this.bar.active) {
-        this.equipClub(model)
-        this.idle(model)
-      }
+      if (model?.root.visible && this.phase === 'aim' && !this.bar.active) void this.address(model)
     })
 
     this.listen(window, 'keydown', (e) => {
@@ -522,9 +521,20 @@ export class HoleView {
       if (!model || this.active?.id !== player.id) return
       model.root.visible = true
       this.placeCharacter(model)
-      this.equipClub(model)
-      this.idle(model)
+      void this.address(model)
     })
+  }
+
+  /** Taco na mão e postura de preparação, com a cabeça do taco encostada na bola. */
+  private async address(model: CharacterModel, club: string = this.panel.read().club) {
+    const category = categoryOfClub(club)
+    if (this.addressing.get(model) === category) return
+    this.addressing.set(model, category)
+    await this.equipClub(model, club)
+    if (this.addressing.get(model) !== category) return // trocou de taco enquanto carregava
+    model.address(this.golf(model, club).idle)
+    this.addressing.delete(model)
+    if (model.root.visible && this.phase === 'aim' && !this.bar.active) this.placeCharacter(model)
   }
 
   /** Movimentos de golfe do personagem para o taco (o do painel, se não informado). */
@@ -550,16 +560,17 @@ export class HoleView {
     const forward = aimDirection(this.aim)
     // Destro: de frente para a bola, com o alvo à esquerda.
     const right = new Vector3(-forward.z, 0, forward.x)
-    const at = ball.clone().addScaledVector(right, -CHARACTER_TUNING.ballDistance)
-    at.y = (this.world.grid.groundAt(at.x, -at.z)?.y ?? ball.y - BALL_RADIUS) + 0
-    model.root.position.copy(at)
-    model.root.rotation.y =
-      Math.atan2(-right.x, -right.z) + (CHARACTER_TUNING.facingDegrees * Math.PI) / 180
+    placeAtBall(
+      model,
+      ball,
+      right,
+      (at) => this.world.grid.groundAt(at.x, -at.z)?.y ?? ball.y - BALL_RADIUS,
+    )
   }
 
   /** Põe na mão o taco escolhido no painel (modelo da tabela de tacos do jogo). */
   private equipClub(model: CharacterModel, club: string = this.panel.read().club) {
-    void clubModelFor(categoryOfClub(club)).then((path) => model.setClub(path))
+    return clubModelFor(categoryOfClub(club)).then((path) => model.setClub(path))
   }
 
   /** Tecla N: percorre os movimentos do personagem da vez (para mapear os nomes). */
@@ -584,7 +595,7 @@ export class HoleView {
     this.backswing = false
     const model = this.ready.get(playerId)
     if (!model || !model.root.visible) return 0
-    if (club) this.equipClub(model, club)
+    if (club) void this.equipClub(model, club)
     const motions = this.golf(model, club)
     if (!motions.swing) return 0
     const from = fromTop ? motions.top : 0

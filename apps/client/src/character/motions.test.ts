@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { golfMotions, reactionForScore, reactionMotion } from './motions.ts'
+import { golfMotions, motionMeaning, reactionForScore, reactionMotion } from './motions.ts'
 
 // Trecho real do a_def.apet (Azer, cliente JP).
 const azer = [
@@ -62,5 +62,14 @@ describe('movimentos de golfe', () => {
     expect(reactionMotion(azer, 'birdie')).toBe('버디승리포즈')
     expect(reactionMotion(azer, 'trouble')).toBe('타임오버벙커OB실망포즈')
     expect(reactionMotion(azer, 'eagle')).toBe('버디승리포즈')
+  })
+})
+
+describe('motionMeaning', () => {
+  it('traduz taco + ação e poses conhecidas', () => {
+    expect(motionMeaning('우드샷파워준비')).toBe('madeira: backswing (sobe até o topo)')
+    expect(motionMeaning('퍼팅샷')).toBe('putter: tacada')
+    expect(motionMeaning('버디승리포즈')).toBe('comemoração de birdie')
+    expect(motionMeaning('알수없음')).toBe('')
   })
 })

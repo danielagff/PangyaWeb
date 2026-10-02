@@ -9,6 +9,7 @@ function terrain(): Pet {
   return {
     version: { major: 1, minor: 3 },
     textures: ['a.dds', 'b.dds'].map((name) => ({ name, flag: 0, group: 0, diffuse: 0 })),
+    faceAnimations: [],
     bones: [
       { name: 'root', parent: -1, matrix: [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0] },
       { name: 'other', parent: 0, matrix: [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0] },
