@@ -14,6 +14,22 @@ pnpm install
 pnpm dev            # cliente em http://localhost:5173
 ```
 
+## Jogar com amigos (o seu PC é o servidor)
+
+No Windows, clique duas vezes em **`servidor.cmd`**. Ele atualiza tudo, compila o jogo, liga
+o servidor e abre a sala no navegador. Os amigos só precisam do navegador:
+
+- **Mesma rede (Wi-Fi/cabo):** abrem `http://<seu IP>:7777/?online` (o endereço aparece na
+  janela). Na primeira vez o Windows pergunta se libera o Node na rede: aceite.
+- **Pela internet:** instale o cloudflared uma vez (`winget install Cloudflare.cloudflared`);
+  o script cria um link público temporário e já copia para você colar no grupo.
+
+Na sala, o primeiro a entrar (👑) escolhe o curso e quantos buracos e começa. O servidor
+simula todas as tacadas (ninguém trapaceia) e manda o resultado para todos; joga quem está
+mais longe do pin. Em qualquer sistema: `pnpm servidor`.
+
+Para jogar sozinho: **`jogar.cmd`** (ou `pnpm dev` e abrir `http://localhost:5173`).
+
 ## Comandos
 
 | Comando                     | O que faz                                                      |

@@ -2,8 +2,12 @@
   "name": "@pangya/game",
   "private": true,
   "type": "module",
-  "description": "Regras e estado da partida",
+  "description": "Regras, partida e simulação do buraco (cliente e servidor)",
   "exports": {
     ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@pangya/formats": "workspace:*",
+    "@pangya/physics": "workspace:*"
   }
 }

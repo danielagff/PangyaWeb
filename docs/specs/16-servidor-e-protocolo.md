@@ -1,6 +1,6 @@
 # 16 — Servidor e protocolo
 
-- **Status:** rascunho
+- **Status:** em andamento (opção 1)
 - **Fase:** 4 Online
 - **Depende de:** 14
 - **Estimativa:** G
@@ -54,6 +54,17 @@ type ServerMsg =
   | { t: 'shot.result'; playerId: string; result: ShotResult }
   | { t: 'error'; code: string }
 ```
+
+## Progresso
+
+- Decisão: opção 1 (servidor próprio). Uma sala por servidor — o PC do anfitrião, com os
+  amigos pelo navegador (rede local ou link do cloudflared).
+- `apps/server`: HTTP entrega o cliente compilado (`apps/client/dist`), os assets
+  (`/game-assets`) e a lista de cursos (`/api/courses`); WebSocket em `/ws`.
+- Protocolo em `packages/game/src/protocol.ts` (JSON): `hello`, `start`, `shot`, `chat` →
+  `welcome`, `match` (estado inteiro), `shot` (trajetória em base64 + resultado), `chat`,
+  `error`. Pedidos de tacada validados (`sanitizeRequest`).
+- Ainda não: contas/senha, persistência (SQLite), várias salas.
 
 ## Critérios de aceite
 

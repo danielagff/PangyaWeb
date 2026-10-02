@@ -1,19 +1,22 @@
+import { PUTT_RANGE } from '@pangya/game'
 import {
   CLUB_IDS,
+  DEFAULT_PLAYER,
   type ClubId,
   type PowerShot,
   type ShotInput,
   type SpecialShot,
 } from '@pangya/physics'
 
+export { PUTT_RANGE }
+
 export interface ShotPanelOptions {
   title?: string
   /** Inclui o putter (PT1) na lista de tacos. */
   putter?: boolean
+  /** Vento definido pelo jogo (só exibido, sem controle). */
+  lockWind?: boolean
 }
-
-/** Alcance do putter (PT1) a 100% da barra, em jardas. */
-export const PUTT_RANGE = 30
 
 /** Painel HTML com os parâmetros da tacada. */
 export function createShotPanel(
@@ -51,6 +54,10 @@ export function createShotPanel(
 
   const field = (name: string) => panel.elements.namedItem(name) as HTMLInputElement
   const out = (name: string) => panel.elements.namedItem(name) as HTMLOutputElement
+  if (options.lockWind) {
+    field('wind').disabled = true
+    field('windDeg').disabled = true
+  }
   const listeners: (() => void)[] = []
   const sync = () => {
     const percent = Number(field('percent').value)
@@ -63,18 +70,18 @@ export function createShotPanel(
     out('windOut').value = `${field('wind').value} m`
     out('windDegOut').value = `${field('windDeg').value}°`
   }
-  panel.addEventListener('input', sync)
-  panel.addEventListener('change', sync)
-  panel.addEventListener('input', () => listeners.forEach((l) => l()))
-  panel.addEventListener('change', () => listeners.forEach((l) => l()))
+  const changed = () => {
+    sync()
+    listeners.forEach((l) => l())
+  }
+  panel.addEventListener('input', changed)
+  panel.addEventListener('change', changed)
   sync()
 
+  let enabled = true
   const read = (): ShotInput => ({
     club: field('club').value as ClubId,
-    player: {
-      power: 15,
-      bonus: { auxpart: 0, mascot: 0, card: 0, psAuxpart: 0, psMascot: 0, psCard: 0 },
-    },
+    player: DEFAULT_PLAYER,
     percent: Number(field('percent').value) / 100,
     shot: field('shot').value as SpecialShot,
     powerShot: field('powerShot').value as PowerShot,
@@ -83,22 +90,26 @@ export function createShotPanel(
     wind: { speed: Number(field('wind').value), degree: Number(field('windDeg').value) },
   })
 
+  const shoot = () => onShoot(read())
   panel.addEventListener('submit', (e) => {
     e.preventDefault()
-    onShoot(read())
+    if (enabled) shoot()
   })
-  window.addEventListener('keydown', (e) => {
-    if (e.code === 'Space' && !(e.target instanceof HTMLSelectElement) && !e.repeat) {
+  // Espaço também serve para pular a animação, então chega mesmo com o painel desativado.
+  const onKey = (e: KeyboardEvent) => {
+    const typing = e.target instanceof HTMLInputElement && e.target.type === 'text'
+    if (e.code === 'Space' && !typing && !(e.target instanceof HTMLSelectElement) && !e.repeat) {
       e.preventDefault()
-      onShoot(read())
+      shoot()
     }
-  })
+  }
+  window.addEventListener('keydown', onKey)
 
   const result = panel.querySelector('.result') as HTMLParagraphElement
+  const button = panel.querySelector('button') as HTMLButtonElement
   const set = (name: string, value: string | number) => {
     field(name).value = String(value)
-    sync()
-    listeners.forEach((l) => l())
+    changed()
   }
   return {
     showResult(text: string) {
@@ -106,12 +117,25 @@ export function createShotPanel(
     },
     read,
     setClub: (club: ClubId) => set('club', club),
-    setPercent: (percent: number) => set('percent', Math.round(percent * 100)),
+    setPercent: (percent: number) => set('percent', Math.max(1, Math.round(percent * 100))),
     setWind(speed: number, degree: number) {
       field('wind').value = String(speed)
       set('windDeg', degree)
     },
+    /** Liga/desliga os controles (vez de outro jogador). */
+    setEnabled(on: boolean, label = 'Bater (espaço)') {
+      enabled = on
+      button.disabled = !on
+      button.textContent = label
+      panel.classList.toggle('waiting', !on)
+    },
     /** Avisa quando qualquer parâmetro muda (pelo usuário ou pelos métodos acima). */
     onChange: (listener: () => void) => listeners.push(listener),
+    dispose() {
+      window.removeEventListener('keydown', onKey)
+      panel.remove()
+    },
   }
 }
+
+export type ShotPanel = ReturnType<typeof createShotPanel>

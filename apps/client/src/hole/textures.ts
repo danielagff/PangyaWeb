@@ -8,7 +8,7 @@ import {
   SRGBColorSpace,
   type Texture,
 } from 'three'
-import { ASSET_BASE, findAsset, tryFetchBytes } from './assets.ts'
+import { findAsset, tryFetchBytes } from './assets.ts'
 
 interface Rgba {
   width: number
@@ -82,7 +82,7 @@ export class TextureLibrary {
     for (const candidate of textureCandidates(name)) {
       const path = await findAsset(candidate, this.round)
       if (!path) continue
-      const bytes = await tryFetchBytes(path, [ASSET_BASE])
+      const bytes = await tryFetchBytes(path)
       if (bytes) return decode(path, bytes)
     }
     return undefined
@@ -96,7 +96,7 @@ export class TextureLibrary {
     }
     // Máscara de transparência opcional "<nome>_mask.png": o vermelho vira o alfa.
     const maskPath = await findAsset(`${stem(name)}_mask.png`, this.round)
-    const maskBytes = maskPath ? await tryFetchBytes(maskPath, [ASSET_BASE]) : undefined
+    const maskBytes = maskPath ? await tryFetchBytes(maskPath) : undefined
     if (maskBytes) {
       const mask = await decodeImage(maskBytes, image)
       for (let i = 0; i < image.width * image.height; i++) image.rgba[i * 4 + 3] = mask.rgba[i * 4]!

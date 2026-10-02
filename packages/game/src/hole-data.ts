@@ -2,21 +2,42 @@ import {
   applyMat4x3,
   baseCornerColors,
   boxesFromModels,
-  readPycb,
-  solidBoxes,
-  type CollisionBox,
-  type Pet,
   holePoints,
   petToSubMeshes,
   readCourseProperty,
   readGbin,
   readPet,
+  readPycb,
+  solidBoxes,
+  type CollisionBox,
   type GbinElement,
   type Mat4x3,
+  type Pet,
   type PetSubMesh,
   type SurfaceClass,
 } from '@pangya/formats'
-import { fetchBytes, fetchCourseFile, tryFetchBytes } from './assets.ts'
+
+/**
+ * De onde vêm os arquivos do jogo: `fetch` no navegador, disco no servidor. Os caminhos
+ * são relativos à pasta assets/original (ex.: "round02_blue/map/blue_01.gbin").
+ */
+export interface FileSource {
+  /** Bytes do arquivo, ou undefined se não existir. */
+  read(path: string): Promise<Uint8Array | undefined>
+  /** Arquivo referenciado só pelo nome (modelos, texturas), procurado pelo índice. */
+  find(name: string, round: string): Promise<Uint8Array | undefined>
+}
+
+/** Índice nome → caminho(s) gerado pelo pipeline (assets/original/_index.json). */
+export type AssetIndex = Record<string, string | string[]>
+
+/** Escolhe o caminho de um nome no índice: o da pasta do curso, senão o mais curto. */
+export function pickIndexed(index: AssetIndex, name: string, round: string): string | undefined {
+  const entry = index[name.toLowerCase()]
+  if (entry === undefined || typeof entry === 'string') return entry
+  const inRound = entry.find((p) => p.toLowerCase().split('/').includes(round.toLowerCase()))
+  return inRound ?? entry[0]
+}
 
 export interface HoleRef {
   /** Pasta do curso, ex.: "round02_blue". */
@@ -50,7 +71,7 @@ export interface CourseFog {
   far: number
 }
 
-export interface LoadedHole {
+export interface HoleData {
   ref: HoleRef
   par: number
   tee: [number, number, number]
@@ -82,16 +103,47 @@ export function parseFog(text: string): CourseFog | undefined {
   return { color: [r / 255, g / 255, b / 255], near, far: far > near + 1 ? far : near + 1000 }
 }
 
-export async function loadHole(ref: HoleRef): Promise<LoadedHole> {
-  const file = `${ref.prefix}_${String(ref.hole).padStart(2, '0')}`
-  const gbin = readGbin(await fetchBytes(`${ref.round}/map/${file}.gbin`))
+const holeFile = (ref: HoleRef) => `${ref.prefix}_${String(ref.hole).padStart(2, '0')}`
+
+/**
+ * Os cursos aparecem em `round02_blue/...` (extraídos dos .pak) ou `data/round02_blue/...`
+ * (pacote de exemplo): tenta os dois.
+ */
+async function readCourse(files: FileSource, path: string) {
+  return (await files.read(path)) ?? (await files.read(`data/${path}`))
+}
+
+async function required(files: FileSource, path: string) {
+  const bytes = await readCourse(files, path)
+  if (!bytes) throw new Error(`não encontrado: ${path}`)
+  return bytes
+}
+
+/** Verifica se o buraco existe (para saber quantos buracos o curso tem). */
+export async function holeExists(files: FileSource, ref: HoleRef) {
+  return (await readCourse(files, `${ref.round}/map/${holeFile(ref)}.gbin`)) !== undefined
+}
+
+/**
+ * Carrega um buraco: terreno (com pisos), objetos, colisão, névoa, tee e pin.
+ * `withModels: false` pula as malhas dos objetos que só servem para desenhar (servidor),
+ * mas os modelos continuam sendo lidos quando faltam as caixas do .pycb.
+ */
+export async function loadHoleData(
+  files: FileSource,
+  ref: HoleRef,
+  options: { withModels?: boolean } = {},
+): Promise<HoleData> {
+  const withModels = options.withModels ?? true
+  const file = holeFile(ref)
+  const gbin = readGbin(await required(files, `${ref.round}/map/${file}.gbin`))
   const property = readCourseProperty(
-    await fetchBytes(`${ref.round}/text/${ref.prefix}_property.xml`),
+    await required(files, `${ref.round}/text/${ref.prefix}_property.xml`),
   )
   if (!gbin.base) throw new Error(`${file}.gbin sem terreno base`)
 
   // Terreno: uma parte por textura, classificada pelo property.xml.
-  const terrainPet = readPet(await fetchBytes(`${ref.round}/map/${gbin.base.name}`))
+  const terrainPet = readPet(await required(files, `${ref.round}/map/${gbin.base.name}`))
   const colors = baseCornerColors(terrainPet, gbin.baseColors)
   const terrain: TerrainPart[] = petToSubMeshes(terrainPet, colors).map((sub) => ({
     surface: property.surfaceOf(sub.texture ?? ''),
@@ -111,31 +163,38 @@ export async function loadHole(ref: HoleRef): Promise<LoadedHole> {
     for (let t = 0; t < part.positions.length / 9; t++) surfaces.push(part.surface)
   }
 
+  const pycb = await readCourse(files, `${ref.round}/map/_coll/${file}.pycb`)
+
   // Objetos: um modelo .pet por nome, instanciado em cada posição.
   const byModel = Map.groupBy(gbin.elements, (e: GbinElement) => e.name)
   const objects: HoleObject[] = []
   const pets = new Map<string, Pet>()
   const missingModels: string[] = []
-  await Promise.all(
-    [...byModel].map(async ([model, elements]) => {
-      try {
-        const bytes = await fetchCourseFile(ref.round, 'ase', model)
-        if (!bytes) throw new Error('não encontrado')
-        const pet = readPet(bytes)
-        pets.set(model, pet)
-        objects.push({
-          model,
-          subMeshes: petToSubMeshes(pet),
-          instances: elements.map((e) => e.matrix),
-        })
-      } catch {
-        missingModels.push(model)
-      }
-    }),
-  )
+  if (withModels || !pycb) {
+    await Promise.all(
+      [...byModel].map(async ([model, elements]) => {
+        try {
+          const bytes =
+            (await files.find(model, ref.round)) ??
+            (await readCourse(files, `${ref.round}/ase/${model}`))
+          if (!bytes) throw new Error('não encontrado')
+          const pet = readPet(bytes)
+          pets.set(model, pet)
+          if (withModels) {
+            objects.push({
+              model,
+              subMeshes: petToSubMeshes(pet),
+              instances: elements.map((e) => e.matrix),
+            })
+          }
+        } catch {
+          missingModels.push(model)
+        }
+      }),
+    )
+  }
 
   // Colisão dos objetos: o .pycb do buraco; sem ele, os blocos COLL dos modelos.
-  const pycb = await tryFetchBytes(`${ref.round}/map/_coll/${file}.pycb`)
   const boxes = pycb
     ? readPycb(pycb)
     : boxesFromModels(
@@ -143,7 +202,9 @@ export async function loadHole(ref: HoleRef): Promise<LoadedHole> {
         pets,
       )
 
-  const fogBytes = await fetchCourseFile(ref.round, 'text', `${ref.prefix}_fog.txt`)
+  const fogBytes =
+    (await files.find(`${ref.prefix}_fog.txt`, ref.round)) ??
+    (await readCourse(files, `${ref.round}/text/${ref.prefix}_fog.txt`))
   const points = holePoints(gbin)
   return {
     ref,

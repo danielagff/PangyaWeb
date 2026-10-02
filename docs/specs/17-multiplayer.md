@@ -1,6 +1,6 @@
 # 17 — Multiplayer
 
-- **Status:** rascunho
+- **Status:** em andamento
 - **Fase:** 4 Online
 - **Depende de:** 14, 16
 - **Estimativa:** M
@@ -26,6 +26,19 @@ animação imediata e o servidor confirma.
 - Modos: Stroke (cada um joga sua bola) e, opcionalmente, Match Play.
 - Timeout de turno, reconexão (estado reenviado), espectadores.
 - Detecção de dessincronia: hash do resultado local × servidor (log + correção).
+
+## Progresso
+
+- Servidor autoritativo: carrega o buraco (`loadHoleData` + `HoleWorld` de `packages/game`,
+  os mesmos do cliente), simula a tacada e manda a trajetória pronta — os clientes só
+  animam, então todos veem exatamente a mesma bola.
+- `packages/game/src/match.ts`: jogadores, turnos (honra no tee, depois o mais longe do pin),
+  cartão por buraco, sequência de buracos, saída/volta pelo mesmo nome mantendo o placar.
+- Cliente: menu → sala (nome, jogadores, anfitrião escolhe curso/buracos), chat, bolas
+  coloridas com nome, placar no fim de cada buraco e da partida.
+- Testes: reducer da partida; sala com dois jogadores jogando o Blue Lagoon 1 até o fim
+  (quando há assets); e2e manual com dois navegadores.
+- Ainda não: power shot/itens limitados, tempo por tacada, espectadores.
 
 ## Critérios de aceite
 

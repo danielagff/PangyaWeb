@@ -42,5 +42,13 @@ function gameAssets(): Plugin {
 
 export default defineConfig({
   plugins: [gameAssets()],
+  // No desenvolvimento, a sala multiplayer e a lista de cursos vêm do servidor da partida
+  // (pnpm server, porta 7777).
+  server: {
+    proxy: {
+      '/ws': { target: 'ws://localhost:7777', ws: true },
+      '/api': 'http://localhost:7777',
+    },
+  },
   build: { chunkSizeWarningLimit: 1000 }, // three.js sozinho passa de 500 kB
 })

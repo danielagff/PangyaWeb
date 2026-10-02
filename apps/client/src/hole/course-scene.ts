@@ -18,7 +18,7 @@ import {
 } from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { flipZ, sceneMatrix } from './coords.ts'
-import type { HoleRef, LoadedHole } from './load-hole.ts'
+import type { HoleData, HoleRef } from '@pangya/game'
 import { SURFACE_COLORS } from './surface-colors.ts'
 import { averageColor, type TextureLibrary } from './textures.ts'
 
@@ -62,7 +62,7 @@ export interface CourseScene {
 }
 
 export async function buildCourseScene(
-  hole: LoadedHole,
+  hole: HoleData,
   scene: Scene,
   textures: TextureLibrary,
   onProgress: (done: number, total: number) => void,
