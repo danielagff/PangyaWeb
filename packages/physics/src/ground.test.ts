@@ -82,7 +82,7 @@ describe('simulateGround', () => {
     const ground = simulateGround(
       {
         position: { x: 0, y: 0, z: 0 },
-        velocity: { x: 0, y: -1, z: 8 },
+        velocity: { x: 0, y: -1, z: 12 },
         cup: { x: 0, y: 0, z: 3 },
       },
       flat(SURFACES.green),
