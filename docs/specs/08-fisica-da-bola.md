@@ -113,6 +113,20 @@ medições de referência passam a servir para validar.
 - [ ] Calibrar: a 100% e power 15 o voo (carry) dá ~83% do alcance do HUD; confirmar no jogo
       se o alcance exibido inclui a rolagem.
 
+## Colisão com objetos
+
+- Caixas do próprio jogo: `map/_coll/<prefixo>_NN.pycb` (formato documentado em
+  `packages/formats/src/pycb/pycb.ts`). Sem o arquivo, as mesmas caixas são geradas dos
+  blocos COLL dos .pet (osso + matriz da instância) — conferido: 452 de 452 caixas iguais
+  no Blue Lagoon 1.
+- Ficam de fora as caixas de efeito (`Day_Only`, `Night_Only`, `Window_glow`…) e as
+  degeneradas (±99999).
+- `Obstacles` (physics): teste exato segmento × caixa orientada, com grade espacial. Vale no
+  voo (o voo termina e a bola segue rebatida), nos quiques e na rolagem.
+- Resposta ao choque (`OBSTACLE_TUNING`: restituição 0,3, sobra tangencial 0,5) é
+  estimativa — entra na calibração final.
+- Tecla C no cliente mostra as caixas.
+
 ## Calibração final do quique e da rolagem (adiada para o fim)
 
 Os valores de `GROUND_TUNING` são uma estimativa: nenhuma referência pública tem essa parte

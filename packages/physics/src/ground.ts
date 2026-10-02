@@ -11,6 +11,7 @@
 
 import { STEP_TIME } from './flight.ts'
 import type { Normal } from './terrain.ts'
+import { deflect, pushOut, type Obstacles } from './obstacles.ts'
 import { yardsToUnits } from './units.ts'
 import type { Vec3 } from './vec3.ts'
 
@@ -32,6 +33,7 @@ export type GroundAt = (x: number, z: number) => GroundQuery | undefined
 
 export type GroundEvent =
   | { type: 'bounce'; surface: string; at: Vec3 }
+  | { type: 'obstacle'; name: string; at: Vec3 }
   | { type: 'water'; at: Vec3 }
   | { type: 'outOfBounds'; at: Vec3 }
   | { type: 'hole'; at: Vec3 }
@@ -88,7 +90,11 @@ export function puttSpeed(yards: number, roll: number): number {
   return Math.sqrt(2 * decel * yardsToUnits(yards))
 }
 
-export function simulateGround(input: GroundInput, groundAt: GroundAt): GroundResult {
+export function simulateGround(
+  input: GroundInput,
+  groundAt: GroundAt,
+  obstacles?: Obstacles,
+): GroundResult {
   const k = GROUND_TUNING
   const frames: number[] = []
   const events: GroundEvent[] = []
@@ -111,10 +117,23 @@ export function simulateGround(input: GroundInput, groundAt: GroundAt): GroundRe
     }
   }
 
-  // Começa exatamente no chão onde a bola pousou.
+  // Começa no chão onde a bola pousou (ou no ar, se o voo terminou batendo num objeto).
   let ground = groundAt(p.x, p.z)
   if (!ground) return finish({ type: 'outOfBounds', at: p })
-  p.y = ground.y
+  p.y = Math.max(p.y, ground.y)
+
+  /** Move a bola até `next`, rebatendo se o caminho cruzar um objeto. */
+  const moveTo = (next: Vec3) => {
+    const hit = obstacles?.hit(p, next)
+    if (!hit) {
+      p = { ...next }
+      return false
+    }
+    p = { ...pushOut(hit) }
+    v = { ...deflect(v, hit.normal) }
+    events.push({ type: 'obstacle', name: hit.name, at: { ...p } })
+    return true
+  }
   // Tacada normal: o primeiro contato é tratado como impacto (quique). Putt: já rola.
   airborne = !input.rolling
 
@@ -139,7 +158,11 @@ export function simulateGround(input: GroundInput, groundAt: GroundAt): GroundRe
     if (airborne) {
       // Voo curto entre quiques: só gravidade.
       v.y -= k.gravity * STEP_TIME
-      p = { x: p.x + v.x * STEP_TIME, y: p.y + v.y * STEP_TIME, z: p.z + v.z * STEP_TIME }
+      if (
+        moveTo({ x: p.x + v.x * STEP_TIME, y: p.y + v.y * STEP_TIME, z: p.z + v.z * STEP_TIME })
+      ) {
+        continue
+      }
       const below = groundAt(p.x, p.z)
       if (!below) continue
       if (p.y > below.y) continue
@@ -186,7 +209,10 @@ export function simulateGround(input: GroundInput, groundAt: GroundAt): GroundRe
       const reduced = Math.max(0, s - friction * STEP_TIME)
       v = { x: (v.x / s) * reduced, y: (v.y / s) * reduced, z: (v.z / s) * reduced }
     }
-    p = { x: p.x + v.x * STEP_TIME, y: p.y, z: p.z + v.z * STEP_TIME }
+    if (moveTo({ x: p.x + v.x * STEP_TIME, y: p.y, z: p.z + v.z * STEP_TIME })) {
+      v = { ...v, y: 0 }
+      continue
+    }
     const next = groundAt(p.x, p.z)
     if (!next) return finish({ type: 'outOfBounds', at: p })
     // Desceu um degrau grande (beirada): volta a voar; senão acompanha o chão.

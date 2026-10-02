@@ -1,6 +1,11 @@
 import {
   applyMat4x3,
   baseCornerColors,
+  boxesFromModels,
+  readPycb,
+  solidBoxes,
+  type CollisionBox,
+  type Pet,
   holePoints,
   petToSubMeshes,
   readCourseProperty,
@@ -11,7 +16,7 @@ import {
   type PetSubMesh,
   type SurfaceClass,
 } from '@pangya/formats'
-import { fetchBytes, fetchCourseFile } from './assets.ts'
+import { fetchBytes, fetchCourseFile, tryFetchBytes } from './assets.ts'
 
 export interface HoleRef {
   /** Pasta do curso, ex.: "round02_blue". */
@@ -56,6 +61,9 @@ export interface LoadedHole {
   objects: HoleObject[]
   missingModels: string[]
   fog: CourseFog | undefined
+  /** Caixas sólidas dos objetos (do .pycb do buraco ou geradas pelos modelos). */
+  obstacles: CollisionBox[]
+  obstacleSource: 'pycb' | 'modelos'
 }
 
 const transform = (positions: Float32Array, matrix: Mat4x3) => {
@@ -106,15 +114,18 @@ export async function loadHole(ref: HoleRef): Promise<LoadedHole> {
   // Objetos: um modelo .pet por nome, instanciado em cada posição.
   const byModel = Map.groupBy(gbin.elements, (e: GbinElement) => e.name)
   const objects: HoleObject[] = []
+  const pets = new Map<string, Pet>()
   const missingModels: string[] = []
   await Promise.all(
     [...byModel].map(async ([model, elements]) => {
       try {
         const bytes = await fetchCourseFile(ref.round, 'ase', model)
         if (!bytes) throw new Error('não encontrado')
+        const pet = readPet(bytes)
+        pets.set(model, pet)
         objects.push({
           model,
-          subMeshes: petToSubMeshes(readPet(bytes)),
+          subMeshes: petToSubMeshes(pet),
           instances: elements.map((e) => e.matrix),
         })
       } catch {
@@ -122,6 +133,15 @@ export async function loadHole(ref: HoleRef): Promise<LoadedHole> {
       }
     }),
   )
+
+  // Colisão dos objetos: o .pycb do buraco; sem ele, os blocos COLL dos modelos.
+  const pycb = await tryFetchBytes(`${ref.round}/map/_coll/${file}.pycb`)
+  const boxes = pycb
+    ? readPycb(pycb)
+    : boxesFromModels(
+        gbin.elements.map((e) => ({ model: e.name, matrix: e.matrix })),
+        pets,
+      )
 
   const fogBytes = await fetchCourseFile(ref.round, 'text', `${ref.prefix}_fog.txt`)
   const points = holePoints(gbin)
@@ -135,5 +155,7 @@ export async function loadHole(ref: HoleRef): Promise<LoadedHole> {
     objects,
     missingModels,
     fog: fogBytes && parseFog(new TextDecoder().decode(fogBytes)),
+    obstacles: solidBoxes(boxes),
+    obstacleSource: pycb ? 'pycb' : 'modelos',
   }
 }

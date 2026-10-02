@@ -16,6 +16,7 @@ import {
   puttSpeed,
   simulateGround,
   STEP_TIME,
+  Obstacles,
   TerrainGrid,
   unitsToYards,
   yardsToUnits,
@@ -34,6 +35,7 @@ import {
   Group,
   Line,
   LineBasicMaterial,
+  LineSegments,
   Mesh,
   MeshBasicMaterial,
   MeshLambertMaterial,
@@ -152,13 +154,30 @@ export async function startHoleMode(ref: HoleRef) {
     }
   }
   const onGround = (p: Point): Point => ({ ...p, y: grid.groundAt(p.x, p.z)?.y ?? p.y })
+  const obstacles = new Obstacles(hole.obstacles)
+
+  // Tecla C: mostra as caixas de colisão dos objetos (depuração).
+  const boxEdges = [0, 1, 1, 2, 2, 3, 3, 0, 4, 5, 5, 6, 6, 7, 7, 4, 0, 4, 1, 5, 2, 6, 3, 7]
+  const boxLines = new LineSegments(
+    new BufferGeometry().setAttribute(
+      'position',
+      new Float32BufferAttribute(
+        hole.obstacles.flatMap((b) => boxEdges.flatMap((i) => toScene(...b.corners[i]!).toArray())),
+        3,
+      ),
+    ),
+    new LineBasicMaterial({ color: 0xff4081 }),
+  )
+  boxLines.visible = false
+  scene.add(boxLines)
 
   status.textContent =
     `${grid.triangleCount} triângulos · ${hole.objects.length} modelos` +
     (hole.missingModels.length ? ` (${hole.missingModels.length} faltando)` : '') +
     ` · ${course.texturesLoaded} texturas` +
     (course.texturesMissing.length ? ` (${course.texturesMissing.length} faltando)` : '') +
-    ' · ←→ mirar · espaço bater · M aérea · T pisos · F névoa'
+    ` · ${obstacles.size} caixas de colisão (${hole.obstacleSource})` +
+    ' · ←→ mirar · espaço bater · M aérea · T pisos · F névoa · C colisão'
   if (course.texturesMissing.length) {
     console.info('texturas não encontradas:', course.texturesMissing)
   }
@@ -287,6 +306,7 @@ export async function startHoleMode(ref: HoleRef) {
     if (e.code === 'KeyM') aerial = !aerial
     if (e.code === 'KeyT') course.setSurfaceView((surfaceView = !surfaceView))
     if (e.code === 'KeyF') course.setFog((fogOn = !fogOn))
+    if (e.code === 'KeyC') boxLines.visible = !boxLines.visible
     if (e.code === 'ArrowLeft' || e.code === 'ArrowRight') {
       e.preventDefault()
       keys.add(e.code)
@@ -372,11 +392,12 @@ export async function startHoleMode(ref: HoleRef) {
           cup,
         },
         groundAt,
+        obstacles,
       )
       return { frames: ground.frames, carry: 0, flightFrames: 0, ground, landed: true }
     }
     const sim = new FlightSimulator(input, origin)
-    const flight = sim.flyOverGround((x, z) => grid.groundAt(x, z)?.y)
+    const flight = sim.flyOverGround((x, z) => grid.groundAt(x, z)?.y, -1000, obstacles)
     if (!withGround || !flight.landed) {
       return {
         frames: flight.frames,
@@ -389,6 +410,7 @@ export async function startHoleMode(ref: HoleRef) {
     const ground = simulateGround(
       { position: flight.landing, velocity: flight.velocity, spin: flight.spin, cup },
       groundAt,
+      obstacles,
     )
     const frames = new Float32Array(flight.frames.length + ground.frames.length)
     frames.set(flight.frames)
@@ -398,6 +420,7 @@ export async function startHoleMode(ref: HoleRef) {
       carry: flight.carry,
       flightFrames: flight.frames.length / 3,
       ground,
+      hitObject: flight.obstacle !== undefined,
       landed: true,
     }
   }
@@ -425,6 +448,8 @@ export async function startHoleMode(ref: HoleRef) {
     carry: number
     outcome: ShotOutcome
     start: number
+    /** Quantas vezes a bola bateu em objetos (árvores, casas…). */
+    hits: number
   }
   let flight: Flight | undefined
 
@@ -472,7 +497,10 @@ export async function startHoleMode(ref: HoleRef) {
     else outcome = { type: 'stop', at: end, surface: result.ground?.surface ?? 'default' }
 
     shotForward = aimDirection(aim)
-    flight = { frames: result.frames, carry: result.carry, outcome, start: performance.now() }
+    const hits =
+      ('hitObject' in result && result.hitObject ? 1 : 0) +
+      (result.ground?.events.filter((e) => e.type === 'obstacle').length ?? 0)
+    flight = { frames: result.frames, carry: result.carry, outcome, start: performance.now(), hits }
     phase = 'flying'
     greenGrid.visible = false
     target.visible = false
@@ -494,7 +522,10 @@ export async function startHoleMode(ref: HoleRef) {
       outOfBounds: '🚫 O.B.! +1 de penalidade, volta para onde bateu',
       stop: '',
     }
-    message = `${travel}${endings[f.outcome.type] ? ' · ' + endings[f.outcome.type] : ''}`
+    message =
+      travel +
+      (f.hits ? ' · 🌳 bateu em objeto' : '') +
+      (endings[f.outcome.type] ? ' · ' + endings[f.outcome.type] : '')
     panel.showResult(message)
     if (state.finished) return endHole()
     readyForShot()

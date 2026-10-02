@@ -17,6 +17,7 @@ import {
   type PowerShot,
 } from './power.ts'
 import { unitsToYards } from './units.ts'
+import { deflect, pushOut, type Obstacles } from './obstacles.ts'
 import type { Vec3 } from './vec3.ts'
 
 export type SpecialShot = 'dunk' | 'tomahawk' | 'spike' | 'cobra'
@@ -399,12 +400,15 @@ export class FlightSimulator {
   }
   /**
    * Simula até a bola descer e tocar o chão dado por `groundAt(x, z)` (altura em
-   * unidades; undefined = fora do terreno, segue caindo até `floor`).
+   * unidades; undefined = fora do terreno, segue caindo até `floor`). Com `obstacles`,
+   * o voo também termina ao bater num objeto: a bola sai rebatida (`obstacle` = nome da
+   * caixa) e a fase no chão continua dali, ainda no ar.
    */
   flyOverGround(
     groundAt: (x: number, z: number) => number | undefined,
     floor = -1000,
-  ): FlightResult & { landed: boolean; velocity: Vec3; spin: number } {
+    obstacles?: Obstacles,
+  ): FlightResult & { landed: boolean; velocity: Vec3; spin: number; obstacle?: string } {
     const frames: number[] = []
     const push = () =>
       frames.push(this.state.position.x, this.state.position.y, this.state.position.z)
@@ -413,15 +417,25 @@ export class FlightSimulator {
     const ground = () => groundAt(this.state.position.x, this.state.position.z) ?? floor
     let previous: BallState
     let steps = 0
-    let landed: boolean
+    let landed = false
+    let obstacle: string | undefined
     do {
       previous = cloneState(this.state)
       this.step()
+      const hit = obstacles?.hit(previous.position, this.state.position)
+      if (hit) {
+        this.state.position = V.from(pushOut(hit))
+        this.state.velocity = V.from(deflect(this.state.velocity, hit.normal))
+        obstacle = hit.name
+        push()
+        break
+      }
       push()
       landed = this.state.apexStep !== -1 && this.state.position.y <= ground()
     } while (!landed && this.state.position.y > floor && steps++ < MAX_STEPS)
+    if (obstacle) landed = true
 
-    if (landed) {
+    if (landed && !obstacle) {
       // Refaz o último passo só até cruzar o chão (altura do ponto de chegada).
       const target = ground()
       const dy = this.state.position.y - previous.position.y
@@ -445,6 +459,7 @@ export class FlightSimulator {
       landed,
       velocity: { x: this.state.velocity.x, y: this.state.velocity.y, z: this.state.velocity.z },
       spin: this.spin,
+      ...(obstacle !== undefined && { obstacle }),
     }
   }
 }
