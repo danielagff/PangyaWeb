@@ -11,6 +11,7 @@
 
 import { STEP_TIME } from './flight.ts'
 import type { Normal } from './terrain.ts'
+import { yardsToUnits } from './units.ts'
 import type { Vec3 } from './vec3.ts'
 
 export interface GroundSurface {
@@ -74,6 +75,17 @@ export interface GroundInput {
   spin?: number
   /** Posição da cova; se omitida, não há captura. */
   cup?: Vec3
+  /** Começa rolando (putt), sem tratar o primeiro contato como quique. */
+  rolling?: boolean
+}
+
+/**
+ * Velocidade inicial (unidades/s) para um putt rolar `yards` em piso plano com o `roll`
+ * dado: na rolagem a desaceleração é constante, então d = v² / 2a.
+ */
+export function puttSpeed(yards: number, roll: number): number {
+  const decel = roll * GROUND_TUNING.gravity * GROUND_TUNING.rollFriction
+  return Math.sqrt(2 * decel * yardsToUnits(yards))
 }
 
 export function simulateGround(input: GroundInput, groundAt: GroundAt): GroundResult {
@@ -103,7 +115,8 @@ export function simulateGround(input: GroundInput, groundAt: GroundAt): GroundRe
   let ground = groundAt(p.x, p.z)
   if (!ground) return finish({ type: 'outOfBounds', at: p })
   p.y = ground.y
-  airborne = true // o primeiro contato é tratado como impacto (quique)
+  // Tacada normal: o primeiro contato é tratado como impacto (quique). Putt: já rola.
+  airborne = !input.rolling
 
   for (let step = 0; step < k.maxSteps; step++) {
     push()

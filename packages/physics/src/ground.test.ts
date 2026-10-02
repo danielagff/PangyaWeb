@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_PLAYER, FlightSimulator, type ShotInput } from './flight.ts'
-import { simulateGround, type GroundAt, type GroundSurface } from './ground.ts'
+import { puttSpeed, simulateGround, type GroundAt, type GroundSurface } from './ground.ts'
 import { unitsToYards } from './units.ts'
 
 const SURFACES = {
@@ -88,5 +88,41 @@ describe('simulateGround', () => {
       flat(SURFACES.green),
     )
     expect(ground.outcome).toBe('hole')
+  })
+})
+
+describe('putt', () => {
+  const putt = (yards: number, groundAt: GroundAt, cup?: { x: number; y: number; z: number }) =>
+    simulateGround(
+      {
+        position: { x: 0, y: 0, z: 0 },
+        velocity: { x: 0, y: 0, z: puttSpeed(yards, SURFACES.green.roll) },
+        rolling: true,
+        ...(cup && { cup }),
+      },
+      groundAt,
+    )
+
+  it('putt reto em green plano para a ±2% da distância escolhida', () => {
+    for (const yards of [2, 5, 10, 25]) {
+      const result = putt(yards, flat(SURFACES.green))
+      expect(result.outcome).toBe('stop')
+      expect(result.events.some((e) => e.type === 'bounce')).toBe(false)
+      expect(unitsToYards(result.final.z)).toBeCloseTo(yards, 0)
+      expect(Math.abs(unitsToYards(result.final.z) / yards - 1)).toBeLessThan(0.02)
+    }
+  })
+
+  it('quebra na direção da descida', () => {
+    // Green caindo para +x (≈2°): a bola deve terminar à direita (+x) da linha.
+    const n: [number, number, number] = [0.0349, 0.9994, 0]
+    const tilted: GroundAt = (x) => ({ y: -0.0349 * x, normal: n, surface: SURFACES.green })
+    const result = putt(8, tilted)
+    expect(result.final.x).toBeGreaterThan(1)
+  })
+
+  it('entra na cova quando passa por ela devagar', () => {
+    const result = putt(5, flat(SURFACES.green), { x: 0, y: 0, z: 14 })
+    expect(result.outcome).toBe('hole')
   })
 })
