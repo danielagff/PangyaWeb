@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@pangya/formats": "workspace:*",
+    "@pangya/game": "workspace:*",
     "@pangya/physics": "workspace:*",
     "three": "^0.186.1"
   },

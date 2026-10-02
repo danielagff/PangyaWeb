@@ -29,6 +29,16 @@ Câmeras de jogo e HUD com as informações necessárias para mirar como no orig
 - [ ] Câmera nunca atravessa o terreno.
 - [ ] HUD legível em 1280×720 e 1920×1080.
 
+## Progresso
+
+- HUD no topo: buraco, par, tacada atual (com penalidades), distância e desnível até o pin,
+  piso e faixa de força do piso, total do cartão.
+- Mira com ←/→ (mais fina no green); câmera atrás da bola na direção da mira, mais baixa e
+  próxima no green.
+- Anel amarelo no ponto de queda previsto com a força/spin/curva atuais, sem vento (como o
+  anel do jogo). No putt, a distância escolhida em linha reta.
+- Faltam: seta do vento, barra de força animada, mini-mapa, mensagens grandes ("Nice Shot").
+
 ## Problemas conhecidos
 
 ### Tela inteira azul (céu/névoa) depois de algumas tacadas — Pink Wind buraco 1

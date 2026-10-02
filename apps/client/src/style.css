@@ -64,3 +64,55 @@
 .hole-status.error {
   background: rgba(120, 20, 20, 0.85);
 }
+
+.hud {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: min(720px, calc(100vw - 320px));
+  padding: 8px 14px;
+  font:
+    14px/1.45 system-ui,
+    sans-serif;
+  text-align: center;
+  color: #fff;
+  background: rgba(10, 30, 60, 0.75);
+  border-radius: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.hole-end {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  min-width: 320px;
+  padding: 20px 28px;
+  font:
+    15px/1.5 system-ui,
+    sans-serif;
+  text-align: center;
+  color: #fff;
+  background: rgba(10, 30, 60, 0.9);
+  border-radius: 14px;
+}
+.hole-end h2 {
+  margin: 0 0 8px;
+  font-size: 28px;
+  color: #ffeb3b;
+}
+.hole-end .button {
+  display: inline-block;
+  margin: 8px 6px 0;
+  padding: 8px 16px;
+  font-weight: 600;
+  color: #0b2a4a;
+  background: #ffeb3b;
+  border-radius: 6px;
+  text-decoration: none;
+}
+.hole-end .button.secondary {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.2);
+}

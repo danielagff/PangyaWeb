@@ -6,17 +6,30 @@ import {
   type SpecialShot,
 } from '@pangya/physics'
 
+export interface ShotPanelOptions {
+  title?: string
+  /** Inclui o putter (PT1) na lista de tacos. */
+  putter?: boolean
+}
+
+/** Alcance do putter (PT1) a 100% da barra, em jardas. */
+export const PUTT_RANGE = 30
+
 /** Painel HTML com os parâmetros da tacada. */
-export function createShotPanel(onShoot: (input: ShotInput) => void) {
+export function createShotPanel(
+  onShoot: (input: ShotInput) => void,
+  options: ShotPanelOptions = {},
+) {
+  const clubs = CLUB_IDS.filter((c) => (options.putter ? c !== 'PT2' : !c.startsWith('PT')))
   const panel = document.createElement('form')
   panel.className = 'panel'
   panel.innerHTML = `
-    <h1>PangyaWeb — física</h1>
-    <label>Taco <select name="club">${CLUB_IDS.filter((c) => !c.startsWith('PT'))
-      .map((c) => `<option>${c}</option>`)
+    <h1>${options.title ?? 'PangyaWeb — física'}</h1>
+    <label>Taco <select name="club">${clubs
+      .map((c) => `<option value="${c}">${c === 'PT1' ? 'PT (putter)' : c}</option>`)
       .join('')}</select></label>
     <label>Força <output name="percentOut">100%</output>
-      <input name="percent" type="range" min="10" max="100" value="100" /></label>
+      <input name="percent" type="range" min="1" max="100" value="100" /></label>
     <label>Tacada <select name="shot">
       <option value="dunk">Normal</option><option value="tomahawk">Tomahawk</option>
       <option value="spike">Spike</option><option value="cobra">Cobra</option></select></label>
@@ -38,14 +51,22 @@ export function createShotPanel(onShoot: (input: ShotInput) => void) {
 
   const field = (name: string) => panel.elements.namedItem(name) as HTMLInputElement
   const out = (name: string) => panel.elements.namedItem(name) as HTMLOutputElement
+  const listeners: (() => void)[] = []
   const sync = () => {
-    out('percentOut').value = `${field('percent').value}%`
+    const percent = Number(field('percent').value)
+    out('percentOut').value =
+      field('club').value === 'PT1'
+        ? `${percent}% (${((percent / 100) * PUTT_RANGE).toFixed(1)}y)`
+        : `${percent}%`
     out('spinOut').value = field('spin').value
     out('curveOut').value = field('curve').value
     out('windOut').value = `${field('wind').value} m`
     out('windDegOut').value = `${field('windDeg').value}°`
   }
   panel.addEventListener('input', sync)
+  panel.addEventListener('change', sync)
+  panel.addEventListener('input', () => listeners.forEach((l) => l()))
+  panel.addEventListener('change', () => listeners.forEach((l) => l()))
   sync()
 
   const read = (): ShotInput => ({
@@ -67,16 +88,30 @@ export function createShotPanel(onShoot: (input: ShotInput) => void) {
     onShoot(read())
   })
   window.addEventListener('keydown', (e) => {
-    if (e.code === 'Space' && !(e.target instanceof HTMLSelectElement)) {
+    if (e.code === 'Space' && !(e.target instanceof HTMLSelectElement) && !e.repeat) {
       e.preventDefault()
       onShoot(read())
     }
   })
 
   const result = panel.querySelector('.result') as HTMLParagraphElement
+  const set = (name: string, value: string | number) => {
+    field(name).value = String(value)
+    sync()
+    listeners.forEach((l) => l())
+  }
   return {
     showResult(text: string) {
       result.textContent = text
     },
+    read,
+    setClub: (club: ClubId) => set('club', club),
+    setPercent: (percent: number) => set('percent', Math.round(percent * 100)),
+    setWind(speed: number, degree: number) {
+      field('wind').value = String(speed)
+      set('windDeg', degree)
+    },
+    /** Avisa quando qualquer parâmetro muda (pelo usuário ou pelos métodos acima). */
+    onChange: (listener: () => void) => listeners.push(listener),
   }
 }

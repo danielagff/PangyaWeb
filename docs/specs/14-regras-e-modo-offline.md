@@ -1,6 +1,6 @@
 # 14 — Regras de golfe e modo offline
 
-- **Status:** rascunho
+- **Status:** em andamento
 - **Fase:** 3 Jogo
 - **Depende de:** 08–12
 - **Estimativa:** M
@@ -32,6 +32,18 @@ interface MatchState { config: MatchConfig; holeIndex: number; players: PlayerSt
 type MatchEvent = { type: 'shot'; playerId: string; result: ShotResult } | { type: 'hole-end' } | …
 function reduce(state: MatchState, event: MatchEvent): MatchState   // puro, determinístico
 ```
+
+## Progresso
+
+- `packages/game` (`hole.ts`): estado de um buraco em Stroke Play, puro e serializável —
+  `startHole`, `applyShot`, `scoreName`, `scoreToPar`, `isChipIn`, com testes.
+- Penalidades implementadas (a confirmar no original): água +1 com a bola no último ponto
+  seco da trajetória; O.B. +1 voltando para onde a tacada saiu; limite de 3× o par.
+- Força do piso sorteada entre `min` e `max` do property.xml (`power2`/`power3` ainda não
+  usados — verificar quando o jogo usa cada faixa).
+- Vento sorteado no início de cada buraco (0–9 m, direção qualquer).
+- Fim do buraco: resultado (Birdie, Par…, Chip-in), cartão e botão "Próximo buraco"; o
+  cartão segue pela URL (`&cartao=4:4,3:3`).
 
 ## Critérios de aceite
 

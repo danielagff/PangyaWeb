@@ -1,6 +1,6 @@
 # 11 — Green e putt
 
-- **Status:** rascunho
+- **Status:** em andamento
 - **Fase:** 2 Engine
 - **Depende de:** 08, 10
 - **Estimativa:** M
@@ -23,6 +23,16 @@ e o jogador usa a distância + inclinação para calcular a quebra do putt.
 - Putter: barra de força em escala de distância de putt, sem vento.
 - Rolagem no green com atrito próprio e captura pela cova (spec 08).
 - Exibir "Chip-in" quando a bola entra de fora do green.
+
+## Progresso
+
+- Putter (PT) no painel; no green ele é escolhido sozinho e a força começa na distância
+  até o pin (100% = 30y, alcance do PT1).
+- `puttSpeed(jardas, roll)`: velocidade inicial para rolar a distância em piso plano
+  (d = v²/2a); a rolagem usa a mesma física do chão (desce as inclinações).
+- Grade de inclinação: traços apontando para a descida, maiores e mais vermelhos quanto
+  mais inclinado, amostrados a cada 4 unidades na malha de colisão do green.
+- Testes: putt reto em green plano para a ±2%; quebra para o lado da descida; entra na cova.
 
 ## Critérios de aceite
 

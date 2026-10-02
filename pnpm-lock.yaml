@@ -41,6 +41,9 @@ importers:
       '@pangya/formats':
         specifier: workspace:*
         version: link:../../packages/formats
+      '@pangya/game':
+        specifier: workspace:*
+        version: link:../../packages/game
       '@pangya/physics':
         specifier: workspace:*
         version: link:../../packages/physics

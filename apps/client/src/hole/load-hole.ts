@@ -1,5 +1,6 @@
 import {
   applyMat4x3,
+  baseCornerColors,
   holePoints,
   petToSubMeshes,
   readCourseProperty,
@@ -10,6 +11,7 @@ import {
   type PetSubMesh,
   type SurfaceClass,
 } from '@pangya/formats'
+import { fetchBytes, fetchCourseFile } from './assets.ts'
 
 export interface HoleRef {
   /** Pasta do curso, ex.: "round02_blue". */
@@ -21,8 +23,13 @@ export interface HoleRef {
 
 export interface TerrainPart {
   surface: SurfaceClass
+  texture: string | undefined
+  blend: boolean
   /** Posições já em coordenadas de mundo do Pangya (x, y, z por vértice). */
   positions: Float32Array
+  uvs: Float32Array
+  /** Iluminação pré-calculada (RGB 0–1 por vértice), quando o .gbin traz. */
+  colors: Float32Array | undefined
 }
 
 export interface HoleObject {
@@ -30,6 +37,12 @@ export interface HoleObject {
   subMeshes: PetSubMesh[]
   /** Matrizes de mundo (Pangya) de cada instância. */
   instances: Mat4x3[]
+}
+
+export interface CourseFog {
+  color: [number, number, number]
+  near: number
+  far: number
 }
 
 export interface LoadedHole {
@@ -42,40 +55,7 @@ export interface LoadedHole {
   collision: { triangles: Float32Array; surfaces: SurfaceClass[] }
   objects: HoleObject[]
   missingModels: string[]
-}
-
-/**
- * Os cursos aparecem em dois lugares: `round02_blue/...` (extraídos dos .pak) ou
- * `data/round02_blue/...` (pacote de exemplo). Tenta os dois.
- */
-const ASSET_ROOTS = ['/game-assets/original', '/game-assets/original/data']
-
-let assetIndex: Promise<Record<string, string>> | undefined
-
-/** Índice nome → caminho gerado pelo pipeline (assets/original/_index.json). */
-function loadAssetIndex() {
-  assetIndex ??= fetch('/game-assets/original/_index.json')
-    .then((r) => (r.ok ? (r.json() as Promise<Record<string, string>>) : {}))
-    .catch(() => ({}))
-  return assetIndex
-}
-
-/** Modelo do cenário: primeiro pelo índice (pode estar em outra pasta), senão em <curso>/ase. */
-async function fetchModel(round: string, model: string): Promise<Uint8Array> {
-  const indexed = (await loadAssetIndex())[model.toLowerCase()]
-  return fetchBytes(
-    indexed ?? `${round}/ase/${model}`,
-    indexed ? ['/game-assets/original'] : ASSET_ROOTS,
-  )
-}
-
-async function fetchBytes(path: string, roots = ASSET_ROOTS): Promise<Uint8Array> {
-  const encoded = path.split('/').map(encodeURIComponent).join('/')
-  for (const root of roots) {
-    const response = await fetch(`${root}/${encoded}`)
-    if (response.ok) return new Uint8Array(await response.arrayBuffer())
-  }
-  throw new Error(`não encontrado: ${path} (procurado em ${ASSET_ROOTS.join(', ')})`)
+  fog: CourseFog | undefined
 }
 
 const transform = (positions: Float32Array, matrix: Mat4x3) => {
@@ -84,6 +64,14 @@ const transform = (positions: Float32Array, matrix: Mat4x3) => {
     out.set(applyMat4x3(matrix, positions[i]!, positions[i + 1]!, positions[i + 2]!), i)
   }
   return out
+}
+
+/** `<prefixo>_fog.txt`: "r g b" (0–255) e "perto longe" (unidades). */
+export function parseFog(text: string): CourseFog | undefined {
+  const n = text.trim().split(/\s+/).map(Number)
+  if (n.length < 5 || n.slice(0, 5).some((v) => !Number.isFinite(v))) return undefined
+  const [r, g, b, near, far] = n as [number, number, number, number, number]
+  return { color: [r / 255, g / 255, b / 255], near, far: far > near + 1 ? far : near + 1000 }
 }
 
 export async function loadHole(ref: HoleRef): Promise<LoadedHole> {
@@ -96,9 +84,14 @@ export async function loadHole(ref: HoleRef): Promise<LoadedHole> {
 
   // Terreno: uma parte por textura, classificada pelo property.xml.
   const terrainPet = readPet(await fetchBytes(`${ref.round}/map/${gbin.base.name}`))
-  const terrain = petToSubMeshes(terrainPet).map((sub) => ({
+  const colors = baseCornerColors(terrainPet, gbin.baseColors)
+  const terrain: TerrainPart[] = petToSubMeshes(terrainPet, colors).map((sub) => ({
     surface: property.surfaceOf(sub.texture ?? ''),
+    texture: sub.texture,
+    blend: sub.blend,
     positions: transform(sub.positions, gbin.base!.matrix),
+    uvs: sub.uvs,
+    colors: sub.colors,
   }))
 
   const collisionTriangles = new Float32Array(terrain.reduce((n, p) => n + p.positions.length, 0))
@@ -117,10 +110,11 @@ export async function loadHole(ref: HoleRef): Promise<LoadedHole> {
   await Promise.all(
     [...byModel].map(async ([model, elements]) => {
       try {
-        const pet = readPet(await fetchModel(ref.round, model))
+        const bytes = await fetchCourseFile(ref.round, 'ase', model)
+        if (!bytes) throw new Error('não encontrado')
         objects.push({
           model,
-          subMeshes: petToSubMeshes(pet),
+          subMeshes: petToSubMeshes(readPet(bytes)),
           instances: elements.map((e) => e.matrix),
         })
       } catch {
@@ -129,6 +123,7 @@ export async function loadHole(ref: HoleRef): Promise<LoadedHole> {
     }),
   )
 
+  const fogBytes = await fetchCourseFile(ref.round, 'text', `${ref.prefix}_fog.txt`)
   const points = holePoints(gbin)
   return {
     ref,
@@ -139,5 +134,6 @@ export async function loadHole(ref: HoleRef): Promise<LoadedHole> {
     collision: { triangles: collisionTriangles, surfaces },
     objects,
     missingModels,
+    fog: fogBytes && parseFog(new TextDecoder().decode(fogBytes)),
   }
 }
