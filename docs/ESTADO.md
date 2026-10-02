@@ -43,7 +43,25 @@ jogar com amigos, com o **PC do Daniel como servidor**. Não é vendido nem publ
 
 ## Em andamento agora
 
-**Personagens corretos, com a ajuda do Daniel no mapeador.**
+Última entrega (versão `4191877`, 02/10/2026): HUD do original embaixo (taco na roda do
+mouse, power shot no Alt, spin/curva na bola do mostrador, barra sempre visível com escala e
+pin), força do personagem escolhida antes da partida, cova de verdade (a bola cai dentro),
+luz da cova no lugar da bandeira, vista aérea com zoom (M/0, Delete+0), câmera livre e mira
+A/D. **Esperando o Daniel testar no PC** e responder as perguntas abaixo.
+
+### Perguntas em aberto para o Daniel
+
+- **Força**: qual valor de força dá as distâncias do jogo original (ex.: 3W chegando a 280y
+  na referência)? Hoje o padrão é 15 (1W = 230y).
+- **Luz da cova**: altura em que ela ainda puxa a bola (hoje 0,5 m, `CUP_BEAM.height`) e o
+  raio (`CUP_BEAM.radius`).
+- **Taco no chão**: se com os personagens reais o taco ainda flutua ou atravessa o chão
+  (ajuste em `fitClub`, limites `CLUB_FIT`).
+- **Mapeador**: a lista "Copiar lista" com as anotações das animações (quadro do impacto do
+  swing de cada taco) e das peças.
+- **Sons**: a parte "== SONS" do diagnóstico (`?diagnostico`).
+
+### Personagens corretos, com a ajuda do Daniel no mapeador
 
 1. O Daniel confere no mapeador (`mapeador.cmd`) o que é cada animação e cada peça, anota e
    manda a lista ("Copiar lista") no chat.
@@ -67,15 +85,17 @@ Regras de nomes de peças já confirmadas pelo Daniel (implementadas em
 
 1. **Personagens**: aplicar as anotações do mapeador (impacto do swing, nomes, roupas),
    conferir a frente do modelo e a posição na bola com os personagens reais.
-2. **Sons**: mapear os efeitos e as vozes ("Pangya!", birdie…) — falta a parte "== SONS" do
+2. **Habilidades do power shot** (tomahawk, spike, cobra): comandos ainda a definir pelo
+   Daniel (a física já suporta `shot`; o HUD só manda tacada normal).
+3. **Sons**: mapear os efeitos e as vozes ("Pangya!", birdie…) — falta a parte "== SONS" do
    diagnóstico (`?diagnostico`) para saber os nomes dos arquivos; música do curso; volume.
-3. **Interface e menus** (spec 15): escolha de personagem/curso mais bonita, fluxo de 18
+4. **Interface e menus** (spec 15): escolha de personagem/curso mais bonita, fluxo de 18
    buracos, resultado final.
-4. **Problema conhecido**: tela inteira azul depois de várias tacadas no Pink Wind 1 (spec 10)
+5. **Problema conhecido**: tela inteira azul depois de várias tacadas no Pink Wind 1 (spec 10)
    — ainda não reproduzido.
-5. **Calibração final do quique e da rolagem** (spec 08), combinada para o fim: gravar
+6. **Calibração final do quique e da rolagem** (spec 08), combinada para o fim: gravar
    tacadas reais e ajustar as constantes até ficar igual ao original.
-6. Depois: itens/cartas/caddies, mais modos de jogo, polimento visual.
+7. Depois: itens/cartas/caddies, mais modos de jogo, polimento visual.
 
 ## Decisões tomadas
 

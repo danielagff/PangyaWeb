@@ -28,8 +28,12 @@ Na sala, o primeiro a entrar (👑) escolhe o curso e quantos buracos e começa.
 simula todas as tacadas (ninguém trapaceia) e manda o resultado para todos; joga quem está
 mais longe do pin. Em qualquer sistema: `pnpm servidor`.
 
-Teclas: ←/→ mira · espaço barra de força (3 toques) · M vista aérea · V som ·
-N movimentos do personagem · T mapa de pisos · F névoa · C caixas de colisão.
+Controles: A/D (ou ←/→) mira · roda do mouse troca o taco · Alt power shot (2 toques rápidos
+= 2 PS) · clique na bola do mostrador = spin/curva · espaço = barra de força (3 toques; deixar
+passar da zona cancela) · arrastar o mouse = câmera livre (R volta) · no voo A/D giram a
+câmera e S mostra de cima · M ou 0 vista aérea (roda = zoom, Delete+0 = onde a tacada cai) ·
+V som · N movimentos do personagem · T mapa de pisos · F névoa · C caixas de colisão. A força
+do personagem é escolhida no menu e na sala.
 
 Para jogar sozinho: **`jogar.cmd`** (ou `pnpm dev` e abrir `http://localhost:5173`).
 
