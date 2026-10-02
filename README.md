@@ -33,6 +33,14 @@ N movimentos do personagem · T mapa de pisos · F névoa · C caixas de colisã
 
 Para jogar sozinho: **`jogar.cmd`** (ou `pnpm dev` e abrir `http://localhost:5173`).
 
+## Mapeador de personagens
+
+**`mapeador.cmd`** abre, separado do jogo (`http://localhost:7778`), um visualizador no estilo
+do Mixamo: o personagem gira com o mouse, as animações aparecem traduzidas e separadas por
+categoria (postura, cada taco, resultado do buraco, emoções do chat, itens…), com busca,
+linha do tempo quadro a quadro e as peças (skins) por slot. Cada item tem um campo de
+anotação; "Copiar lista" junta tudo para conferir os nomes com o jogo original.
+
 ## Comandos
 
 | Comando                     | O que faz                                                      |

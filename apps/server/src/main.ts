@@ -14,9 +14,12 @@ import { serveStatic } from './static.ts'
  */
 const repoRoot = resolve(import.meta.dirname, '../../..')
 const port = Number(process.env['PORT'] ?? 7777)
+/** PANGYA_PAGINA=mapeador.html: o mesmo servidor abrindo o mapeador de personagens. */
+const page = process.env['PANGYA_PAGINA'] ?? 'index.html'
 const dirs = {
   assets: resolve(repoRoot, 'assets'),
   client: resolve(repoRoot, 'apps/client/dist'),
+  page,
 }
 const original = resolve(dirs.assets, 'original')
 if (!existsSync(original)) {
@@ -57,7 +60,8 @@ wss.on('connection', (socket) => {
 })
 
 server.listen(port, () => {
-  console.log(`\nPangyaWeb rodando! Abra no navegador:`)
+  const what = page === 'index.html' ? 'PangyaWeb' : 'Mapeador do PangyaWeb'
+  console.log(`\n${what} rodando! Abra no navegador:`)
   console.log(`  neste PC:        http://localhost:${port}`)
   for (const list of Object.values(networkInterfaces())) {
     for (const net of list ?? []) {

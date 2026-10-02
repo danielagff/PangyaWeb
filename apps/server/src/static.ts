@@ -31,12 +31,13 @@ export function sendFile(root: string, path: string, res: ServerResponse, cache 
 
 /**
  * Rotas estáticas: /game-assets/* (pasta assets, só no PC do anfitrião) e o cliente
- * compilado (apps/client/dist), com index.html para as demais rotas.
+ * compilado (apps/client/dist), com a página inicial (index.html, ou a do mapeador) para
+ * as demais rotas.
  */
 export function serveStatic(
   req: IncomingMessage,
   res: ServerResponse,
-  dirs: { assets: string; client: string },
+  dirs: { assets: string; client: string; page?: string },
 ): boolean {
   const url = new URL(req.url ?? '/', 'http://x')
   if (url.pathname.startsWith('/game-assets/')) {
@@ -50,6 +51,7 @@ export function serveStatic(
     res.end('Cliente não compilado: rode "pnpm build" (ou use servidor.cmd).')
     return true
   }
-  const path = url.pathname === '/' ? 'index.html' : url.pathname
-  return sendFile(dirs.client, path, res) || sendFile(dirs.client, join('index.html'), res)
+  const page = dirs.page ?? 'index.html'
+  const path = url.pathname === '/' ? page : url.pathname
+  return sendFile(dirs.client, path, res) || sendFile(dirs.client, join(page), res)
 }

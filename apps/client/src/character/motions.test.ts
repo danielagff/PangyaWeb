@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { describeMotion } from './motion-names.ts'
 import { golfMotions, motionMeaning, reactionForScore, reactionMotion } from './motions.ts'
 
 // Trecho real do a_def.apet (Azer, cliente JP).
@@ -67,9 +68,20 @@ describe('movimentos de golfe', () => {
 
 describe('motionMeaning', () => {
   it('traduz taco + ação e poses conhecidas', () => {
-    expect(motionMeaning('우드샷파워준비')).toBe('madeira: backswing (sobe até o topo)')
-    expect(motionMeaning('퍼팅샷')).toBe('putter: tacada')
-    expect(motionMeaning('버디승리포즈')).toBe('comemoração de birdie')
+    expect(motionMeaning('우드샷준비')).toBe('preparação: parado mirando')
+    expect(motionMeaning('퍼팅샷')).toBe('tacada (swing completo)')
+    expect(motionMeaning('아이언샷파워빠른헛스윙')).toBe('tacada · power shot · errou: adiantado')
+    expect(motionMeaning('버디승리포즈끝')).toBe('comemoração: birdie (final)')
+    expect(motionMeaning('chat_하품')).toBe('bocejo')
     expect(motionMeaning('알수없음')).toBe('')
+  })
+
+  it('separa por categoria', () => {
+    expect(describeMotion('샌드웻지샷게걸음').category).toBe('Wedge')
+    expect(describeMotion('chat_박수').category).toBe('Emoções (chat)')
+    expect(describeMotion('헬기등장모션_item')).toEqual({
+      category: 'Entrada e itens',
+      text: 'entrada com helicóptero',
+    })
   })
 })

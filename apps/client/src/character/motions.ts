@@ -6,6 +6,8 @@
  * Tacos: 우드 madeira, 아이언 ferro, 샌드웻지 wedge, 퍼팅 putter.
  */
 
+import { describeMotion } from './motion-names.ts'
+
 export interface MotionInfo {
   name: string
   frameStart: number
@@ -97,39 +99,5 @@ export function reactionForScore(strokes: number, par: number): Reaction {
   return 'bogey'
 }
 
-const CLUB_WORDS: [string, string][] = [
-  ['샌드웻지', 'wedge'],
-  ['아이언', 'ferro'],
-  ['우드', 'madeira'],
-  ['퍼팅', 'putter'],
-]
-const SHOT_WORDS: [string, string][] = [
-  ['샷파워준비', 'backswing (sobe até o topo)'],
-  ['샷게걸음', 'andando de lado ao mirar'],
-  ['샷준비', 'preparando a tacada (parado)'],
-  ['샷', 'tacada'],
-]
-const WHOLE_WORDS: Record<string, string> = {
-  기본자세: 'postura básica',
-  버디승리포즈: 'comemoração de birdie',
-  이글승리포즈: 'comemoração de eagle',
-  알바홀인승리포즈: 'comemoração de albatross/hole-in-one',
-  세이브파승리포즈: 'comemoração de par salvo',
-  보기실격실망포즈: 'decepção (bogey/desclassificado)',
-  타임오버벙커OB실망포즈: 'decepção (tempo esgotado/bunker/OB)',
-  퍼팅성공: 'putt embocado',
-  퍼팅후실망포즈: 'decepção depois do putt',
-}
-
 /** Tradução aproximada do nome coreano de um movimento ('' se desconhecido). */
-export function motionMeaning(name: string): string {
-  const whole = WHOLE_WORDS[name]
-  if (whole) return whole
-  for (const [ko, club] of CLUB_WORDS) {
-    if (!name.startsWith(ko)) continue
-    const rest = name.slice(ko.length)
-    const shot = SHOT_WORDS.find(([w]) => rest === w)
-    if (shot) return `${club}: ${shot[1]}`
-  }
-  return ''
-}
+export const motionMeaning = (name: string) => describeMotion(name).text

@@ -40,8 +40,7 @@ function showMenu() {
   menu.className = 'lobby'
   menu.innerHTML = `
     <h1>PangyaWeb <small class="version">versão ${__PANGYA_VERSION__}</small></h1>
-    <p><a class="button" href="?online">Jogar com amigos (sala)</a>
-      <a class="button" href="?personagens">Personagens e animações</a></p>
+    <p><a class="button" href="?online">Jogar com amigos (sala)</a></p>
     <h2>Personagem</h2>
     <p class="character"></p>
     <h2>Sozinho</h2>

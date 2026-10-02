@@ -61,5 +61,14 @@ export default defineConfig({
       '/api': 'http://localhost:7777',
     },
   },
-  build: { chunkSizeWarningLimit: 1000 }, // three.js sozinho passa de 500 kB
+  build: {
+    chunkSizeWarningLimit: 1000, // three.js sozinho passa de 500 kB
+    // Duas páginas: o jogo e o mapeador de personagens (mapeador.cmd).
+    rollupOptions: {
+      input: {
+        main: resolve(import.meta.dirname, 'index.html'),
+        mapeador: resolve(import.meta.dirname, 'mapeador.html'),
+      },
+    },
+  },
 })

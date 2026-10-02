@@ -440,3 +440,27 @@
 .viewer-side .saved-count {
   color: #9be59b;
 }
+.viewer-side .search {
+  width: 95%;
+  font: inherit;
+  margin-bottom: 4px;
+}
+.viewer-side .motions summary {
+  cursor: pointer;
+  font-weight: bold;
+  margin: 8px 0 2px;
+  color: #ffd54f;
+}
+.viewer-side .motions small {
+  display: block;
+}
+.viewer-side .motions ul {
+  list-style: none;
+  padding-left: 4px;
+}
+.viewer-side .motions .play {
+  text-align: left;
+}
+.viewer-side .motions summary small {
+  display: inline;
+}

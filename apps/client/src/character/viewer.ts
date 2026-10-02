@@ -30,7 +30,8 @@ import {
   readPartInfo,
   type CharacterEntry,
 } from './character.ts'
-import { golfMotions, motionMeaning } from './motions.ts'
+import { describeMotion, MOTION_CATEGORIES } from './motion-names.ts'
+import { golfMotions } from './motions.ts'
 
 const BALL_RADIUS = 0.2
 
@@ -150,7 +151,7 @@ export async function startCharacterViewer() {
   const left = document.createElement('div')
   left.className = 'viewer-side left'
   left.innerHTML = `
-    <h1>Personagens</h1>
+    <h1>Mapeador de personagens</h1>
     <label>Personagem <select name="character"></select></label>
     <label>Taco <select name="club">${CLUBS.map((c) => `<option value="${c.value}">${c.label}</option>`).join('')}</select></label>
     <label>Ver <select name="mode">
@@ -164,9 +165,11 @@ export async function startCharacterViewer() {
     <label>Velocidade <input type="range" name="speed" min="0" max="2" step="0.05" value="1" /> <output>1×</output></label>
     <p class="status"></p>
     <p class="saved-count"></p>
-    <p><button class="copy">Copiar lista (com anotações)</button> <a href="/">Menu</a></p>
+    <p><button class="copy">Copiar lista (com anotações)</button></p>
     <h2>Animações</h2>
-    <ol class="motions"></ol>`
+    <input class="search" type="search" placeholder="Buscar (ex.: putter, birdie, 우드)" />
+    <label><input type="checkbox" name="endings" /> mostrar trechos finais ("final")</label>
+    <div class="motions"></div>`
   const right = document.createElement('div')
   right.className = 'viewer-side right'
   right.innerHTML = `<h2>Peças (skins) por slot</h2><div class="parts"></div>
@@ -191,6 +194,10 @@ export async function startCharacterViewer() {
   const loopInput = $<HTMLInputElement>(left, 'input[name=loop]')
   const speedInput = $<HTMLInputElement>(left, 'input[name=speed]')
   const status = (text: string) => ($(left, '.status').textContent = text)
+  const searchInput = $<HTMLInputElement>(left, 'input.search')
+  const endingsInput = $<HTMLInputElement>(left, 'input[name=endings]')
+  searchInput.addEventListener('input', () => filterMotions())
+  endingsInput.addEventListener('change', () => filterMotions())
 
   /** Salva a cada letra digitada e mostra ✓ salvo (borda verde) no campo. */
   function bindNote(input: HTMLInputElement, key: string) {
@@ -322,18 +329,33 @@ export async function startCharacterViewer() {
     toggleButton.textContent = paused ? '▶' : '⏸'
   }
 
+  /** Movimentos agrupados por categoria (na ordem da tela), com o índice original. */
+  function motionGroups() {
+    const motions = (model?.motions ?? []).map((m, i) => ({ ...m, i, ...describeMotion(m.name) }))
+    return MOTION_CATEGORIES.map((category) => ({
+      category,
+      items: motions.filter((m) => m.category === category),
+    })).filter((g) => g.items.length > 0)
+  }
+
   function renderMotions() {
-    const list = $<HTMLOListElement>(left, '.motions')
+    const list = $<HTMLDivElement>(left, '.motions')
     const motions = model?.motions ?? []
-    list.innerHTML = motions
-      .map((m, i) => {
-        const meaning = motionMeaning(m.name)
-        return `<li data-i="${i}" class="${m.name === motion ? 'active' : ''}">
-          <button class="play">${escapeHtml(m.name)}</button>
-          <small>${m.frameEnd - m.frameStart} quadros${meaning ? ` · ${escapeHtml(meaning)}` : ''}</small>
+    list.innerHTML = motionGroups()
+      .map(
+        (g) =>
+          `<details open><summary>${g.category} <small>(${g.items.length})</small></summary><ul>${g.items
+            .map(
+              (
+                m,
+              ) => `<li data-i="${m.i}" class="${m.name === motion ? 'active' : ''} ${m.name.endsWith('끝') ? 'ending' : ''}">
+          <button class="play">${escapeHtml(m.text || '(sem tradução)')}</button>
+          <small>${escapeHtml(m.name)} · ${m.frameEnd - m.frameStart} quadros</small>
           <input class="note" placeholder="o que é?" value="${escapeHtml(readNote(noteKey('anim', m.name)))}" />
-        </li>`
-      })
+        </li>`,
+            )
+            .join('')}</ul></details>`,
+      )
       .join('')
     list.querySelectorAll('li').forEach((li) => {
       const m = motions[Number(li.dataset.i)]!
@@ -345,6 +367,21 @@ export async function startCharacterViewer() {
       })
       const note = $<HTMLInputElement>(li, '.note')
       bindNote(note, noteKey('anim', m.name))
+    })
+    filterMotions()
+  }
+
+  /** Busca (português, coreano ou anotação) e esconder os trechos finais ("끝"). */
+  function filterMotions() {
+    const query = searchInput.value.trim().toLowerCase()
+    const endings = endingsInput.checked
+    left.querySelectorAll<HTMLLIElement>('.motions li').forEach((li) => {
+      const text = (li.textContent + ' ' + $<HTMLInputElement>(li, '.note').value).toLowerCase()
+      li.hidden =
+        (!endings && li.classList.contains('ending')) || (query !== '' && !text.includes(query))
+    })
+    left.querySelectorAll<HTMLDetailsElement>('.motions details').forEach((d) => {
+      d.hidden = [...d.querySelectorAll('li')].every((li) => li.hidden)
     })
   }
 
@@ -425,15 +462,17 @@ export async function startCharacterViewer() {
 
   function copyList() {
     const lines = [`PERSONAGEM ${entry.name} (${entry.id})`, '', 'ANIMAÇÕES']
-    ;(model?.motions ?? []).forEach((m, i) => {
-      const meaning = motionMeaning(m.name)
-      const note = readNote(noteKey('anim', m.name))
-      lines.push(
-        `${i + 1}. ${m.name} (${m.frameEnd - m.frameStart} quadros)` +
-          (meaning ? ` — palpite: ${meaning}` : '') +
-          (note ? ` — NOTA: ${note}` : ''),
-      )
-    })
+    for (const g of motionGroups()) {
+      lines.push(`[${g.category}]`)
+      for (const m of g.items) {
+        const note = readNote(noteKey('anim', m.name))
+        lines.push(
+          `  ${m.i + 1}. ${m.name} (${m.frameEnd - m.frameStart} quadros)` +
+            (m.text ? ` — tradução: ${m.text}` : '') +
+            (note ? ` — NOTA: ${note}` : ''),
+        )
+      }
+    }
     lines.push('', 'PEÇAS')
     for (const slot of slots()) {
       lines.push(`[${slot}]`)
