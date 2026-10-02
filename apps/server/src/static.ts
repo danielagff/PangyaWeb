@@ -16,14 +16,39 @@ const TYPES: Record<string, string> = {
   '.xml': 'text/xml; charset=utf-8',
 }
 
-/** Envia um arquivo de `root`; devolve false se não existir. */
-export function sendFile(root: string, path: string, res: ServerResponse, cache = false): boolean {
+/**
+ * Envia um arquivo de `root`; devolve false se não existir.
+ *
+ * Cache: o navegador sempre confere se o arquivo mudou (no-cache + Last-Modified/ETag),
+ * então uma atualização (git pull, nova extração dos assets) aparece no próximo
+ * carregamento, sem precisar limpar o cache; sem mudança, a resposta é um 304 vazio.
+ * Só os arquivos do build com hash no nome (/assets/…-abc123.js) ficam guardados de vez.
+ */
+export function sendFile(
+  root: string,
+  path: string,
+  req: IncomingMessage,
+  res: ServerResponse,
+  immutable = false,
+): boolean {
   const full = safeJoin(root, path)
-  if (!full || !existsSync(full) || !statSync(full).isFile()) return false
+  if (!full || !existsSync(full)) return false
+  const stat = statSync(full)
+  if (!stat.isFile()) return false
+  const etag = `"${stat.size.toString(36)}-${Math.floor(stat.mtimeMs).toString(36)}"`
+  const headers = {
+    'Cache-Control': immutable ? 'public, max-age=31536000, immutable' : 'no-cache',
+    'Last-Modified': stat.mtime.toUTCString(),
+    ETag: etag,
+  }
+  if (req.headers['if-none-match'] === etag) {
+    res.writeHead(304, headers).end()
+    return true
+  }
   res.writeHead(200, {
+    ...headers,
     'Content-Type': TYPES[extname(full).toLowerCase()] ?? 'application/octet-stream',
-    'Content-Length': statSync(full).size,
-    'Cache-Control': cache ? 'public, max-age=3600' : 'no-cache',
+    'Content-Length': stat.size,
   })
   createReadStream(full).pipe(res)
   return true
@@ -41,7 +66,7 @@ export function serveStatic(
 ): boolean {
   const url = new URL(req.url ?? '/', 'http://x')
   if (url.pathname.startsWith('/game-assets/')) {
-    if (!sendFile(dirs.assets, url.pathname.slice('/game-assets/'.length), res, true)) {
+    if (!sendFile(dirs.assets, url.pathname.slice('/game-assets/'.length), req, res)) {
       res.writeHead(404).end()
     }
     return true
@@ -53,5 +78,8 @@ export function serveStatic(
   }
   const page = dirs.page ?? 'index.html'
   const path = url.pathname === '/' ? page : url.pathname
-  return sendFile(dirs.client, path, res) || sendFile(dirs.client, join(page), res)
+  const hashed = /^\/assets\/.+-[\w-]{6,}\.\w+$/.test(path)
+  return (
+    sendFile(dirs.client, path, req, res, hashed) || sendFile(dirs.client, join(page), req, res)
+  )
 }

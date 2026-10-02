@@ -28,7 +28,7 @@ export const categoryOfClub = (club: string): ClubCategory =>
 export function clubModelFor(category: ClubCategory): Promise<string | undefined> {
   let path = chosen.get(category)
   if (!path) {
-    table ??= fetch('/game-assets/converted/data/clubs.json')
+    table ??= fetch('/game-assets/converted/data/clubs.json', { cache: 'no-cache' })
       .then((r) => (r.ok ? r.json() : []))
       .catch(() => [])
     path = table.then(async (clubs) => {

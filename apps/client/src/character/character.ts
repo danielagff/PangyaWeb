@@ -56,7 +56,7 @@ let catalog: Promise<CharacterEntry[]> | undefined
 /** Personagens encontrados na extração (assets/original/_characters.json). */
 export function loadCatalog(): Promise<CharacterEntry[]> {
   catalog ??= Promise.all([
-    fetch(`${ASSET_BASE}/_characters.json`)
+    fetch(`${ASSET_BASE}/_characters.json`, { cache: 'no-cache' })
       .then((r) => (r.ok ? (r.json() as Promise<CharacterEntry[]>) : []))
       .catch(() => [] as CharacterEntry[]),
     loadOutfits(),

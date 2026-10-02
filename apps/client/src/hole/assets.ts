@@ -9,7 +9,7 @@ export const ASSET_BASE = '/game-assets/original'
 let index: Promise<AssetIndex> | undefined
 
 function loadIndex() {
-  index ??= fetch(`${ASSET_BASE}/_index.json`)
+  index ??= fetch(`${ASSET_BASE}/_index.json`, { cache: 'no-cache' })
     .then((r) => (r.ok ? (r.json() as Promise<AssetIndex>) : {}))
     .catch(() => ({}))
   return index
@@ -29,7 +29,7 @@ const encode = (path: string) => path.split('/').map(encodeURIComponent).join('/
 
 /** Baixa um arquivo de ASSET_BASE; undefined se não existir. */
 export async function tryFetchBytes(path: string): Promise<Uint8Array | undefined> {
-  const response = await fetch(`${ASSET_BASE}/${encode(path)}`)
+  const response = await fetch(`${ASSET_BASE}/${encode(path)}`, { cache: 'no-cache' })
   return response.ok ? new Uint8Array(await response.arrayBuffer()) : undefined
 }
 

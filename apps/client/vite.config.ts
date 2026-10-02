@@ -35,6 +35,7 @@ function gameAssets(): Plugin {
           return
         }
         res.setHeader('Content-Type', mimeTypes[extname(path)] ?? 'application/octet-stream')
+        res.setHeader('Cache-Control', 'no-cache')
         createReadStream(path).pipe(res)
       })
     },

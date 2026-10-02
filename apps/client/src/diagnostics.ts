@@ -66,7 +66,7 @@ export async function showDiagnostics() {
   // Tacos: do Club.iff convertido (pnpm assets:build) e arquivos com cara de taco.
   log('\n== TACOS')
   try {
-    const response = await fetch('/game-assets/converted/data/clubs.json')
+    const response = await fetch('/game-assets/converted/data/clubs.json', { cache: 'no-cache' })
     if (response.ok) {
       const clubs = (await response.json()) as { name?: string; model?: string; kind?: number }[]
       log(`clubs.json: ${clubs.length} registros`)
