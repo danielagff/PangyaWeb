@@ -67,6 +67,8 @@ obtida por engenharia reversa, as regras de partida e o protocolo. Veja
 [`docs/referencias/superss-dev.md`](../referencias/superss-dev.md) para o mapa do que usar em
 cada spec. Ele **não** contém os assets do cliente (modelos, texturas, cursos, sons).
 
+Resumo de onde estamos e do que falta: [`docs/ESTADO.md`](../ESTADO.md).
+
 Para modelos (`.pet`) e mapas (`.gbin`, `.sbin`), veja também
 [`docs/referencias/ghostmapeditor.md`](../referencias/ghostmapeditor.md).
 
