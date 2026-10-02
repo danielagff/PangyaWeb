@@ -39,14 +39,14 @@ function showMenu() {
   const menu = document.createElement('div')
   menu.className = 'lobby'
   menu.innerHTML = `
-    <h1>PangyaWeb</h1>
-    <p><a class="button" href="?online">Jogar com amigos (sala)</a></p>
+    <h1>PangyaWeb <small class="version">versão ${__PANGYA_VERSION__}</small></h1>
+    <p><a class="button" href="?online">Jogar com amigos (sala)</a>
+      <a class="button" href="?personagens">Personagens e animações</a></p>
     <h2>Personagem</h2>
     <p class="character"></p>
     <h2>Sozinho</h2>
     <div class="courses"><p>Procurando cursos…</p></div>
     <p><a class="button secondary" href="?treino">Campo de treino</a>
-      <a class="button secondary" href="?personagens">Personagens e animações</a>
       <a class="button secondary" href="?diagnostico">Diagnóstico</a></p>
   `
   document.body.appendChild(menu)

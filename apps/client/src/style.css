@@ -425,3 +425,8 @@
   left: 12px;
   right: 12px;
 }
+.lobby .version {
+  font-size: 12px;
+  font-weight: normal;
+  opacity: 0.6;
+}

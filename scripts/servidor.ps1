@@ -13,6 +13,7 @@ Passo 'Compilando o jogo'
 pnpm build
 
 $porta = 7777
+LiberarPorta $porta
 if (Get-Command cloudflared -ErrorAction SilentlyContinue) {
   Passo 'Criando o link para amigos pela internet (cloudflared)'
   $log = Join-Path $env:TEMP 'pangyaweb-tunel.log'
@@ -41,6 +42,6 @@ if (Get-Command cloudflared -ErrorAction SilentlyContinue) {
 }
 
 Passo 'Ligando o servidor (feche esta janela para parar)'
-AbrirQuandoPronto "http://localhost:$porta/?online"
+AbrirQuandoPronto "http://localhost:$porta/"
 $env:PORT = $porta
 pnpm --filter @pangya/server start

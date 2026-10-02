@@ -7,6 +7,13 @@ function Passo($texto) { Write-Host "`n==> $texto" -ForegroundColor Cyan }
 function Atualizar {
   Passo 'Baixando a versão mais nova do GitHub'
   git pull --ff-only
+  if ($LASTEXITCODE -ne 0) {
+    Write-Host ''
+    Write-Host '   ATENÇÃO: não consegui baixar a versão nova (veja a mensagem do git acima).' -ForegroundColor Red
+    Write-Host '   O jogo vai abrir na versão antiga. Mande um print desta janela no chat.' -ForegroundColor Red
+    Write-Host ''
+  }
+  Write-Host ('   Versão: ' + (git log -1 --format='%h %cd' --date=format:'%d/%m %H:%M'))
 
   Passo 'Instalando dependências'
   pnpm install
@@ -25,6 +32,17 @@ function Atualizar {
   } else {
     Passo 'Atualizando o índice de assets'
     pnpm assets:index
+  }
+}
+
+# Fecha um servidor antigo que ainda esteja ligado nessa porta (senão o navegador abre ele,
+# com a versão velha, e o novo não consegue ligar).
+function LiberarPorta($porta) {
+  $antigos = Get-NetTCPConnection -LocalPort $porta -State Listen -ErrorAction SilentlyContinue |
+    Select-Object -ExpandProperty OwningProcess -Unique
+  foreach ($id in $antigos) {
+    Write-Host "   Fechando servidor antigo na porta $porta (processo $id)" -ForegroundColor Yellow
+    Stop-Process -Id $id -Force -ErrorAction SilentlyContinue
   }
 }
 

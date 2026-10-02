@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process'
 import { createReadStream, existsSync, statSync } from 'node:fs'
 import { extname, join, normalize, resolve } from 'node:path'
 import { defineConfig, type Plugin } from 'vite'
@@ -40,8 +41,18 @@ function gameAssets(): Plugin {
   }
 }
 
+/** Versão mostrada no menu (commit e data), para saber se o PC está atualizado. */
+function version() {
+  try {
+    return execSync('git log -1 --format="%h %cd" --date=format:"%d/%m %H:%M"').toString().trim()
+  } catch {
+    return 'dev'
+  }
+}
+
 export default defineConfig({
   plugins: [gameAssets()],
+  define: { __PANGYA_VERSION__: JSON.stringify(version()) },
   // No desenvolvimento, a sala multiplayer e a lista de cursos vêm do servidor da partida
   // (pnpm server, porta 7777).
   server: {

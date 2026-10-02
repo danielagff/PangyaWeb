@@ -10,6 +10,7 @@ Set-Location (Split-Path $PSScriptRoot -Parent)
 . "$PSScriptRoot/comum.ps1"
 
 Atualizar
+LiberarPorta 5173
 $url = "http://localhost:5173/?curso=$([uri]::EscapeDataString($Curso))&prefixo=$Prefixo&buraco=$Buraco"
 Passo "Abrindo $url (feche esta janela para parar)"
 AbrirQuandoPronto $url
