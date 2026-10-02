@@ -36,6 +36,12 @@ import {
   WebGLRenderer,
 } from 'three'
 import { SoundLibrary, type SynthSound } from '../audio/sounds.ts'
+import {
+  CHARACTER_TUNING,
+  CharacterModel,
+  loadCatalog,
+  type CharacterEntry,
+} from '../character/character.ts'
 import { createShotPanel, type ShotPanel } from '../shot-panel.ts'
 import { browserFiles } from './assets.ts'
 import { aimDirection, toScene } from './coords.ts'
@@ -45,7 +51,8 @@ import { createPowerBar, type PowerBar } from './power-bar.ts'
 import { SURFACE_LABELS } from './surface-colors.ts'
 import { TextureLibrary } from './textures.ts'
 
-const BALL_RADIUS = 1.6
+/** Raio da bola na tela (unidades). Maior que o real (0,07) para ser vista, como no jogo. */
+const BALL_RADIUS = 0.5
 const MAX_TRAIL = 4000
 
 export interface ViewPlayer {
@@ -53,7 +60,19 @@ export interface ViewPlayer {
   name: string
   color: number
   state: HoleState
+  /** Personagem (id do catálogo); sem ele, só a bola. */
+  character?: string | undefined
 }
+
+/** Movimentos procurados pelo nome no .apet (nomes reais a confirmar com o cliente). */
+const IDLE_MOTIONS = [/^(stand|idle|wait|ready|address)/i, /stand|idle|wait|ready/i]
+const SWING_MOTIONS: Record<string, RegExp[]> = {
+  wood: [/dr|wood|1w|driver/i],
+  iron: [/iron|ir\b|_i\d/i],
+  wedge: [/ap|approach|pw|sw|wedge/i],
+  putter: [/put|pt/i],
+}
+const ANY_SWING = [/swing|shot/i]
 
 /** Etiqueta com o nome acima da bola (multiplayer). */
 function nameTag(name: string, color: number) {
@@ -128,6 +147,10 @@ export class HoleView {
       }
     | undefined
   readonly sounds: SoundLibrary
+  private readonly characters = new Map<string, Promise<CharacterModel | undefined>>()
+  private readonly ready = new Map<string, CharacterModel>()
+  /** Movimento escolhido com a tecla N (depuração). */
+  private motionIndex = -1
 
   /** Chamado quando o jogador da vez bate (espaço ou botão). */
   onShoot: (request: ShotRequest) => void = () => {}
@@ -179,7 +202,7 @@ export class HoleView {
 
     // Tee e bandeira.
     const tee = new Mesh(
-      new RingGeometry(3.5, 4.5, 24),
+      new RingGeometry(1.6, 2.1, 24),
       new MeshBasicMaterial({ color: 0x1e88e5, side: DoubleSide }),
     )
     tee.rotation.x = -Math.PI / 2
@@ -252,6 +275,7 @@ export class HoleView {
       if (key === 'KeyT') this.course.setSurfaceView((this.surfaceView = !this.surfaceView))
       if (key === 'KeyF') this.course.setFog((this.fogOn = !this.fogOn))
       if (key === 'KeyC') this.boxLines.visible = !this.boxLines.visible
+      if (key === 'KeyN') this.cycleMotion()
       if (key === 'KeyV') {
         this.panel.showResult(
           this.sounds.toggleMute() ? '🔇 som desligado (V)' : '🔊 som ligado (V)',
@@ -394,7 +418,7 @@ export class HoleView {
     const entry = this.balls.get(id)
     if (!entry) return
     entry.ball.position.copy(position)
-    entry.tag?.position.copy(position).add(new Vector3(0, 7, 0))
+    entry.tag?.position.copy(position).add(new Vector3(0, 9, 0))
   }
 
   /**
@@ -416,6 +440,7 @@ export class HoleView {
     this.controllable = controllable && !!this.active
     if (!this.active) {
       this.phase = 'idle'
+      for (const model of this.ready.values()) model.root.visible = false
       this.panel.setEnabled(false, 'Fim do buraco')
       this.target.visible = false
       this.greenGrid.visible = false
@@ -425,6 +450,7 @@ export class HoleView {
     this.phase = 'aim'
     this.readyAt = performance.now()
     const state = this.active.state
+    this.showCharacter(this.active)
     if (changedTurn) {
       this.bar.cancel()
       this.aim = this.world.aimAtPin(state.ball)
@@ -443,6 +469,91 @@ export class HoleView {
     this.targetDirty = true
     this.placeCamera(this.ballPosition(), 1)
     this.updateHud()
+  }
+
+  /** Carrega (uma vez) o personagem do jogador. */
+  private characterOf(player: ViewPlayer): Promise<CharacterModel | undefined> {
+    let model = this.characters.get(player.id)
+    if (!model) {
+      model = loadCatalog()
+        .then((list) => list.find((c) => c.id === player.character))
+        .then((entry: CharacterEntry | undefined) =>
+          entry ? CharacterModel.load(entry) : undefined,
+        )
+        .then((m) => {
+          if (m) {
+            this.ready.set(player.id, m)
+            m.root.visible = false
+            this.scene.add(m.root)
+            m.play(m.findMotion(...IDLE_MOTIONS) ?? m.motionNames[0])
+            console.info(`personagem ${m.entry.name}: movimentos`, m.motionNames)
+          }
+          return m
+        })
+        .catch((err: unknown) => {
+          console.warn('personagem:', err)
+          return undefined
+        })
+      this.characters.set(player.id, model)
+    }
+    return model
+  }
+
+  /** Mostra só o personagem de quem joga, ao lado da bola, virado para ela. */
+  private showCharacter(player: ViewPlayer) {
+    for (const [id, model] of this.ready) model.root.visible = id === player.id
+    if (!player.character) return
+    void this.characterOf(player).then((model) => {
+      if (!model || this.active?.id !== player.id) return
+      model.root.visible = true
+      this.placeCharacter(model)
+    })
+  }
+
+  private placeCharacter(model: CharacterModel) {
+    const ball = this.ballPosition()
+    const forward = aimDirection(this.aim)
+    // Destro: de frente para a bola, com o alvo à esquerda.
+    const right = new Vector3(-forward.z, 0, forward.x)
+    const at = ball.clone().addScaledVector(right, -CHARACTER_TUNING.ballDistance)
+    at.y = (this.world.grid.groundAt(at.x, -at.z)?.y ?? ball.y - BALL_RADIUS) + 0
+    model.root.position.copy(at)
+    model.root.rotation.y =
+      Math.atan2(-right.x, -right.z) + (CHARACTER_TUNING.facingDegrees * Math.PI) / 180
+  }
+
+  /** Tecla N: percorre os movimentos do personagem da vez (para mapear os nomes). */
+  private cycleMotion() {
+    const model = this.active && this.ready.get(this.active.id)
+    if (!model || model.motionNames.length === 0) {
+      this.panel.showResult('Sem personagem/animações carregados.')
+      return
+    }
+    this.motionIndex = (this.motionIndex + 1) % model.motionNames.length
+    const name = model.motionNames[this.motionIndex]!
+    model.play(name)
+    this.panel.showResult(`Movimento ${this.motionIndex + 1}/${model.motionNames.length}: ${name}`)
+  }
+
+  /** Começa o swing do personagem; devolve quanto falta (s) até o taco acertar a bola. */
+  private startSwing(playerId: string, club: string | undefined): number {
+    const model = this.ready.get(playerId)
+    if (!model || !model.root.visible) return 0
+    const category =
+      club === undefined
+        ? ''
+        : club.startsWith('PT')
+          ? 'putter'
+          : /W$/.test(club)
+            ? 'wood'
+            : /^(PW|SW)$/.test(club)
+              ? 'wedge'
+              : 'iron'
+    const swing = model.findMotion(...(SWING_MOTIONS[category] ?? []), ...ANY_SWING)
+    if (!swing) return 0
+    const duration = model.play(swing, false, 0.1)
+    setTimeout(() => model.play(model.findMotion(...IDLE_MOTIONS) ?? swing), duration * 1000)
+    return duration * CHARACTER_TUNING.impactAt
   }
 
   private ballPosition() {
@@ -501,10 +612,12 @@ export class HoleView {
   animateShot(
     playerId: string,
     frames: Float32Array,
-    options: { aim?: number; events?: ShotEvent[]; impact?: number; delay?: number } = {},
+    options: { aim?: number; events?: ShotEvent[]; impact?: number; club?: string } = {},
   ): Promise<void> {
-    const { aim, events = [], impact, delay = 0 } = options
+    const { aim, events = [], impact, club } = options
     this.flight?.done()
+    // A bola só sai quando o taco acerta (meio do swing do personagem).
+    const delay = this.startSwing(playerId, club)
     this.phase = 'flying'
     this.shotForward = aimDirection(aim ?? this.aim)
     this.target.visible = false
@@ -609,8 +722,10 @@ export class HoleView {
     }
     const forward = this.phase === 'flying' ? this.shotForward : aimDirection(this.aim)
     const putting = this.phase === 'aim' && this.greenGrid.visible
-    const back = putting ? 30 : 70
-    const up = putting ? 16 : 28
+    // Mirando: perto, atrás do jogador; voando: mais longe para acompanhar a bola.
+    const flying = this.phase === 'flying'
+    const back = putting ? 18 : flying ? 55 : 22
+    const up = putting ? 9 : flying ? 20 : 8
     const desired = focus
       .clone()
       .addScaledVector(forward, -back)
@@ -629,7 +744,7 @@ export class HoleView {
     const below = world.grid.groundAt(next.x, -next.z)
     if (below && next.y < below.y + 6) next.y = below.y + 6
     camera.position.copy(next)
-    camera.lookAt(focus.clone().addScaledVector(forward, putting ? 25 : 60))
+    camera.lookAt(focus.clone().addScaledVector(forward, putting ? 25 : flying ? 60 : 40))
   }
 
   private frameAt(frames: Float32Array, i: number) {
@@ -668,6 +783,8 @@ export class HoleView {
       if (turn) {
         this.aim += turn * dt * (this.greenGrid.visible ? 0.25 : 0.6)
         this.targetDirty = true
+        const model = this.active && this.ready.get(this.active.id)
+        if (model?.root.visible) this.placeCharacter(model)
       }
       if (this.targetDirty) this.updateWind()
       if (this.controllable && this.targetDirty) this.updateTarget()
@@ -676,6 +793,7 @@ export class HoleView {
     } else {
       this.placeCamera(this.ballPosition(), 0.08)
     }
+    for (const model of this.ready.values()) if (model.root.visible) model.update(dt)
     this.course.update(this.camera)
     this.renderer.render(this.scene, this.camera)
   }

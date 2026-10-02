@@ -77,7 +77,9 @@ export class Room {
               .slice(0, 16) || 'Jogador'
           const taken = this.match.players.some((p) => p.connected && p.name === name)
           if (taken) throw new Error(`o nome "${name}" já está na sala`)
-          this.match = joinMatch(this.match, id, name)
+          const character =
+            typeof message.character === 'string' ? message.character.slice(0, 200) : undefined
+          this.match = joinMatch(this.match, id, name, character)
           this.publish()
           break
         }
@@ -149,6 +151,8 @@ export class Room {
       carry: played.carry,
       hits: played.hits,
       events: played.events,
+      club: request.club,
+      aim: request.aim,
       ...(played.impact !== undefined && { impact: played.impact }),
       outcome: played.outcome,
       message: describeShot(player.state!.ball, played),

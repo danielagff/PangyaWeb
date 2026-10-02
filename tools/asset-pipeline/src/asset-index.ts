@@ -1,7 +1,9 @@
 import { readdirSync, writeFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
+import { buildCharacterCatalog } from './characters.ts'
 
 export const INDEX_FILE = '_index.json'
+export const CHARACTERS_FILE = '_characters.json'
 
 function* walk(dir: string): Generator<string> {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -21,7 +23,7 @@ export function buildAssetIndex(root: string): Record<string, string | string[]>
   const all = new Map<string, string[]>()
   for (const path of walk(root)) {
     const rel = relative(root, path).replaceAll('\\', '/')
-    if (rel === INDEX_FILE || rel.startsWith('.')) continue
+    if (rel.startsWith('_') || rel.startsWith('.')) continue
     const name = rel.split('/').pop()!.toLowerCase()
     all.set(name, [...(all.get(name) ?? []), rel])
   }
@@ -33,8 +35,17 @@ export function buildAssetIndex(root: string): Record<string, string | string[]>
   return index
 }
 
+/** Grava o índice de nomes e o catálogo de personagens; devolve quantos nomes indexou. */
 export function writeAssetIndex(root: string): number {
   const index = buildAssetIndex(root)
   writeFileSync(join(root, INDEX_FILE), JSON.stringify(index))
+  const paths = Object.values(index).flat()
+  const characters = buildCharacterCatalog(paths)
+  writeFileSync(join(root, CHARACTERS_FILE), JSON.stringify(characters, null, 1))
+  if (characters.length > 0) {
+    console.log(
+      `personagens: ${characters.map((c) => `${c.name} (${c.defaults.length} peças)`).join(', ')}`,
+    )
+  }
   return Object.keys(index).length
 }

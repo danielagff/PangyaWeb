@@ -1,3 +1,4 @@
+import { characterSelect } from './character/character.ts'
 import { startHoleMode } from './hole/hole-mode.ts'
 import { startOnlineMode } from './online/online-mode.ts'
 import { startRangeMode } from './range-mode.ts'
@@ -34,11 +35,14 @@ function showMenu() {
   menu.innerHTML = `
     <h1>PangyaWeb</h1>
     <p><a class="button" href="?online">Jogar com amigos (sala)</a></p>
+    <h2>Personagem</h2>
+    <p class="character"></p>
     <h2>Sozinho</h2>
     <div class="courses"><p>Procurando cursos…</p></div>
     <p><a class="button secondary" href="?treino">Campo de treino</a></p>
   `
   document.body.appendChild(menu)
+  void characterSelect().then((select) => menu.querySelector('.character')!.append(select))
   const list = menu.querySelector('.courses') as HTMLDivElement
   const link = (c: CourseInfo, hole: number) =>
     `?curso=${encodeURIComponent(c.round)}&prefixo=${encodeURIComponent(c.prefix)}&buraco=${hole}`

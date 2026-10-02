@@ -1,6 +1,6 @@
 # 12 — Personagens e animações
 
-- **Status:** rascunho
+- **Status:** em andamento
 - **Fase:** 2 Engine
 - **Depende de:** 05, 09
 - **Estimativa:** M
@@ -29,6 +29,27 @@ e mascotes.
 **Não inclui**
 
 - Caddie e mascote (spec futura), loja de roupas (spec 15).
+
+## Progresso
+
+- Catálogo (`tools/asset-pipeline/src/characters.ts` → `assets/original/_characters.json`,
+  gerado junto com o índice): cada `.bpet` com o `.apet` e as `.mpet` da mesma pasta,
+  peças por slot (2º pedaço do nome: ha, fc, ts, pv, ft, hn…; `!xx` = slots escondidos) e
+  uma roupa padrão (uma peça por slot básico, preferindo as que não escondem outras).
+- Montagem (`apps/client/src/character/character.ts`): ossos do .bpet; cada peça é um
+  SkinnedMesh com as inversas da pose de repouso _da peça_ — mesma conta do
+  pet-source_tools (Σ wᵢ · Bpet[i] · Mpet[i]⁻¹ · Mpet[principal] · v).
+- Animação: um clipe por "motion" do .apet, amostrado a 30 quadros/s; rotação gravada
+  invertida (x,y,z,w); posição/rotação/escala locais ao pai, com a pose de repouso onde
+  faltam chaves.
+- Em jogo: só o personagem da vez aparece, ao lado da bola (destro, alvo à esquerda),
+  parado; na tacada faz o swing do taco e a bola sai no impacto (`CHARACTER_TUNING`).
+  Escolha do personagem no menu e na sala; tecla N percorre os movimentos.
+- Validado com um personagem sintético no formato real (8 ossos, peças com pesos em 2
+  ossos, motions stand/swing). **A conferir com os arquivos reais:** nomes dos movimentos
+  (padrões `IDLE_MOTIONS`/`SWING_MOTIONS` em hole-view.ts), para onde o modelo olha
+  (`facingDegrees`), a escala e o momento do impacto.
+- Ainda não: trocar roupa/peças na interface, expressões faciais (FANM), taco na mão.
 
 ## Critérios de aceite
 

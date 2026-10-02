@@ -28,6 +28,9 @@ Na sala, o primeiro a entrar (👑) escolhe o curso e quantos buracos e começa.
 simula todas as tacadas (ninguém trapaceia) e manda o resultado para todos; joga quem está
 mais longe do pin. Em qualquer sistema: `pnpm servidor`.
 
+Teclas: ←/→ mira · espaço barra de força (3 toques) · M vista aérea · V som ·
+N movimentos do personagem · T mapa de pisos · F névoa · C caixas de colisão.
+
 Para jogar sozinho: **`jogar.cmd`** (ou `pnpm dev` e abrir `http://localhost:5173`).
 
 ## Comandos

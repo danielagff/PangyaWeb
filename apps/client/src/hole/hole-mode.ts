@@ -8,6 +8,7 @@ import {
   startHole,
   type HoleRef,
 } from '@pangya/game'
+import { chosenCharacter } from '../character/character.ts'
 import { HoleView } from './hole-view.ts'
 
 /** Cartão de placar carregado de buraco em buraco pela URL: "4:4,3:3" (tacadas:par). */
@@ -35,7 +36,9 @@ export async function startHoleMode(ref: HoleRef) {
   const view = await HoleView.create(ref)
   const { world } = view
   const card = readCard()
-  const me = { id: 'eu', name: 'Você', color: 0xffffff }
+  const character =
+    new URLSearchParams(location.search).get('personagem') ?? (await chosenCharacter())
+  const me = { id: 'eu', name: 'Você', color: 0xffffff, character }
   let state = startHole(world.par, world.tee)
   // Vento sorteado no início do buraco (no modo sozinho dá para mudar no painel).
   const wind = randomWind()
@@ -52,6 +55,7 @@ export async function startHoleMode(ref: HoleRef) {
     const from = state.ball
     await view.animateShot(me.id, played.frames, {
       aim: request.aim,
+      club: request.club,
       events: played.events,
       ...(played.impact !== undefined && { impact: played.impact }),
     })

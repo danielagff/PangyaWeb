@@ -66,6 +66,13 @@ describe('partida multiplayer', () => {
     expect(m.host).toBe('a2')
   })
 
+  it('se todos saem no meio da partida, a sala volta ao lobby', () => {
+    let m = twoPlayers()
+    m = leaveMatch(m, 'a')
+    m = leaveMatch(m, 'b')
+    expect(m).toMatchObject({ phase: 'lobby', players: [], host: undefined })
+  })
+
   it('no lobby, quem sai é removido', () => {
     let m = joinMatch(createMatch(), 'a', 'Ana')
     m = leaveMatch(m, 'a')

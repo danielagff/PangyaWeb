@@ -22,6 +22,8 @@ export interface MatchPlayer {
   name: string
   color: number
   connected: boolean
+  /** Personagem escolhido (id do catálogo do cliente). */
+  character?: string
   /** Tacadas e par de cada buraco já terminado. */
   card: { hole: number; strokes: number; par: number }[]
   /** Estado no buraco atual (undefined no lobby). */
@@ -58,10 +60,16 @@ export function createMatch(): MatchState {
 const hostOf = (players: MatchPlayer[]) => players.find((p) => p.connected)?.id
 
 /** Entra na sala; um jogador desconectado com o mesmo nome é retomado (mantém o placar). */
-export function joinMatch(match: MatchState, id: string, name: string): MatchState {
+export function joinMatch(
+  match: MatchState,
+  id: string,
+  name: string,
+  character?: string,
+): MatchState {
   const back = match.players.find((p) => !p.connected && p.name === name)
+  const chosen = character ? { character } : {}
   const players = back
-    ? match.players.map((p) => (p === back ? { ...p, id, connected: true } : p))
+    ? match.players.map((p) => (p === back ? { ...p, ...chosen, id, connected: true } : p))
     : [
         ...match.players,
         {
@@ -69,6 +77,7 @@ export function joinMatch(match: MatchState, id: string, name: string): MatchSta
           name,
           color: COLORS[match.players.length % COLORS.length]!,
           connected: true,
+          ...chosen,
           card: [],
           state: undefined,
         },
@@ -77,8 +86,12 @@ export function joinMatch(match: MatchState, id: string, name: string): MatchSta
   return { ...match, players, turn, host: hostOf(players) }
 }
 
-/** Saiu (conexão caiu): fica na lista como desconectado e perde a vez. */
+/**
+ * Saiu (conexão caiu): fica na lista como desconectado e perde a vez. Se não sobra
+ * ninguém conectado, a sala volta ao lobby (senão uma partida abandonada travaria a sala).
+ */
 export function leaveMatch(match: MatchState, id: string): MatchState {
+  if (!match.players.some((p) => p.connected && p.id !== id)) return createMatch()
   const players =
     match.phase === 'lobby'
       ? match.players.filter((p) => p.id !== id)

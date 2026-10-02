@@ -7,6 +7,7 @@ import {
   type MatchState,
   type ServerMessage,
 } from '@pangya/game'
+import { characterSelect } from '../character/character.ts'
 import { HoleView, type ViewPlayer } from '../hole/hole-view.ts'
 import { connect } from './connection.ts'
 
@@ -72,6 +73,7 @@ export function startOnlineMode() {
     <h1>PangyaWeb — sala</h1>
     <form class="join">
       <input name="name" maxlength="16" placeholder="Seu nome" required />
+      <span class="character"></span>
       <button>Entrar</button>
     </form>
     <div class="room" hidden>
@@ -96,6 +98,17 @@ export function startOnlineMode() {
   const $ = <T extends Element>(selector: string) => lobby.querySelector(selector) as T
   const nameInput = $<HTMLInputElement>('input[name=name]')
   nameInput.value = rememberedName()
+  let characterInput: HTMLSelectElement | undefined
+  void characterSelect().then((select) => {
+    characterInput = select
+    $('.character').append(select)
+  })
+  const hello = (name: string) =>
+    server.send({
+      t: 'hello',
+      name,
+      ...(characterInput?.value && { character: characterInput.value }),
+    })
 
   // ---- chat (sala e jogo) ----
   const chat = document.createElement('div')
@@ -121,7 +134,7 @@ export function startOnlineMode() {
     const name = nameInput.value.trim()
     if (!name) return
     rememberName(name)
-    server.send({ t: 'hello', name })
+    hello(name)
   })
   chatInput.addEventListener('keydown', (e) => {
     e.stopPropagation() // espaço e setas no chat não mexem no jogo
@@ -171,7 +184,13 @@ export function startOnlineMode() {
   function viewPlayers(m: MatchState): ViewPlayer[] {
     return m.players
       .filter((p) => p.state)
-      .map((p) => ({ id: p.id, name: p.name, color: p.color, state: p.state! }))
+      .map((p) => ({
+        id: p.id,
+        name: p.name,
+        color: p.color,
+        state: p.state!,
+        character: p.character,
+      }))
   }
 
   async function showMatch(m: MatchState) {
@@ -248,7 +267,7 @@ export function startOnlineMode() {
     switch (message.t) {
       case 'welcome':
         myId = message.id
-        if (nameInput.value.trim()) server.send({ t: 'hello', name: nameInput.value.trim() })
+        if (nameInput.value.trim()) hello(nameInput.value.trim())
         break
       case 'match': {
         const previous = match
@@ -269,6 +288,8 @@ export function startOnlineMode() {
           if (loading) await loading
           if (!view) return
           await view.animateShot(message.playerId, frames, {
+            club: message.club,
+            aim: message.aim,
             events: message.events,
             ...(message.impact !== undefined && { impact: message.impact }),
           })

@@ -24,6 +24,8 @@ export type ServerMessage =
       carry: number
       hits: number
       events: ShotEvent[]
+      club: string
+      aim: number
       /** Erro de impacto da barra (para o som/efeito de "Pangya!"). */
       impact?: number
       outcome: ShotOutcome
