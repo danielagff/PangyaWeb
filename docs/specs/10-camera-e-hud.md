@@ -32,6 +32,7 @@ Câmeras de jogo e HUD com as informações necessárias para mirar como no orig
 ## Problemas conhecidos
 
 ### Tela inteira azul (céu/névoa) depois de algumas tacadas — Pink Wind buraco 1
+
 - **Onde:** `?curso=round10_spring%20wind&prefixo=pink&buraco=1`, cliente JP extraído
   localmente (com os 32 modelos de objetos carregados).
 - **Como acontece (vídeo do usuário, 2026-10-02):** várias tacadas de 1W seguidas sem esperar

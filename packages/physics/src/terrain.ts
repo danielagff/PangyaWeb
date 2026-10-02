@@ -8,6 +8,9 @@ export interface GroundHit {
   triangle: number
 }
 
+/** Normal unitária do triângulo, apontando para cima (y ≥ 0). */
+export type Normal = [number, number, number]
+
 export class TerrainGrid {
   private readonly cells: number[][]
   private readonly minX: number
@@ -58,6 +61,27 @@ export class TerrainGrid {
 
   private cellZ(z: number) {
     return Math.min(this.nz - 1, Math.max(0, Math.floor((z - this.minZ) / this.cell)))
+  }
+
+  normalOf(triangle: number): Normal {
+    const t = this.triangles
+    const o = triangle * 9
+    const ux = t[o + 3]! - t[o]!,
+      uy = t[o + 4]! - t[o + 1]!,
+      uz = t[o + 5]! - t[o + 2]!
+    const vx = t[o + 6]! - t[o]!,
+      vy = t[o + 7]! - t[o + 1]!,
+      vz = t[o + 8]! - t[o + 2]!
+    let nx = uy * vz - uz * vy
+    let ny = uz * vx - ux * vz
+    let nz = ux * vy - uy * vx
+    const len = Math.hypot(nx, ny, nz) || 1
+    if (ny < 0) {
+      nx = -nx
+      ny = -ny
+      nz = -nz
+    }
+    return [nx / len, ny / len, nz / len]
   }
 
   /** Chão mais alto sob (x, z), ou undefined fora do terreno. */

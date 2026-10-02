@@ -14,3 +14,4 @@ export {
   type Wind,
 } from './flight.ts'
 export * from './terrain.ts'
+export * from './ground.ts'

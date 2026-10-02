@@ -404,7 +404,7 @@ export class FlightSimulator {
   flyOverGround(
     groundAt: (x: number, z: number) => number | undefined,
     floor = -1000,
-  ): FlightResult & { landed: boolean } {
+  ): FlightResult & { landed: boolean; velocity: Vec3; spin: number } {
     const frames: number[] = []
     const push = () =>
       frames.push(this.state.position.x, this.state.position.y, this.state.position.z)
@@ -443,6 +443,8 @@ export class FlightSimulator {
       apex: this.state.apex,
       range: this.range,
       landed,
+      velocity: { x: this.state.velocity.x, y: this.state.velocity.y, z: this.state.velocity.z },
+      spin: this.spin,
     }
   }
 }
