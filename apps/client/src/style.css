@@ -303,3 +303,13 @@
   gap: 6px;
   align-items: center;
 }
+.diagnostics {
+  max-width: 1100px;
+}
+.diagnostics textarea {
+  box-sizing: border-box;
+  width: 100%;
+  font:
+    12px/1.4 ui-monospace,
+    monospace;
+}

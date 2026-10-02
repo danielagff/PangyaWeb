@@ -20,8 +20,12 @@ export interface CharacterEntry {
   defaults: string[]
 }
 
-/** Slots que formam um personagem completo, na ordem em que a roupa padrão é escolhida. */
-export const BASIC_SLOTS = ['fc', 'ha', 'ts', 'pv', 'ft', 'hn']
+/**
+ * Slots que formam um personagem completo, na ordem em que a roupa padrão é escolhida.
+ * la/lb aparecem entre os slots escondidos por roupas de corpo inteiro (ex.:
+ * m_ts_34_!hn!pv!la!lb!ft): partes do corpo (pernas/braços — a confirmar).
+ */
+export const BASIC_SLOTS = ['fc', 'ha', 'ts', 'pv', 'la', 'lb', 'ft', 'hn']
 
 const base = (path: string) => path.split('/').pop()!
 const dir = (path: string) => path.slice(0, Math.max(0, path.lastIndexOf('/')))

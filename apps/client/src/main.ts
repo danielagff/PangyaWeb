@@ -1,4 +1,5 @@
 import { characterSelect } from './character/character.ts'
+import { showDiagnostics } from './diagnostics.ts'
 import { startHoleMode } from './hole/hole-mode.ts'
 import { startOnlineMode } from './online/online-mode.ts'
 import { startRangeMode } from './range-mode.ts'
@@ -19,6 +20,8 @@ if (round) {
   startOnlineMode()
 } else if (params.has('treino')) {
   startRangeMode()
+} else if (params.has('diagnostico')) {
+  void showDiagnostics()
 } else {
   showMenu()
 }
@@ -39,7 +42,8 @@ function showMenu() {
     <p class="character"></p>
     <h2>Sozinho</h2>
     <div class="courses"><p>Procurando cursos…</p></div>
-    <p><a class="button secondary" href="?treino">Campo de treino</a></p>
+    <p><a class="button secondary" href="?treino">Campo de treino</a>
+      <a class="button secondary" href="?diagnostico">Diagnóstico</a></p>
   `
   document.body.appendChild(menu)
   void characterSelect().then((select) => menu.querySelector('.character')!.append(select))

@@ -13,6 +13,7 @@ import {
   AmbientLight,
   BufferGeometry,
   CanvasTexture,
+  CircleGeometry,
   CylinderGeometry,
   DirectionalLight,
   DoubleSide,
@@ -36,6 +37,7 @@ import {
   WebGLRenderer,
 } from 'three'
 import { SoundLibrary, type SynthSound } from '../audio/sounds.ts'
+import { categoryOfClub, clubModelFor } from '../character/clubs.ts'
 import {
   CHARACTER_TUNING,
   CharacterModel,
@@ -52,8 +54,12 @@ import { SURFACE_LABELS } from './surface-colors.ts'
 import { TextureLibrary } from './textures.ts'
 
 /** Raio da bola na tela (unidades). Maior que o real (0,07) para ser vista, como no jogo. */
-const BALL_RADIUS = 0.5
+const BALL_RADIUS = 0.2
 const MAX_TRAIL = 4000
+/** Raio da cova desenhada (unidades); a captura da física usa GROUND_TUNING.cupRadius. */
+const CUP_RADIUS = 0.45
+/** Altura da bandeira do pin (unidades; ~2,5 jardas). */
+const FLAG_HEIGHT = 8
 
 export interface ViewPlayer {
   id: string
@@ -200,25 +206,34 @@ export class HoleView {
     this.boxLines.visible = false
     scene.add(this.boxLines)
 
-    // Tee e bandeira.
-    const tee = new Mesh(
-      new RingGeometry(1.6, 2.1, 24),
-      new MeshBasicMaterial({ color: 0x1e88e5, side: DoubleSide }),
+    // Cova (disco escuro com borda, deitado na inclinação do green) e bandeira do pin.
+    const cupHit = world.grid.groundAt(world.cup.x, world.cup.z)
+    const [nx, ny, nz] = cupHit ? world.grid.normalOf(cupHit.triangle) : [0, 1, 0]
+    const cup = new Group()
+    const hole = new Mesh(
+      new CircleGeometry(CUP_RADIUS, 24),
+      new MeshBasicMaterial({ color: 0x0a0a0a, polygonOffset: true, polygonOffsetFactor: -4 }),
     )
-    tee.rotation.x = -Math.PI / 2
-    tee.position.copy(toScene(world.tee.x, world.tee.y + 0.2, world.tee.z))
-    scene.add(tee)
+    const rim = new Mesh(
+      new RingGeometry(CUP_RADIUS, CUP_RADIUS * 1.18, 24),
+      new MeshBasicMaterial({ color: 0xf5f5f5, polygonOffset: true, polygonOffsetFactor: -4 }),
+    )
+    hole.rotation.x = rim.rotation.x = -Math.PI / 2
+    cup.add(hole, rim)
+    cup.position.copy(toScene(world.cup.x, world.cup.y + 0.02, world.cup.z))
+    cup.quaternion.setFromUnitVectors(new Vector3(0, 1, 0), new Vector3(nx, ny, -nz).normalize())
+    scene.add(cup)
     const flag = new Group()
     const pole = new Mesh(
-      new CylinderGeometry(0.4, 0.4, 30),
-      new MeshLambertMaterial({ color: 0xffffff }),
+      new CylinderGeometry(0.06, 0.06, FLAG_HEIGHT),
+      new MeshLambertMaterial({ color: 0xffffff, emissive: 0x555555 }),
     )
-    pole.position.y = 15
+    pole.position.y = FLAG_HEIGHT / 2
     const cloth = new Mesh(
-      new PlaneGeometry(10, 6),
-      new MeshLambertMaterial({ color: 0xe53935, side: DoubleSide }),
+      new PlaneGeometry(2.4, 1.6),
+      new MeshLambertMaterial({ color: 0xe53935, emissive: 0x551111, side: DoubleSide }),
     )
-    cloth.position.set(5, 26, 0)
+    cloth.position.set(1.2, FLAG_HEIGHT - 0.9, 0)
     flag.add(pole, cloth)
     flag.position.copy(toScene(world.cup.x, world.cup.y, world.cup.z))
     scene.add(flag)
@@ -267,6 +282,8 @@ export class HoleView {
     this.elements.push(this.windBox)
     this.panel.onChange(() => {
       this.targetDirty = true
+      const model = this.active && this.ready.get(this.active.id)
+      if (model?.root.visible) this.equipClub(model)
     })
 
     this.listen(window, 'keydown', (e) => {
@@ -507,6 +524,7 @@ export class HoleView {
       if (!model || this.active?.id !== player.id) return
       model.root.visible = true
       this.placeCharacter(model)
+      this.equipClub(model)
     })
   }
 
@@ -520,6 +538,11 @@ export class HoleView {
     model.root.position.copy(at)
     model.root.rotation.y =
       Math.atan2(-right.x, -right.z) + (CHARACTER_TUNING.facingDegrees * Math.PI) / 180
+  }
+
+  /** Põe na mão o taco escolhido no painel (modelo da tabela de tacos do jogo). */
+  private equipClub(model: CharacterModel, club: string = this.panel.read().club) {
+    void clubModelFor(categoryOfClub(club)).then((path) => model.setClub(path))
   }
 
   /** Tecla N: percorre os movimentos do personagem da vez (para mapear os nomes). */
@@ -551,6 +574,7 @@ export class HoleView {
               : 'iron'
     const swing = model.findMotion(...(SWING_MOTIONS[category] ?? []), ...ANY_SWING)
     if (!swing) return 0
+    if (club) this.equipClub(model, club)
     const duration = model.play(swing, false, 0.1)
     setTimeout(() => model.play(model.findMotion(...IDLE_MOTIONS) ?? swing), duration * 1000)
     return duration * CHARACTER_TUNING.impactAt

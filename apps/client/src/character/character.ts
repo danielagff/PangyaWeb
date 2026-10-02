@@ -10,7 +10,7 @@
  * Animação: tempo em segundos (30 quadros/s, os "motions" usam quadros); cada osso tem
  * posição, rotação (quaternion x,y,z,w gravado invertido) e escala locais ao pai.
  */
-import { boneWorldMatrix, readPet, type Mat4x3, type Pet } from '@pangya/formats'
+import { boneWorldMatrix, petToSubMeshes, readPet, type Mat4x3, type Pet } from '@pangya/formats'
 import {
   AnimationClip,
   AnimationMixer,
@@ -22,7 +22,9 @@ import {
   LoopOnce,
   LoopRepeat,
   Matrix4,
+  Mesh,
   MeshLambertMaterial,
+  type Object3D,
   Quaternion,
   QuaternionKeyframeTrack,
   Skeleton,
@@ -212,12 +214,15 @@ async function readFile(path: string, kind: 'bpet' | 'apet' | 'mpet') {
 /** Ajustes do personagem em cena (estimativas, a conferir com o jogo). */
 export const CHARACTER_TUNING = {
   /** Rotação extra (graus) se o modelo não olhar para +Z no espaço do Pangya. */
-  facingDegrees: 0,
+  facingDegrees: 180,
   /** Distância (unidades) do personagem até a bola, para o lado. */
   ballDistance: 3.2,
   /** Momento do swing em que o taco acerta a bola (fração da duração). */
   impactAt: 0.55,
 }
+
+/** Osso onde prender um taco .pet (nomes do 3ds Max/Biped e variações). */
+const CLUB_BONE = /club|weapon|r\s*hand|hand_?r\b|righthand|r_hand/i
 
 export class CharacterModel {
   /** Nó na cena (posição/rotação); dentro dele o modelo fica no espaço do Pangya. */
@@ -225,6 +230,10 @@ export class CharacterModel {
   private readonly inner = new Group()
   private readonly mixer: AnimationMixer
   private current: AnimationAction | undefined
+
+  private club: { path: string; object: Object3D } | undefined
+  /** Esqueleto e texturas, guardados para prender peças depois (taco). */
+  private rig!: { pet: Pet; bones: Bone[]; restWorld: Matrix4[]; textures: TextureLibrary }
 
   private constructor(
     readonly entry: CharacterEntry,
@@ -267,6 +276,49 @@ export class CharacterModel {
     this.mixer.update(dt)
   }
 
+  /**
+   * Troca o taco na mão. `.mpet` vira peça com ossos (como as roupas); `.pet` fica preso ao
+   * osso da mão direita (nome procurado por padrão — confirmar com o diagnóstico).
+   */
+  async setClub(path: string | undefined) {
+    if (this.club?.path === path) return
+    this.club?.object.removeFromParent()
+    this.club = undefined
+    if (!path) return
+    const bytes = await tryFetchBytes(path)
+    if (!bytes) return
+    const { pet: skeleton, bones, restWorld, textures } = this.rig
+    let object: Object3D | undefined
+    if (/\.mpet$/i.test(path)) {
+      object = await buildPart(readPet(bytes, 'mpet'), skeleton, bones, restWorld, textures)
+      if (object) this.inner.add(object)
+    } else {
+      const pet = readPet(bytes)
+      const group = new Group()
+      for (const sub of petToSubMeshes(pet)) {
+        const g = new BufferGeometry()
+        g.setAttribute('position', new Float32BufferAttribute(sub.positions, 3))
+        g.setAttribute('normal', new Float32BufferAttribute(sub.normals, 3))
+        g.setAttribute('uv', new Float32BufferAttribute(sub.uvs, 2))
+        const texture = await textures.get(sub.texture)
+        group.add(
+          new Mesh(
+            g,
+            new MeshLambertMaterial({
+              ...(texture ? { map: texture } : { color: 0xcccccc }),
+              side: DoubleSide,
+              alphaTest: 0.5,
+            }),
+          ),
+        )
+      }
+      const hand = skeleton.bones.findIndex((b) => CLUB_BONE.test(b.name))
+      ;(bones[hand] ?? this.inner).add(group)
+      object = group
+    }
+    if (object) this.club = { path, object }
+  }
+
   static async load(entry: CharacterEntry, parts = entry.defaults): Promise<CharacterModel> {
     const skeletonPet = await readFile(entry.skeleton, 'bpet')
     const apet = entry.animations ? await readFile(entry.animations, 'apet') : undefined
@@ -297,6 +349,7 @@ export class CharacterModel {
 
     const clips = apet ? buildClips(apet, skeletonPet, rest) : new Map<string, AnimationClip>()
     const model = new CharacterModel(entry, clips)
+    model.rig = { pet: skeletonPet, bones, restWorld, textures }
     for (const [i, b] of skeletonPet.bones.entries()) {
       if (b.parent < 0 || b.parent >= bones.length) model.inner.add(bones[i]!)
     }
