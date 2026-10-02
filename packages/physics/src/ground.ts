@@ -9,6 +9,7 @@
  * rolagem é baixo para a bola sentir as inclinações (essencial no green).
  */
 
+import { cupBottom, dropIntoCup } from './cup.ts'
 import { STEP_TIME } from './flight.ts'
 import type { Normal } from './terrain.ts'
 import { deflect, pushOut, type Obstacles } from './obstacles.ts'
@@ -153,8 +154,10 @@ export function simulateGround(
       const dx = p.x - input.cup.x
       const dz = p.z - input.cup.z
       if (Math.hypot(dx, dz) < k.cupRadius && len(v) < k.cupMaxSpeed && p.y <= ground.y + 0.5) {
-        p = { ...input.cup }
-        return finish({ type: 'hole', at: p })
+        // Desliza até o centro e cai dentro da cova.
+        frames.push(...dropIntoCup(p, input.cup))
+        p = cupBottom(input.cup)
+        return finish({ type: 'hole', at: { ...input.cup } })
       }
     }
 

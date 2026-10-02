@@ -54,6 +54,14 @@ Câmeras de jogo e HUD com as informações necessárias para mirar como no orig
   impacto amarela com a faixa PANGYA (rosa, `IMPACT_TUNING.pangyaZone`) e linha central;
   deixar o marcador passar da zona cancela a tacada (o jogador desistiu) e volta a mirar.
 - Rosa dos ventos redonda com seta azul e selo com os metros.
+- HUD da tacada embaixo, no lugar do painel lateral (`hole/shot-hud.ts`): mostrador com o
+  taco (roda do mouse troca), o ponto de impacto na bola (clique/arraste = spin e curva;
+  duplo clique centraliza), o power shot (Alt: 1 toque = 1 PS, 2 toques rápidos = 2 PS) e a
+  força do personagem; a barra de força sempre visível, com a escala do alcance do taco
+  (`HoleWorld.shotRange`) e a linha vermelha do pin. Sempre 3 toques de espaço.
+- Vista aérea com M ou 0; roda do mouse = zoom na direção do mouse (até 12 unidades do
+  chão, bem perto da cova); arrastar move o mapa; Delete+0 abre já aproximada onde a tacada
+  cai a 100% (o anel amarelo).
 
 ## Problemas conhecidos
 

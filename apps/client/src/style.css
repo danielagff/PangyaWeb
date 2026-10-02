@@ -47,10 +47,13 @@
 }
 
 .hole-status {
+  /* Linha de informações do buraco no alto, à esquerda (o HUD da tacada fica embaixo). */
   position: fixed;
-  right: 12px;
-  bottom: 12px;
-  max-width: 60vw;
+  left: 12px;
+  top: 12px;
+  max-width: 34vw;
+  font-size: 12px;
+  opacity: 0.85;
   margin: 0;
   padding: 8px 12px;
   font:
@@ -218,11 +221,7 @@
 }
 
 .power-bar {
-  position: fixed;
-  left: 50%;
-  bottom: 110px;
-  width: min(900px, 76vw);
-  transform: translateX(-50%);
+  position: relative;
   font:
     700 14px/1.4 system-ui,
     sans-serif;
@@ -348,6 +347,20 @@
 }
 .power-bar.done .track {
   border-color: #ffeb3b;
+}
+.power-bar .pin {
+  position: absolute;
+  z-index: 1;
+  top: -2px;
+  bottom: -2px;
+  width: 3px;
+  margin-left: -1px;
+  background: #e53935;
+  box-shadow: 0 0 4px #e53935;
+}
+.power-bar .scale .pin-tag {
+  color: #ff5252;
+  font-size: 12px;
 }
 .power-bar.cancelled .track {
   border-color: #ef5350;
@@ -574,4 +587,130 @@
 }
 .viewer-side .outfit-state {
   color: #9be59b;
+}
+
+/* HUD da tacada (embaixo): mostrador com taco, impacto, power shot e força + barra. */
+.shot-hud {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: 14px;
+  pointer-events: none;
+  font:
+    700 14px/1.3 system-ui,
+    sans-serif;
+  color: #fff;
+  text-shadow: 0 1px 2px #000;
+}
+.shot-hud .result {
+  margin: 0 0 6px 170px;
+  min-height: 1.3em;
+}
+.shot-hud .row {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+}
+.shot-hud .bar-slot {
+  flex: 1;
+  padding-bottom: 12px;
+}
+.shot-hud .dial {
+  position: relative;
+  flex: none;
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 40%, #5c6b8a, #2b3550 70%);
+  border: 5px solid #2f8fe0;
+  box-shadow:
+    0 0 0 3px #0b2a50,
+    0 4px 12px rgba(0, 0, 0, 0.5);
+  pointer-events: auto;
+}
+.shot-hud .club,
+.shot-hud .stat {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  background: #111;
+}
+.shot-hud .club {
+  left: -12px;
+  top: -12px;
+  width: 46px;
+  height: 46px;
+  font-size: 17px;
+}
+.shot-hud .stat {
+  right: 10px;
+  bottom: -12px;
+  width: 40px;
+  height: 40px;
+  font-size: 15px;
+  background: #0d47a1;
+}
+.shot-hud .impact {
+  position: absolute;
+  inset: 32px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #fff, #c9d3e2 60%, #8e9bb3);
+  box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.5);
+  cursor: crosshair;
+  touch-action: none;
+}
+.shot-hud .impact .cross {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      transparent calc(50% - 1px),
+      rgba(30, 60, 120, 0.5) 0 calc(50% + 1px),
+      transparent 0
+    ),
+    linear-gradient(
+      90deg,
+      transparent calc(50% - 1px),
+      rgba(30, 60, 120, 0.5) 0 calc(50% + 1px),
+      transparent 0
+    );
+  border-radius: 50%;
+}
+.shot-hud .impact .dot {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border-radius: 50%;
+  background: #e53935;
+  border: 2px solid #fff;
+  box-shadow: 0 0 6px #e53935;
+}
+/* Power shot: dois indicadores (1 PS, 2 PS) no alto do mostrador. */
+.shot-hud .ps {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  display: flex;
+  gap: 6px;
+  transform: translateX(-50%);
+}
+.shot-hud .ps span {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  background: #333;
+}
+.shot-hud .ps span.on {
+  background: #ffca28;
+  box-shadow: 0 0 8px #ffca28;
+}
+.shot-hud.power-shot .dial {
+  border-color: #ffca28;
+}
+.shot-hud.waiting .dial {
+  opacity: 0.6;
 }

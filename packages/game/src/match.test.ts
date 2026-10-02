@@ -8,6 +8,7 @@ import {
   startMatchHole,
   totals,
 } from './match.ts'
+import { DEFAULT_POWER, POWER_LIMITS, sanitizeRequest } from './world.ts'
 
 const pin = { x: 0, y: 0, z: 400 }
 const tee = { x: 0, y: 0, z: 0 }
@@ -78,5 +79,23 @@ describe('partida multiplayer', () => {
     m = leaveMatch(m, 'a')
     expect(m.players).toEqual([])
     expect(m.host).toBeUndefined()
+  })
+})
+
+describe('força do jogador', () => {
+  it('fica guardada ao entrar na sala e volta ao retomar', () => {
+    let m = joinMatch(createMatch(), 'a', 'Ana', undefined, 42)
+    expect(m.players[0]!.power).toBe(42)
+    m = startMatchHole(joinMatch(m, 'b', 'Bia'), course, setup)
+    m = leaveMatch(m, 'a')
+    m = joinMatch(m, 'a2', 'Ana')
+    expect(m.players.find((p) => p.name === 'Ana')!.power).toBe(42)
+  })
+
+  it('pedido de tacada limita a força', () => {
+    expect(sanitizeRequest({ club: '1W', percent: 1, aim: 0, power: 999 }).power).toBe(
+      POWER_LIMITS.max,
+    )
+    expect(sanitizeRequest({ club: '1W', percent: 1, aim: 0 }).power).toBe(DEFAULT_POWER)
   })
 })

@@ -10,6 +10,8 @@ import {
   loadHoleData,
   randomWind,
   sanitizeRequest,
+  DEFAULT_POWER,
+  clampPower,
   startMatchHole,
   type ClientMessage,
   type Course,
@@ -79,7 +81,11 @@ export class Room {
           if (taken) throw new Error(`o nome "${name}" já está na sala`)
           const character =
             typeof message.character === 'string' ? message.character.slice(0, 200) : undefined
-          this.match = joinMatch(this.match, id, name, character)
+          const power =
+            typeof message.power === 'number' && Number.isFinite(message.power)
+              ? clampPower(message.power)
+              : undefined
+          this.match = joinMatch(this.match, id, name, character, power)
           this.publish()
           break
         }
@@ -141,7 +147,8 @@ export class Room {
     if (!world || this.match.phase !== 'playing') throw new Error('a partida não está em andamento')
     if (this.match.turn !== id) throw new Error('não é a sua vez')
     const player = this.match.players.find((p) => p.id === id)!
-    const request = sanitizeRequest(message.request)
+    // Força: a do jogador escolhida ao entrar na sala, não a que vem na tacada.
+    const request = { ...sanitizeRequest(message.request), power: player.power ?? DEFAULT_POWER }
     const played = world.play(player.state!, request, this.match.wind, this.options.random)
     this.match = applyMatchShot(this.match, id, played.outcome, world.cup)
     this.broadcast({

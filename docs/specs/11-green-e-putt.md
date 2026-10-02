@@ -38,6 +38,9 @@ e o jogador usa a distância + inclinação para calcular a quebra do putt.
   `radius` (0,8) e abaixo de `height` (1,75 unidade ≈ 0,5 m), é puxada para dentro (alguns
   quadros de animação) e conta como embocada. Alta demais, passa. Valores a calibrar.
   Na tela, a faixa amarela de baixo da luz mostra essa altura.
+- A bola entra na cova de verdade: a física desliza a bola até o centro e a deixa cair até
+  o fundo (`dropIntoCup`, `CUP_DEPTH` 0,75). Na tela, a boca da cova recorta o terreno com o
+  stencil e desenha a parede (borda branca) e o fundo; a bola aparece lá dentro.
 
 ## Critérios de aceite
 

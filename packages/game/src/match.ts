@@ -24,6 +24,8 @@ export interface MatchPlayer {
   connected: boolean
   /** Personagem escolhido (id do catálogo do cliente). */
   character?: string
+  /** Atributo power escolhido antes da partida (o servidor usa este nas tacadas). */
+  power?: number
   /** Tacadas e par de cada buraco já terminado. */
   card: { hole: number; strokes: number; par: number }[]
   /** Estado no buraco atual (undefined no lobby). */
@@ -65,9 +67,10 @@ export function joinMatch(
   id: string,
   name: string,
   character?: string,
+  power?: number,
 ): MatchState {
   const back = match.players.find((p) => !p.connected && p.name === name)
-  const chosen = character ? { character } : {}
+  const chosen = { ...(character && { character }), ...(power !== undefined && { power }) }
   const players = back
     ? match.players.map((p) => (p === back ? { ...p, ...chosen, id, connected: true } : p))
     : [

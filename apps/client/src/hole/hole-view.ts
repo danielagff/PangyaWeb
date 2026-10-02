@@ -1,4 +1,5 @@
 import {
+  DEFAULT_POWER,
   HoleWorld,
   isPangya,
   loadHoleData,
@@ -8,15 +9,26 @@ import {
   type ShotRequest,
 } from '@pangya/game'
 import type { SurfaceKind } from '@pangya/formats'
-import { CUP_BEAM, STEP_TIME, unitsToYards, type Wind } from '@pangya/physics'
 import {
+  CUP_BEAM,
+  CUP_DEPTH,
+  dropIntoCup,
+  STEP_TIME,
+  unitsToYards,
+  type Wind,
+} from '@pangya/physics'
+import {
+  AlwaysDepth,
+  AlwaysStencilFunc,
   AmbientLight,
+  BackSide,
   BufferGeometry,
   CanvasTexture,
   CircleGeometry,
   CylinderGeometry,
   DirectionalLight,
   DoubleSide,
+  EqualStencilFunc,
   Float32BufferAttribute,
   Group,
   Line,
@@ -27,11 +39,13 @@ import {
   MeshLambertMaterial,
   PerspectiveCamera,
   Raycaster,
+  ReplaceStencilOp,
   RingGeometry,
   Scene,
   SphereGeometry,
   Sprite,
   SpriteMaterial,
+  Vector2,
   Vector3,
   WebGLRenderer,
 } from 'three'
@@ -44,12 +58,13 @@ import {
   loadCatalog,
   type CharacterEntry,
 } from '../character/character.ts'
-import { createShotPanel, type ShotPanel } from '../shot-panel.ts'
+
 import { browserFiles } from './assets.ts'
 import { aimDirection, toScene } from './coords.ts'
 import { buildCourseScene, SKY_RADIUS, type CourseScene } from './course-scene.ts'
 import { buildGreenGrid } from './green-grid.ts'
-import { createPowerBar, type PowerBar } from './power-bar.ts'
+import type { PowerBar } from './power-bar.ts'
+import { createShotHud, type ShotHud } from './shot-hud.ts'
 import { SURFACE_LABELS } from './surface-colors.ts'
 import { TextureLibrary } from './textures.ts'
 
@@ -63,6 +78,8 @@ const BEAM_HEIGHT = 26
 /** Segundos antes de a bola cair em que a câmera livre do voo volta ao normal. */
 const FREE_CAMERA_UNTIL_LANDING = 0.8
 const UP = new Vector3(0, 1, 0)
+/** Altura da vista aérea (unidades): perto da cova até o buraco inteiro. */
+const AERIAL = { minHeight: 12, maxHeight: 1500 }
 
 /**
  * Luz da cova (no lugar da bandeira): coluna de luz que "puxa" a bola. A faixa de baixo,
@@ -76,10 +93,11 @@ function cupBeam() {
   const strong = 1 - CUP_BEAM.height / BEAM_HEIGHT
   const gradient = g.createLinearGradient(0, 0, 0, 256)
   gradient.addColorStop(0, 'rgba(90,190,255,0)')
-  gradient.addColorStop(Math.max(0, strong - 0.4), 'rgba(90,190,255,0.12)')
-  gradient.addColorStop(Math.max(0, strong - 0.02), 'rgba(110,205,255,0.3)')
-  gradient.addColorStop(strong, 'rgba(255,225,120,0.55)')
-  gradient.addColorStop(1, 'rgba(255,235,150,0.65)')
+  gradient.addColorStop(Math.max(0, strong - 0.4), 'rgba(90,190,255,0.1)')
+  gradient.addColorStop(Math.max(0, strong - 0.02), 'rgba(110,205,255,0.22)')
+  gradient.addColorStop(strong, 'rgba(255,225,120,0.38)')
+  gradient.addColorStop(0.97, 'rgba(255,235,150,0.2)')
+  gradient.addColorStop(1, 'rgba(255,235,150,0.05)')
   g.fillStyle = gradient
   g.fillRect(0, 0, 4, 256)
   const material = new MeshBasicMaterial({
@@ -98,6 +116,80 @@ function cupBeam() {
   const group = new Group()
   group.add(beam)
   return { group, material }
+}
+
+/** Ordem de desenho da cova (depois do terreno e dos objetos opacos). */
+const CUP_ORDER = 10
+
+/**
+ * Cova de verdade, um buraco no green: a boca marca o stencil (só onde está visível, sem
+ * morro na frente) e, dentro dela, a parede e o fundo são desenhados por cima do terreno,
+ * regravando a profundidade — assim a bola que cai aparece lá dentro (ela é desenhada
+ * depois, com CUP_ORDER + 3). `normal` inclina a cova com o green.
+ */
+function cupHole(normal: Vector3, at: Vector3) {
+  const group = new Group()
+  group.position.copy(at)
+  group.quaternion.setFromUnitVectors(UP, normal)
+  const flat = -Math.PI / 2
+
+  const mouth = new Mesh(
+    new CircleGeometry(CUP_RADIUS, 32),
+    new MeshBasicMaterial({
+      colorWrite: false,
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -4,
+      stencilWrite: true,
+      stencilRef: 1,
+      stencilFunc: AlwaysStencilFunc,
+      stencilZPass: ReplaceStencilOp,
+    }),
+  )
+  mouth.rotation.x = flat
+  mouth.renderOrder = CUP_ORDER
+
+  // Dentro da boca: desenha por cima do terreno e grava a profundidade de dentro da cova.
+  const inside = {
+    stencilWrite: true,
+    stencilRef: 1,
+    stencilFunc: EqualStencilFunc,
+    depthFunc: AlwaysDepth,
+    fog: false,
+  } as const
+  // Parede com a borda branca de plástico em cima, escurecendo para o fundo.
+  const canvas = document.createElement('canvas')
+  canvas.width = 4
+  canvas.height = 64
+  const g = canvas.getContext('2d')!
+  const shade = g.createLinearGradient(0, 0, 0, 64)
+  shade.addColorStop(0, '#f2f2f2')
+  shade.addColorStop(0.18, '#d8d8d8')
+  shade.addColorStop(0.2, '#4a4a4a')
+  shade.addColorStop(1, '#141414')
+  g.fillStyle = shade
+  g.fillRect(0, 0, 4, 64)
+  const wall = new Mesh(
+    new CylinderGeometry(CUP_RADIUS, CUP_RADIUS, CUP_DEPTH, 32, 1, true),
+    new MeshBasicMaterial({ ...inside, map: new CanvasTexture(canvas), side: BackSide }),
+  )
+  wall.position.y = -CUP_DEPTH / 2
+  wall.renderOrder = CUP_ORDER + 1
+  const bottom = new Mesh(
+    new CircleGeometry(CUP_RADIUS, 32),
+    new MeshBasicMaterial({ ...inside, color: 0x101010 }),
+  )
+  bottom.rotation.x = flat
+  bottom.position.y = -CUP_DEPTH
+  bottom.renderOrder = CUP_ORDER + 1
+
+  const rim = new Mesh(
+    new RingGeometry(CUP_RADIUS, CUP_RADIUS * 1.12, 32),
+    new MeshBasicMaterial({ color: 0xf5f5f5, polygonOffset: true, polygonOffsetFactor: -4 }),
+  )
+  rim.rotation.x = flat
+  group.add(mouth, wall, bottom, rim)
+  return group
 }
 
 /** Rosa dos ventos: mostrador redondo, seta azul (girada pelo vento) e selo com os metros. */
@@ -135,6 +227,8 @@ export interface ViewPlayer {
   state: HoleState
   /** Personagem (id do catálogo); sem ele, só a bola. */
   character?: string | undefined
+  /** Atributo power (força) do jogador. */
+  power?: number
 }
 
 /** Etiqueta com o nome acima da bola (multiplayer). */
@@ -165,7 +259,7 @@ function nameTag(name: string, color: number) {
  */
 export class HoleView {
   readonly world: HoleWorld
-  readonly panel: ShotPanel
+  readonly panel: ShotHud
   private readonly renderer: WebGLRenderer
   private readonly scene: Scene
   private readonly camera: PerspectiveCamera
@@ -203,7 +297,8 @@ export class HoleView {
   private shotForward = aimDirection(0)
   private targetDirty = true
   private readyAt = 0
-  private aerial = false
+  /** Vista aérea (M ou 0): centro e altura; roda aproxima até perto da cova. */
+  private aerial: { center: Vector3; height: number } | undefined
   private surfaceView = false
   private fogOn = true
   private flight:
@@ -284,22 +379,12 @@ export class HoleView {
     // Cova (disco escuro com borda, deitado na inclinação do green) e a luz que puxa a bola.
     const cupHit = world.grid.groundAt(world.cup.x, world.cup.z)
     const [nx, ny, nz] = cupHit ? world.grid.normalOf(cupHit.triangle) : [0, 1, 0]
-    const cup = new Group()
-    const hole = new Mesh(
-      new CircleGeometry(CUP_RADIUS, 24),
-      new MeshBasicMaterial({ color: 0x0a0a0a, polygonOffset: true, polygonOffsetFactor: -4 }),
+    scene.add(
+      cupHole(new Vector3(nx, ny, -nz).normalize(), toScene(world.cup.x, world.cup.y, world.cup.z)),
     )
-    const rim = new Mesh(
-      new RingGeometry(CUP_RADIUS, CUP_RADIUS * 1.18, 24),
-      new MeshBasicMaterial({ color: 0xf5f5f5, polygonOffset: true, polygonOffsetFactor: -4 }),
-    )
-    hole.rotation.x = rim.rotation.x = -Math.PI / 2
-    cup.add(hole, rim)
-    cup.position.copy(toScene(world.cup.x, world.cup.y + 0.02, world.cup.z))
-    cup.quaternion.setFromUnitVectors(new Vector3(0, 1, 0), new Vector3(nx, ny, -nz).normalize())
-    scene.add(cup)
     const beam = cupBeam()
     beam.group.position.copy(toScene(world.cup.x, world.cup.y, world.cup.z))
+    beam.group.name = 'luz-da-cova'
     scene.add(beam.group)
     this.beamMaterial = beam.material
 
@@ -332,14 +417,10 @@ export class HoleView {
     document.body.appendChild(this.hud)
     this.elements.push(this.hud)
 
-    this.panel = createShotPanel(() => this.shoot(), {
-      title: options.title,
-      putter: true,
-      lockWind: options.lockWind,
-    })
+    this.panel = createShotHud(() => this.shoot())
     this.cleanups.push(() => this.panel.dispose())
-    this.bar = createPowerBar()
-    this.cleanups.push(() => this.bar.dispose())
+    this.bar = this.panel.bar
+    this.hud.dataset.title = options.title
     this.windBox = document.createElement('div')
     this.windBox.className = 'wind'
     this.windBox.innerHTML = WIND_DIAL
@@ -353,7 +434,11 @@ export class HoleView {
 
     this.listen(window, 'keydown', (e) => {
       const key = (e as KeyboardEvent).code
-      if (key === 'KeyM') this.aerial = !this.aerial
+      if (key === 'KeyM' || key === 'Digit0' || key === 'Numpad0') {
+        // Delete + 0: vista aérea já aproximada onde a tacada cai (força máxima).
+        this.toggleAerial(this.keys.has('Delete') && key !== 'KeyM')
+      }
+      if (key === 'Delete') this.keys.add(key)
       if (key === 'KeyT') this.course.setSurfaceView((this.surfaceView = !this.surfaceView))
       if (key === 'KeyF') this.course.setFog((this.fogOn = !this.fogOn))
       if (key === 'KeyC') this.boxLines.visible = !this.boxLines.visible
@@ -375,6 +460,10 @@ export class HoleView {
     this.listen(canvas, 'contextmenu', (e) => e.preventDefault())
     this.listen(canvas, 'pointerdown', (e) => {
       const p = e as PointerEvent
+      if (this.aerial) {
+        this.dragging = { x: p.clientX, y: p.clientY }
+        return
+      }
       if (this.phase !== 'aim') return
       this.dragging = { x: p.clientX, y: p.clientY }
       this.orbit ??= this.defaultOrbit()
@@ -382,6 +471,20 @@ export class HoleView {
     this.listen(window, 'pointerup', () => (this.dragging = undefined))
     this.listen(window, 'pointermove', (e) => {
       const p = e as PointerEvent
+      if (this.dragging && this.aerial) {
+        // Vista aérea: arrastar move o mapa.
+        const scale = this.aerial.height / window.innerHeight
+        const right = new Vector3()
+          .setFromMatrixColumn(this.camera.matrixWorld, 0)
+          .setY(0)
+          .normalize()
+        const ahead = new Vector3(-right.z, 0, right.x)
+        this.aerial.center
+          .addScaledVector(right, -(p.clientX - this.dragging.x) * scale)
+          .addScaledVector(ahead, -(p.clientY - this.dragging.y) * scale)
+        this.dragging = { x: p.clientX, y: p.clientY }
+        return
+      }
       if (!this.dragging || !this.orbit) return
       this.orbit.yaw -= (p.clientX - this.dragging.x) * 0.006
       this.orbit.pitch = Math.min(
@@ -390,12 +493,23 @@ export class HoleView {
       )
       this.dragging = { x: p.clientX, y: p.clientY }
     })
+    // Roda do mouse: zoom na vista aérea (para onde o mouse aponta), zoom da câmera livre
+    // ou, mirando com a câmera normal, troca o taco.
     this.listen(canvas, 'wheel', (e) => {
-      if (this.phase !== 'aim') return
+      const wheel = e as WheelEvent
       e.preventDefault()
-      this.orbit ??= this.defaultOrbit()
-      const factor = (e as WheelEvent).deltaY > 0 ? 1.15 : 1 / 1.15
-      this.orbit.distance = Math.min(400, Math.max(6, this.orbit.distance * factor))
+      const out = wheel.deltaY > 0
+      if (this.aerial) {
+        this.zoomAerial(out ? 1.35 : 1 / 1.35, wheel)
+        return
+      }
+      if (this.phase !== 'aim') return
+      if (this.orbit) {
+        const factor = out ? 1.15 : 1 / 1.15
+        this.orbit.distance = Math.min(400, Math.max(6, this.orbit.distance * factor))
+        return
+      }
+      if (this.controllable) this.panel.cycleClub(out ? 1 : -1)
     })
     this.listen(window, 'keyup', (e) => this.keys.delete((e as KeyboardEvent).code))
     this.listen(window, 'resize', () => {
@@ -422,15 +536,31 @@ export class HoleView {
     })
 
     // Depuração (testes automatizados): câmera perto da cova para ver a luz.
-    ;(window as unknown as { __debugCup: () => void }).__debugCup = () => {
+    ;(window as unknown as { __debugCup: (near?: boolean) => void }).__debugCup = (near) => {
       const at = toScene(world.cup.x, world.cup.y, world.cup.z)
       this.orbit = undefined
-      this.aerial = false
+      this.aerial = undefined
       this.phase = 'idle'
-      camera.position.copy(at).add(new Vector3(14, 7, 14))
-      camera.lookAt(at.clone().add(new Vector3(0, 4, 0)))
+      camera.position.copy(at).add(near ? new Vector3(0.7, 2.4, 0.7) : new Vector3(14, 7, 14))
+      camera.lookAt(at.clone().add(new Vector3(0, near ? -0.2 : 4, 0)))
       this.debugFreeze = true
     }
+    // Depuração: bola caindo na cova (vista de perto), para conferir o buraco.
+    ;(window as unknown as { __debugDrop: () => void }).__debugDrop = () => {
+      if (!this.active) return
+      const cup = world.cup
+      const from = { x: cup.x + 3, y: cup.y, z: cup.z + 1 }
+      const roll = Array.from({ length: 30 }, (_, i) => {
+        const f = i / 30
+        return [from.x + (cup.x + 0.3 - from.x) * f, cup.y, from.z + (cup.z + 0.1 - from.z) * f]
+      }).flat()
+      const frames = Float32Array.from([
+        ...roll,
+        ...dropIntoCup({ x: cup.x + 0.3, y: cup.y, z: cup.z + 0.1 }, cup),
+      ])
+      void this.animateShot(this.active.id, frames, {})
+    }
+    ;(window as unknown as { __debugScene: Scene }).__debugScene = scene
     ;(window as unknown as { __debug: () => unknown }).__debug = () => ({
       camera: camera.position.toArray().map((v) => Math.round(v)),
       phase: this.phase,
@@ -438,6 +568,12 @@ export class HoleView {
       active: this.active?.id,
       motion: this.active && this.ready.get(this.active.id)?.playing,
       players: this.players.map((p) => ({ id: p.id, state: p.state })),
+      balls: [...this.balls].map(([id, e]) => ({
+        id,
+        visible: e.ball.visible,
+        at: e.ball.position.toArray().map((v) => Math.round(v * 100) / 100),
+      })),
+      cup: toScene(world.cup.x, world.cup.y, world.cup.z).toArray(),
     })
   }
 
@@ -453,7 +589,7 @@ export class HoleView {
     status.textContent = 'Carregando buraco…'
     document.body.appendChild(status)
     try {
-      const renderer = new WebGLRenderer({ antialias: true })
+      const renderer = new WebGLRenderer({ antialias: true, stencil: true })
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
       renderer.setSize(window.innerWidth, window.innerHeight)
       document.body.appendChild(renderer.domElement)
@@ -480,8 +616,10 @@ export class HoleView {
         ` · ${course.texturesLoaded} texturas` +
         (course.texturesMissing.length ? ` (${course.texturesMissing.length} faltando)` : '') +
         ` · ${world.obstacles.size} caixas de colisão (${data.obstacleSource})` +
-        ' · A/D ou ←→ mirar · arrastar o mouse: câmera livre (R volta) · espaço bater' +
-        ' · no voo: A/D gira a câmera, S vista de cima · M aérea · T pisos · F névoa · C colisão'
+        ' · A/D mirar · roda: taco · Alt: power shot (2× = 2 PS) · espaço: barra (3 toques)' +
+        ' · clique na bola do mostrador: spin/curva · arrastar: câmera livre (R volta)' +
+        ' · M ou 0: vista aérea (roda: zoom; Delete+0: onde a tacada cai)' +
+        ' · no voo: A/D gira, S de cima · T pisos · F névoa · C colisão'
       if (course.texturesMissing.length) {
         console.info('texturas não encontradas:', course.texturesMissing)
       }
@@ -500,13 +638,12 @@ export class HoleView {
 
   setWind(wind: Wind) {
     this.wind = wind
-    this.panel.setWind(wind.speed, wind.degree)
     this.updateWind()
   }
 
   /** Seta do vento relativa à mira (para cima = a favor da tacada). */
   private updateWind() {
-    const wind = this.panel.read().wind ?? this.wind
+    const wind = this.wind
     const relative = wind.degree - (this.aim * 180) / Math.PI
     const arrow = this.windBox.querySelector('.arrow') as SVGElement
     arrow.style.transform = `rotate(${-relative}deg)`
@@ -527,6 +664,8 @@ export class HoleView {
           emissiveIntensity: 0.3,
         }),
       )
+      // Depois da cova (que reescreve a profundidade na boca dela): a bola aparece lá dentro.
+      ball.renderOrder = CUP_ORDER + 3
       const tag = withTag ? nameTag(player.name, player.color) : undefined
       if (tag) this.scene.add(tag)
       this.scene.add(ball)
@@ -564,6 +703,7 @@ export class HoleView {
       this.phase = 'idle'
       for (const model of this.ready.values()) model.root.visible = false
       this.panel.setEnabled(false, 'Fim do buraco')
+      this.bar.setPin(undefined)
       this.target.visible = false
       this.greenGrid.visible = false
       this.updateHud()
@@ -578,17 +718,16 @@ export class HoleView {
       this.bar.cancel()
       this.backswing = false
       this.aim = this.world.aimAtPin(state.ball)
+      this.panel.resetShot()
       if (this.controllable) {
         const { club, percent } = this.world.suggestClub(state)
         this.panel.setClub(club)
         this.panel.setPercent(percent)
       }
+      this.panel.setPower(this.active.power ?? DEFAULT_POWER)
       this.trailGeometry.setDrawRange(0, 0)
     }
-    this.panel.setEnabled(
-      this.controllable,
-      this.controllable ? 'Bater (espaço)' : `Vez de ${this.active.name}…`,
-    )
+    this.panel.setEnabled(this.controllable, this.controllable ? '' : `Vez de ${this.active.name}…`)
     this.greenGrid.visible = this.world.lieKind(state) === 'green'
     this.targetDirty = true
     this.placeCamera(this.ballPosition(), 1)
@@ -724,11 +863,12 @@ export class HoleView {
     return {
       club: input.club,
       percent: input.percent,
-      shot: input.shot ?? 'dunk',
-      powerShot: input.powerShot ?? 'none',
-      spin: input.spin ?? 0,
-      curve: input.curve ?? 0,
+      shot: input.shot,
+      powerShot: input.powerShot,
+      spin: input.spin,
+      curve: input.curve,
       aim: this.aim,
+      power: this.active?.power ?? DEFAULT_POWER,
     }
   }
 
@@ -740,10 +880,6 @@ export class HoleView {
     }
     // Espaço apertado para pular a animação logo quando ela acaba não vira nova tacada.
     if (this.phase !== 'aim' || !this.controllable || performance.now() - this.readyAt < 600) {
-      return
-    }
-    if (!this.panel.usesBar()) {
-      this.fire(this.request())
       return
     }
     if (this.bar.active) {
@@ -763,7 +899,6 @@ export class HoleView {
         this.fire({ ...this.request(), percent, impact })
       },
       {
-        maxYards: this.maxYards(),
         // Deixou passar da zona: desistiu de bater agora; volta a mirar.
         onCancel: () => {
           this.backswing = false
@@ -774,12 +909,49 @@ export class HoleView {
     )
   }
 
-  /** Distância (jardas) da tacada a 100% com o taco atual, para a escala da barra. */
-  private maxYards() {
-    if (!this.active) return 0
-    const ball = this.active.state.ball
-    const p = this.world.predictLanding(this.active.state, { ...this.request(), percent: 1 })
-    return unitsToYards(Math.hypot(p.x - ball.x, p.z - ball.z))
+  /** Escala da barra (alcance do taco a 100%) e a linha do pin, como no HUD do jogo. */
+  private updateBarScale() {
+    if (!this.active) return
+    const state = this.active.state
+    this.bar.setScale(this.world.shotRange(state, this.request()))
+    const rise = unitsToYards(this.world.cup.y - state.ball.y)
+    const pin = this.world.distanceToPin(state.ball)
+    this.bar.setPin(pin, `${pin.toFixed(0)}y ${rise >= 0 ? '↑' : '↓'}${Math.abs(rise).toFixed(1)}`)
+  }
+
+  /** Liga/desliga a vista aérea; `onTarget` já abre aproximada onde a tacada cai a 100%. */
+  private toggleAerial(onTarget = false) {
+    if (this.aerial && !onTarget) {
+      this.aerial = undefined
+      return
+    }
+    const { world } = this
+    if (onTarget && this.active) {
+      const p = world.predictLanding(this.active.state, { ...this.request(), percent: 1 })
+      this.aerial = { center: toScene(p.x, p.y, p.z), height: 90 }
+      return
+    }
+    const tee = toScene(world.tee.x, world.tee.y, world.tee.z)
+    const pin = toScene(world.cup.x, world.cup.y, world.cup.z)
+    this.aerial = { center: tee.add(pin).multiplyScalar(0.5), height: 1100 }
+  }
+
+  /** Zoom da vista aérea na direção do ponto do terreno sob o mouse (até bem perto do chão). */
+  private zoomAerial(factor: number, at: { clientX: number; clientY: number }) {
+    const aerial = this.aerial!
+    const mouse = new Vector2(
+      (at.clientX / window.innerWidth) * 2 - 1,
+      -(at.clientY / window.innerHeight) * 2 + 1,
+    )
+    this.ray.setFromCamera(mouse, this.camera)
+    this.ray.far = Infinity
+    const hit = this.ray.intersectObjects(this.course.terrainMeshes, false)[0]
+    const height = Math.min(AERIAL.maxHeight, Math.max(AERIAL.minHeight, aerial.height * factor))
+    if (hit && factor < 1) {
+      const pull = 1 - height / aerial.height
+      aerial.center.lerp(hit.point, pull)
+    }
+    aerial.height = height
   }
 
   private fire(request: ShotRequest) {
@@ -921,18 +1093,22 @@ export class HoleView {
   private placeCamera(focus: Vector3, lerp: number) {
     const { camera, world } = this
     if (this.aerial) {
-      const tee = toScene(world.tee.x, 0, world.tee.z)
-      const pin = toScene(world.cup.x, 0, world.cup.z)
-      const middle = tee.clone().add(pin).multiplyScalar(0.5)
-      const forward = pin.clone().sub(tee).normalize()
+      // Olhando para baixo, levemente inclinada na direção do buraco (tee → pin).
+      const { center, height } = this.aerial
+      const forward = toScene(world.cup.x, 0, world.cup.z)
+        .sub(toScene(world.tee.x, 0, world.tee.z))
+        .setY(0)
+        .normalize()
+      const ground = world.grid.groundAt(center.x, -center.z)?.y ?? center.y
+      const look = new Vector3(center.x, ground, center.z)
       camera.position.lerp(
-        middle
+        look
           .clone()
-          .add(new Vector3(0, 1100, 0))
-          .addScaledVector(forward, -350),
-        lerp,
+          .add(new Vector3(0, height, 0))
+          .addScaledVector(forward, -height * 0.3),
+        Math.max(lerp, 0.2),
       )
-      camera.lookAt(middle)
+      camera.lookAt(look)
       return
     }
     let forward = this.phase === 'flying' ? this.shotForward : aimDirection(this.aim)
@@ -1026,7 +1202,7 @@ export class HoleView {
       }
       this.trailPositions.needsUpdate = true
       this.trailGeometry.setDrawRange(0, shown)
-      this.placeCamera(this.ballPosition(), 0.08)
+      if (!this.debugFreeze) this.placeCamera(this.ballPosition(), 0.08)
       if (index === count - 1) {
         const { done } = this.flight
         this.flight = undefined
@@ -1054,7 +1230,10 @@ export class HoleView {
         if (this.walking && walk) model.play(walk, true, 0.1)
         else this.idle(model)
       }
-      if (this.targetDirty) this.updateWind()
+      if (this.targetDirty) {
+        this.updateWind()
+        this.updateBarScale()
+      }
       if (this.controllable && this.targetDirty) this.updateTarget()
       this.target.visible = this.controllable
       this.placeCamera(this.ballPosition(), turn ? 0.3 : 0.08)

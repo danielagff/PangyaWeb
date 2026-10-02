@@ -16,6 +16,7 @@ import {
   type PlayerPower,
   type PowerShot,
 } from './power.ts'
+import { cupBottom, dropIntoCup } from './cup.ts'
 import { unitsToYards } from './units.ts'
 import { deflect, pushOut, type Obstacles } from './obstacles.ts'
 import type { Vec3 } from './vec3.ts'
@@ -441,16 +442,9 @@ export class FlightSimulator {
       if (cup && this.state.apexStep !== -1) {
         const at = beamCapture(previous.position, this.state.position, cup)
         if (at) {
-          // Puxada pela luz: alguns quadros até o fundo da cova.
-          for (let i = 1; i <= CUP_BEAM.pullFrames; i++) {
-            const f = i / CUP_BEAM.pullFrames
-            frames.push(
-              at.x + (cup.x - at.x) * f,
-              at.y + (cup.y - at.y) * f,
-              at.z + (cup.z - at.z) * f,
-            )
-          }
-          this.state.position = V.from(cup)
+          // Puxada pela luz: vai até a cova e cai lá dentro.
+          frames.push(...dropIntoCup(at, cup, CUP_BEAM.pullFrames))
+          this.state.position = V.from(cupBottom(cup))
           return { ...this.result(frames), landed: true, holed: true }
         }
       }

@@ -4,6 +4,7 @@ import { showDiagnostics } from './diagnostics.ts'
 import { startHoleMode } from './hole/hole-mode.ts'
 import { startOnlineMode } from './online/online-mode.ts'
 import { startRangeMode } from './range-mode.ts'
+import { powerInput } from './settings.ts'
 import './style.css'
 
 // Rotas: ?curso=…&prefixo=…&buraco=N (sozinho), ?online (sala multiplayer),
@@ -43,6 +44,7 @@ function showMenu() {
     <p><a class="button" href="?online">Jogar com amigos (sala)</a></p>
     <h2>Personagem</h2>
     <p class="character"></p>
+    <p class="power"></p>
     <h2>Sozinho</h2>
     <div class="courses"><p>Procurando cursos…</p></div>
     <p><a class="button secondary" href="?treino">Campo de treino</a>
@@ -50,6 +52,7 @@ function showMenu() {
   `
   document.body.appendChild(menu)
   void characterSelect().then((select) => menu.querySelector('.character')!.append(select))
+  menu.querySelector('.power')!.append(powerInput())
   const list = menu.querySelector('.courses') as HTMLDivElement
   const link = (c: CourseInfo, hole: number) =>
     `?curso=${encodeURIComponent(c.round)}&prefixo=${encodeURIComponent(c.prefix)}&buraco=${hole}`

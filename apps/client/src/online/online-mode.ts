@@ -9,6 +9,7 @@ import {
 } from '@pangya/game'
 import { characterSelect } from '../character/character.ts'
 import { HoleView, type ViewPlayer } from '../hole/hole-view.ts'
+import { playerPower, powerInput } from '../settings.ts'
 import { connect } from './connection.ts'
 
 const escapeHtml = (text: string) => text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
@@ -74,6 +75,7 @@ export function startOnlineMode() {
     <form class="join">
       <input name="name" maxlength="16" placeholder="Seu nome" required />
       <span class="character"></span>
+      <span class="power"></span>
       <button>Entrar</button>
     </form>
     <div class="room" hidden>
@@ -104,9 +106,10 @@ export function startOnlineMode() {
     $('.character').append(select)
     return select
   })
+  $('.power').append(powerInput())
   const hello = async (name: string) => {
     const character = (await characterInput).value
-    server.send({ t: 'hello', name, ...(character && { character }) })
+    server.send({ t: 'hello', name, power: playerPower(), ...(character && { character }) })
   }
 
   // ---- chat (sala e jogo) ----
@@ -189,6 +192,7 @@ export function startOnlineMode() {
         color: p.color,
         state: p.state!,
         character: p.character,
+        ...(p.power !== undefined && { power: p.power }),
       }))
   }
 

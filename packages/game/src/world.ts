@@ -39,6 +39,11 @@ export interface ShotRequest {
   /** Mira em radianos (0 = +Z do Pangya, positivo = esquerda). */
   aim: number
   /**
+   * Atributo power do jogador (personagem + itens), escolhido antes da partida. No
+   * multiplayer o servidor usa o do jogador da sala, não o que vem na tacada.
+   */
+  power?: number
+  /**
    * Onde a barra parou em relação à zona de impacto, em meias-larguras da zona
    * (0 = centro, ±1 = borda). Omitido = tacada perfeita (sem barra).
    */
@@ -87,6 +92,13 @@ export interface PlayedShot {
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v))
 
 /** Valida e normaliza um pedido de tacada vindo da rede. */
+/** Faixa aceita para o atributo power (o jogo vai de ~15 a algumas dezenas). */
+export const POWER_LIMITS = { min: 0, max: 120 }
+/** Força padrão de quem não escolheu (a da calculadora do SuperSS). */
+export const DEFAULT_POWER = DEFAULT_PLAYER.power
+export const clampPower = (power: number) =>
+  Math.round(clamp(power, POWER_LIMITS.min, POWER_LIMITS.max))
+
 export function sanitizeRequest(request: ShotRequest): ShotRequest {
   if (!(request.club in CLUBS)) throw new Error(`taco inválido: ${String(request.club)}`)
   const shots: SpecialShot[] = ['dunk', 'tomahawk', 'spike', 'cobra']
@@ -101,6 +113,7 @@ export function sanitizeRequest(request: ShotRequest): ShotRequest {
     spin: clamp(finite(request.spin), -1, 1),
     curve: clamp(finite(request.curve), -1, 1),
     aim: finite(request.aim),
+    power: clampPower(finite(request.power, DEFAULT_PLAYER.power)),
     ...(typeof request.impact === 'number' &&
       Number.isFinite(request.impact) && { impact: clamp(request.impact, -4, 4) }),
   }
@@ -189,7 +202,7 @@ export class HoleWorld {
     const putter = CLUBS[request.club].category === 'putter'
     return {
       club: request.club,
-      player: DEFAULT_PLAYER,
+      player: { ...DEFAULT_PLAYER, power: request.power ?? DEFAULT_PLAYER.power },
       percent: request.percent * (1 - IMPACT_TUNING.missPowerLoss * miss),
       shot: request.shot ?? 'dunk',
       powerShot: request.powerShot ?? 'none',
@@ -269,6 +282,13 @@ export class HoleWorld {
       hitObject,
       flightFrames: flight.frames.length / 3,
     }
+  }
+
+  /** Alcance do HUD (jardas a 100%) para a tacada: taco, força do jogador, power shot, piso. */
+  shotRange(state: HoleState, request: ShotRequest): number {
+    if (CLUBS[request.club].category === 'putter') return PUTT_RANGE
+    const input = this.shotInput(state, request, { speed: 0, degree: 0 }, () => 0.5)
+    return new FlightSimulator(input, state.ball).range
   }
 
   /** Ponto onde a tacada cai (sem vento, piso 100%), como o anel de mira do jogo. */

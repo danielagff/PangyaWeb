@@ -18,3 +18,4 @@ export {
 export * from './terrain.ts'
 export * from './ground.ts'
 export * from './obstacles.ts'
+export * from './cup.ts'

@@ -8,7 +8,7 @@ import type { ShotOutcome } from './hole.ts'
 import type { ShotEvent, ShotRequest } from './world.ts'
 
 export type ClientMessage =
-  | { t: 'hello'; name: string; character?: string }
+  | { t: 'hello'; name: string; character?: string; power?: number }
   | { t: 'start'; course: Course }
   | { t: 'shot'; request: ShotRequest }
   | { t: 'chat'; text: string }

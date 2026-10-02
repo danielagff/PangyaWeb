@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_PLAYER, FlightSimulator, type ShotInput } from './flight.ts'
 import { puttSpeed, simulateGround, type GroundAt, type GroundSurface } from './ground.ts'
+import { CUP_DEPTH } from './cup.ts'
 import { unitsToYards } from './units.ts'
 
 const SURFACES = {
@@ -88,6 +89,11 @@ describe('simulateGround', () => {
       flat(SURFACES.green),
     )
     expect(ground.outcome).toBe('hole')
+    // Entra de verdade: os últimos quadros descem até o fundo da cova, no centro.
+    const n = ground.frames.length
+    expect(ground.frames[n - 3]).toBeCloseTo(0)
+    expect(ground.frames[n - 2]).toBeCloseTo(-CUP_DEPTH)
+    expect(ground.frames[n - 1]).toBeCloseTo(3)
   })
 })
 
