@@ -399,6 +399,14 @@
   box-shadow: 0 0 6px #b2ff59;
   color: #b2ff59;
 }
+/* Marca selecionada (a última feita): no modo sozinho, o 2º espaço usa a força dela. */
+.power-bar .mark.selected {
+  width: 4px;
+  margin-left: -2px;
+}
+.power-bar.snap .mark.selected span::before {
+  content: '▶ ';
+}
 .power-bar .mark span {
   position: absolute;
   top: 1px;

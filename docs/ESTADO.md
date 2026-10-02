@@ -33,7 +33,7 @@ jogar com amigos, com o **PC do Daniel como servidor**. Não é vendido nem publ
 | Física                  | Voo da bola portado do SuperSS-Dev; quique, rolagem e putt no terreno real; colisão com árvores/objetos pelas caixas `.pycb`; água, O.B., bunker.                                                                                                                                                                                                                                      |
 | Tacada                  | HUD embaixo como no original: taco na roda do mouse, power shot no Alt (2× = 2 PS), spin/curva clicando na bola do mostrador, força do personagem; barra sempre visível (3 toques, escala do taco, linha do pin, faixa PANGYA; deixar passar cancela); mira A/D.                                                                                                                       |
 | Câmera e cova           | Câmera livre com o mouse antes da tacada; no voo A/D giram e S mostra de cima até a bola quase cair. Vista aérea (M ou 0) como no original: roda troca o taco e o **bonequinho** (onde cai a 100%) vai junto, Shift+↑/↓ = zoom seguindo o bonequinho; Delete+0 abre nele. Cova de verdade (a bola cai dentro), sem bandeira, com a luz que puxa a bola se ela passar baixo o bastante. |
-| Ferramentas de teste    | **Régua** na barra de força (mouse mostra % e jardas; Z/X marcam pontos) e **sempre PANGYA** (tecla P, só sozinho) para testar a física.                                                                                                                                                                                                                                               |
+| Ferramentas de teste    | **Régua/calibrador** na barra de força (mouse mostra % e jardas; Z/X marcam; no modo sozinho o 2º espaço usa a força da marca selecionada) e **sempre PANGYA** (tecla P, só sozinho) para testar a física.                                                                                                                                                                             |
 | Força do personagem     | Escolhida no menu e na sala antes da partida (mostra quanto o 1W alcança); o servidor usa a força de cada jogador.                                                                                                                                                                                                                                                                     |
 | Regras                  | Buraco completo (par, penalidades, chip-in), placar entre buracos.                                                                                                                                                                                                                                                                                                                     |
 | Multiplayer             | Servidor no PC do anfitrião; sala com chat, escolha de personagem, curso e buracos; turnos (honra no tee, depois o mais longe do pin); placar; o servidor simula as tacadas.                                                                                                                                                                                                           |
@@ -46,7 +46,12 @@ jogar com amigos, com o **PC do Daniel como servidor**. Não é vendido nem publ
 
 ## Em andamento agora
 
-Última entrega (02/10/2026), pedidos do Daniel: na **vista aérea** a roda troca o taco e o
+Última entrega (02/10/2026), ajustes pedidos pelo Daniel depois de testar: a **roda do mouse
+sempre troca o taco** (um clique não solta mais a câmera; ela só fica livre arrastando, com
+zoom em Shift+↑/↓) e, no modo sozinho, o **2º espaço fixa a força da marca selecionada da
+régua** (o "calibrador": a última marca Z/X feita).
+
+Antes (versão `d6cc4ee`), também pedidos do Daniel: na **vista aérea** a roda troca o taco e o
 bonequinho (onde a bola cai a 100%) acompanha; zoom com **Shift+↑/↓** como no original.
 **Régua** na barra de força (mouse em cima mostra a % e as jardas; **Z** e **X** marcam o
 ponto; fora da barra, apagam). **Sempre PANGYA** com a tecla **P** (só no modo sozinho).

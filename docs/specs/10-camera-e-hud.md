@@ -59,6 +59,9 @@ Câmeras de jogo e HUD com as informações necessárias para mirar como no orig
   duplo clique centraliza), o power shot (Alt: 1 toque = 1 PS, 2 toques rápidos = 2 PS) e a
   força do personagem; a barra de força sempre visível, com a escala do alcance do taco
   (`HoleWorld.shotRange`) e a linha vermelha do pin. Sempre 3 toques de espaço.
+- A **roda do mouse sempre troca o taco** (mirando, na câmera livre e na vista aérea). Um
+  clique simples não solta a câmera: a câmera livre só começa arrastando (6 px); o zoom dela é
+  Shift+↑/↓ (ou Ctrl+roda).
 - Vista aérea com M ou 0, como no original: **roda do mouse troca o taco** e o
   **bonequinho** (onde a bola cai a 100% com o taco e a mira atuais, com o nome do taco e o
   alcance) vai junto; **Shift+↑/↓** aproxima/afasta, puxando a câmera para o bonequinho, que
@@ -68,7 +71,9 @@ Câmeras de jogo e HUD com as informações necessárias para mirar como no orig
 - **Régua da barra** (`power-bar.ts`): com o mouse em cima da barra, marcas a cada 1% (maiores
   a cada 5%) e a leitura do ponto ("73,5% · 132,3y"); **Z** e **X** marcam o ponto na barra
   (linha azul e verde com a força e as jardas, que acompanham a escala do taco); Z/X com o
-  mouse fora da barra apagam. Ficam salvas no navegador.
+  mouse fora da barra apagam. Ficam salvas no navegador. A última marca feita fica
+  **selecionada** (▶, mais grossa); no modo sozinho ela é o "calibrador": o **2º espaço fixa
+  exatamente a força dela**, não importa onde a barra esteja (na sala, a barra é normal).
 - **Sempre PANGYA** (desenvolvimento, só no modo sozinho — a sala não tem): tecla **P** liga
   e desliga (lembrado no navegador; "PANGYA · AUTO" na barra). Com ele, o marcador bate
   sozinho no centro da zona (2 toques bastam) e o 3º toque também sai perfeito.

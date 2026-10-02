@@ -10,6 +10,8 @@
  *
  * Régua (para acertar uma força exata): com o mouse em cima da barra aparecem marcas a cada
  * 1% e a força/jardas daquele ponto; Z e X marcam esse ponto na barra (fora da barra, apagam).
+ * A última marca feita fica selecionada; com `setSnapToMark` (desenvolvimento, só sozinho),
+ * o 2º toque de espaço fixa exatamente a força dela.
  * "Sempre PANGYA" (desenvolvimento): o impacto sai sempre perfeito — sozinho, no ponto
  * PANGYA, ou no 3º toque.
  *
@@ -49,17 +51,23 @@ export interface PowerBarOptions {
 
 const IDLE_LABEL = 'Espaço: começar · roda do mouse: taco · Alt: power shot'
 
-/** Marcas da régua (Z e X), em fração da barra; ficam salvas neste navegador. */
-type RulerMarks = Partial<Record<'z' | 'x', number>>
+/**
+ * Marcas da régua (Z e X), em fração da barra, e qual está selecionada (a última feita);
+ * ficam salvas neste navegador.
+ */
+type MarkKey = 'z' | 'x'
+type RulerMarks = Partial<Record<MarkKey, number>> & { sel?: MarkKey }
 const MARKS_KEY = 'pangyaweb.regua'
 function readMarks(): RulerMarks {
   try {
     const value = JSON.parse(localStorage.getItem(MARKS_KEY) ?? '{}') as RulerMarks
     const valid = (n: unknown) => typeof n === 'number' && n >= 0 && n <= 1
-    return {
+    const marks: RulerMarks = {
       ...(valid(value.z) && { z: value.z! }),
       ...(valid(value.x) && { x: value.x! }),
     }
+    const sel = value.sel && marks[value.sel] !== undefined ? value.sel : marks.x ? 'x' : 'z'
+    return marks[sel] === undefined ? marks : { ...marks, sel }
   } catch {
     return {}
   }
@@ -140,6 +148,9 @@ export function createPowerBar(parent: HTMLElement = document.body) {
   /** Ponto da régua sob o mouse (fração da barra), undefined = mouse fora. */
   let hover: number | undefined
   let marks = readMarks()
+  /** O 2º toque usa a força da marca selecionada (desenvolvimento, só sozinho). */
+  let snap = false
+  const snapTarget = () => (snap && marks.sel ? marks[marks.sel] : undefined)
 
   /** Posição atual do marcador (fração da barra). */
   const position = (now: number) => {
@@ -169,6 +180,7 @@ export function createPowerBar(parent: HTMLElement = document.body) {
       const at = marks[key]
       const line = root.querySelector<HTMLElement>(`.mark[data-mark="${key}"]`)!
       line.hidden = at === undefined
+      line.classList.toggle('selected', at !== undefined && marks.sel === key)
       if (at === undefined) continue
       line.style.left = `${at * 100}%`
       // Perto do fim da barra, o texto fica do lado esquerdo da linha.
@@ -187,13 +199,22 @@ export function createPowerBar(parent: HTMLElement = document.body) {
     hover = undefined
     drawRuler()
   })
-  /** Z/X: marca o ponto sob o mouse; com o mouse fora da barra, apaga a marca. */
+  /**
+   * Z/X: marca o ponto sob o mouse (e seleciona essa marca); com o mouse fora da barra,
+   * apaga a marca (a outra, se houver, fica selecionada).
+   */
   const onKey = (e: KeyboardEvent) => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
-    const key = e.code === 'KeyZ' ? 'z' : e.code === 'KeyX' ? 'x' : undefined
+    const key: MarkKey | undefined = e.code === 'KeyZ' ? 'z' : e.code === 'KeyX' ? 'x' : undefined
     if (!key || e.repeat) return
-    if (hover === undefined) delete marks[key]
-    else marks = { ...marks, [key]: hover }
+    if (hover === undefined) {
+      const other: MarkKey = key === 'z' ? 'x' : 'z'
+      const rest: RulerMarks = marks[other] === undefined ? {} : { [other]: marks[other] }
+      const sel = marks.sel === key ? (rest[other] !== undefined ? other : undefined) : marks.sel
+      marks = sel ? { ...rest, sel } : rest
+    } else {
+      marks = { ...marks, [key]: hover, sel: key }
+    }
     saveMarks(marks)
     drawRuler()
   }
@@ -207,7 +228,11 @@ export function createPowerBar(parent: HTMLElement = document.body) {
     marker.style.left = `${Math.max(0, p) * 100}%`
     if (stage === 'rising') {
       fill.style.width = `${p * 100}%`
-      label.textContent = `${percentText(p)} ${yards(p)} · espaço: fixar a força`
+      const target = snapTarget()
+      label.textContent =
+        target === undefined
+          ? `${percentText(p)} ${yards(p)} · espaço: fixar a força`
+          : `${percentText(p)} · espaço: força da marca ${marks.sel!.toUpperCase()} (${percentText(target)})`
       if (p >= 1) setPower(now, 1) // chegou no máximo: 100%
     } else if (autoPangya && p <= ZONE) {
       // Sempre PANGYA: bate sozinho no centro da zona.
@@ -227,7 +252,9 @@ export function createPowerBar(parent: HTMLElement = document.body) {
   }
 
   const setPower = (now: number, at = shown) => {
-    power = Math.max(0.01, at)
+    // Com a marca da régua selecionada, a força é exatamente a dela.
+    power = Math.max(0.01, snapTarget() ?? at)
+    fill.style.width = `${power * 100}%`
     powerMark.style.left = `${power * 100}%`
     powerText.textContent = yards(power) || `${Math.round(power * 100)}%`
     powerMark.hidden = false
@@ -287,6 +314,11 @@ export function createPowerBar(parent: HTMLElement = document.body) {
       half.textContent = yards(0.5)
       max.textContent = yards(1)
       drawRuler()
+    },
+    /** Liga/desliga o 2º toque usar a força da marca selecionada da régua. */
+    setSnapToMark(on: boolean) {
+      snap = on
+      root.classList.toggle('snap', on)
     },
     /** Liga/desliga o "sempre PANGYA" (impacto perfeito em toda tacada). */
     setAutoPangya(on: boolean) {

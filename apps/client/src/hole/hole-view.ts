@@ -80,8 +80,10 @@ const FREE_CAMERA_UNTIL_LANDING = 0.8
 const UP = new Vector3(0, 1, 0)
 /** Altura da vista aérea (unidades): perto da cova até o buraco inteiro. */
 const AERIAL = { minHeight: 12, maxHeight: 1500 }
-/** Quanto cada Shift+↑/↓ aproxima/afasta a vista aérea. */
+/** Quanto cada Shift+↑/↓ aproxima/afasta a vista aérea (e a câmera livre). */
 const AERIAL_ZOOM_STEP = 1.25
+/** Pixels que o mouse precisa andar com o botão apertado para soltar a câmera livre. */
+const DRAG_THRESHOLD = 6
 
 /** "Sempre PANGYA" (desenvolvimento, só sozinho), lembrado neste navegador. */
 const AUTO_PANGYA_KEY = 'pangyaweb.semprePangya'
@@ -468,7 +470,11 @@ export class HoleView {
     this.aerialMarker.hidden = true
     document.body.appendChild(this.aerialMarker)
     this.elements.push(this.aerialMarker)
-    if (this.devTools) this.setAutoPangya(readAutoPangya(), false)
+    if (this.devTools) {
+      this.setAutoPangya(readAutoPangya(), false)
+      // A régua vale como "calibrador": o 2º espaço usa a força da marca selecionada.
+      this.bar.setSnapToMark(true)
+    }
     this.windBox.innerHTML = WIND_DIAL
     document.body.appendChild(this.windBox)
     this.elements.push(this.windBox)
@@ -498,11 +504,13 @@ export class HoleView {
       if (key === 'KeyP' && this.devTools && !(e as KeyboardEvent).repeat) {
         this.setAutoPangya(!this.autoPangya)
       }
-      // Shift+↑/↓: zoom da vista aérea, aproximando do bonequinho (como no jogo).
+      // Shift+↑/↓: zoom (como no jogo) — na vista aérea, aproximando do bonequinho; na
+      // câmera livre, da bola.
       if ((key === 'ArrowUp' || key === 'ArrowDown') && (e as KeyboardEvent).shiftKey) {
         e.preventDefault()
-        if (this.aerial)
-          this.zoomAerial(key === 'ArrowUp' ? 1 / AERIAL_ZOOM_STEP : AERIAL_ZOOM_STEP)
+        const factor = key === 'ArrowUp' ? 1 / AERIAL_ZOOM_STEP : AERIAL_ZOOM_STEP
+        if (this.aerial) this.zoomAerial(factor)
+        else if (this.orbit) this.zoomOrbit(factor)
       }
       if (key === 'KeyS' && this.flight && this.freeFlightCamera()) this.flightTop = !this.flightTop
       if (['ArrowLeft', 'ArrowRight', 'KeyA', 'KeyD'].includes(key)) {
@@ -510,18 +518,13 @@ export class HoleView {
         this.keys.add(key)
       }
     })
-    // Câmera livre antes da tacada: arrastar gira em volta da bola, roda aproxima/afasta.
+    // Câmera livre antes da tacada: arrastar gira em volta da bola (Shift+↑/↓ aproxima).
+    // Só um clique não solta a câmera — precisa arrastar um pouco.
     const canvas = renderer.domElement
     this.listen(canvas, 'contextmenu', (e) => e.preventDefault())
     this.listen(canvas, 'pointerdown', (e) => {
       const p = e as PointerEvent
-      if (this.aerial) {
-        this.dragging = { x: p.clientX, y: p.clientY }
-        return
-      }
-      if (this.phase !== 'aim') return
-      this.dragging = { x: p.clientX, y: p.clientY }
-      this.orbit ??= this.defaultOrbit()
+      if (this.aerial || this.phase === 'aim') this.dragging = { x: p.clientX, y: p.clientY }
     })
     this.listen(window, 'pointerup', () => (this.dragging = undefined))
     this.listen(window, 'pointermove', (e) => {
@@ -541,7 +544,12 @@ export class HoleView {
         this.dragging = { x: p.clientX, y: p.clientY }
         return
       }
-      if (!this.dragging || !this.orbit) return
+      if (!this.dragging || this.phase !== 'aim') return
+      if (!this.orbit) {
+        const moved = Math.hypot(p.clientX - this.dragging.x, p.clientY - this.dragging.y)
+        if (moved < DRAG_THRESHOLD) return
+        this.orbit = this.defaultOrbit()
+      }
       this.orbit.yaw -= (p.clientX - this.dragging.x) * 0.006
       this.orbit.pitch = Math.min(
         1.5,
@@ -549,25 +557,20 @@ export class HoleView {
       )
       this.dragging = { x: p.clientX, y: p.clientY }
     })
-    // Roda do mouse: troca o taco (também na vista aérea, como no jogo: o bonequinho
-    // vai para onde o novo taco alcança); na câmera livre, zoom. Ctrl+roda (ou pinça no
-    // touchpad) dá zoom na vista aérea para onde o mouse aponta.
+    // Roda do mouse: sempre troca o taco (também na vista aérea e na câmera livre, como no
+    // jogo: o bonequinho vai para onde o novo taco alcança). Ctrl+roda (ou pinça no
+    // touchpad) dá zoom: na vista aérea para onde o mouse aponta, na câmera livre na bola.
     this.listen(canvas, 'wheel', (e) => {
       const wheel = e as WheelEvent
       e.preventDefault()
       const out = wheel.deltaY > 0
-      if (this.aerial) {
-        if (wheel.ctrlKey) this.zoomAerial(out ? AERIAL_ZOOM_STEP : 1 / AERIAL_ZOOM_STEP, wheel)
-        else if (this.phase === 'aim' && this.controllable) this.panel.cycleClub(out ? 1 : -1)
+      if (wheel.ctrlKey) {
+        const factor = out ? AERIAL_ZOOM_STEP : 1 / AERIAL_ZOOM_STEP
+        if (this.aerial) this.zoomAerial(factor, wheel)
+        else if (this.orbit) this.zoomOrbit(factor)
         return
       }
-      if (this.phase !== 'aim') return
-      if (this.orbit) {
-        const factor = out ? 1.15 : 1 / 1.15
-        this.orbit.distance = Math.min(400, Math.max(6, this.orbit.distance * factor))
-        return
-      }
-      if (this.controllable) this.panel.cycleClub(out ? 1 : -1)
+      if (this.phase === 'aim' && this.controllable) this.panel.cycleClub(out ? 1 : -1)
     })
     this.listen(window, 'keyup', (e) => this.keys.delete((e as KeyboardEvent).code))
     this.listen(window, 'resize', () => {
@@ -683,9 +686,10 @@ export class HoleView {
         (course.texturesMissing.length ? ` (${course.texturesMissing.length} faltando)` : '') +
         ` · ${world.obstacles.size} caixas de colisão (${data.obstacleSource})` +
         ' · A/D mirar · roda: taco · Alt: power shot (2× = 2 PS) · espaço: barra (3 toques)' +
-        ' · clique na bola do mostrador: spin/curva · arrastar: câmera livre (R volta)' +
+        ' · clique na bola do mostrador: spin/curva · arrastar: câmera livre (R volta; Shift+↑/↓ zoom)' +
         ' · M ou 0: vista aérea (roda: taco; Shift+↑/↓: zoom; Delete+0: onde a tacada cai)' +
         ' · régua: mouse na barra, Z/X marcam' +
+        (options.devTools ? ' (o 2º espaço usa a força da marca)' : '') +
         (options.devTools ? ' · P: sempre PANGYA' : '') +
         ' · no voo: A/D gira, S de cima · T pisos · F névoa · C colisão'
       if (course.texturesMissing.length) {
@@ -1046,6 +1050,12 @@ export class HoleView {
       aerial.follow = !at && point === this.aerialLanding
     }
     aerial.height = height
+  }
+
+  /** Zoom da câmera livre (distância até a bola). */
+  private zoomOrbit(factor: number) {
+    if (!this.orbit) return
+    this.orbit.distance = Math.min(400, Math.max(6, this.orbit.distance * factor))
   }
 
   /** Bonequinho da vista aérea na tela, com o taco e o alcance a 100%. */
