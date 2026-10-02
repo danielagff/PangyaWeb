@@ -98,17 +98,16 @@ export function startOnlineMode() {
   const $ = <T extends Element>(selector: string) => lobby.querySelector(selector) as T
   const nameInput = $<HTMLInputElement>('input[name=name]')
   nameInput.value = rememberedName()
-  let characterInput: HTMLSelectElement | undefined
-  void characterSelect().then((select) => {
-    characterInput = select
+  // A lista de personagens carrega em paralelo; entrar na sala espera por ela (senão o
+  // jogador entra sem personagem quando o nome lembrado faz a entrada automática).
+  const characterInput = characterSelect().then((select) => {
     $('.character').append(select)
+    return select
   })
-  const hello = (name: string) =>
-    server.send({
-      t: 'hello',
-      name,
-      ...(characterInput?.value && { character: characterInput.value }),
-    })
+  const hello = async (name: string) => {
+    const character = (await characterInput).value
+    server.send({ t: 'hello', name, ...(character && { character }) })
+  }
 
   // ---- chat (sala e jogo) ----
   const chat = document.createElement('div')
@@ -134,7 +133,7 @@ export function startOnlineMode() {
     const name = nameInput.value.trim()
     if (!name) return
     rememberName(name)
-    hello(name)
+    void hello(name)
   })
   chatInput.addEventListener('keydown', (e) => {
     e.stopPropagation() // espaço e setas no chat não mexem no jogo
@@ -267,7 +266,7 @@ export function startOnlineMode() {
     switch (message.t) {
       case 'welcome':
         myId = message.id
-        if (nameInput.value.trim()) hello(nameInput.value.trim())
+        if (nameInput.value.trim()) void hello(nameInput.value.trim())
         break
       case 'match': {
         const previous = match

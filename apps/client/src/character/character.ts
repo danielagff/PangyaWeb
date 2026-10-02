@@ -273,7 +273,9 @@ export function placeAtBall(
 ) {
   const head = model.addressHead
   let at: Vector3
-  if (head && Math.hypot(head.x, head.z) > 0.2) {
+  // Medida absurda (taco mal preso, pose estranha): usa a distância padrão.
+  const reach = head ? Math.hypot(head.x, head.z) : 0
+  if (head && reach > 0.2 && reach < 8 && Number.isFinite(head.y)) {
     const angle = Math.atan2(right.x, right.z) - Math.atan2(head.x, head.z)
     model.root.rotation.y = angle
     const offset = new Vector3(head.x, 0, head.z).applyAxisAngle(new Vector3(0, 1, 0), angle)
