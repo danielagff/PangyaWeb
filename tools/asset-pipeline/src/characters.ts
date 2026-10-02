@@ -22,10 +22,28 @@ export interface CharacterEntry {
 
 /**
  * Slots que formam um personagem completo, na ordem em que a roupa padrão é escolhida.
- * la/lb aparecem entre os slots escondidos por roupas de corpo inteiro (ex.:
- * m_ts_34_!hn!pv!la!lb!ft): partes do corpo (pernas/braços — a confirmar).
+ * lg/am (pernas/braços) e la/lb (Hana) são partes do corpo que roupas e sapatos podem
+ * cobrir — "_sub_lg" no nome = a peça já inclui as pernas (diagnóstico do cliente JP).
  */
-export const BASIC_SLOTS = ['fc', 'ha', 'ts', 'pv', 'la', 'lb', 'ft', 'hn']
+export const BASIC_SLOTS = ['fc', 'ha', 'ts', 'pv', 'ft', 'hn', 'lg', 'am', 'la', 'lb']
+
+/** Nomes dos personagens pelo esqueleto (cliente JP). */
+const NAMES: Record<string, string> = {
+  m_def: 'Nuri',
+  f_def: 'Hana',
+  a_def: 'Azer',
+  c_def: 'Cecilia',
+  d_def: 'Max',
+  e_def: 'Kooh',
+  g_def: 'Arin',
+  h_def: 'Kaz',
+  i_def: 'Lucia',
+  j_def: 'Nell',
+  k_def: 'Spika',
+  mm_def: 'Nuri R',
+  ff_hana_def: 'Hana R',
+  cc_def: 'Cecilia R',
+}
 
 const base = (path: string) => path.split('/').pop()!
 const dir = (path: string) => path.slice(0, Math.max(0, path.lastIndexOf('/')))
@@ -36,6 +54,10 @@ const natural = (a: string, b: string) => a.localeCompare(b, undefined, { numeri
 export const hiddenSlots = (part: string) =>
   [...stem(part).matchAll(/!([a-z]+)/gi)].map((m) => m[1]!.toLowerCase())
 
+/** Slots que a peça também cobre ("_sub_lg" = inclui as pernas). */
+export const subSlots = (part: string) =>
+  [...stem(part).matchAll(/_sub_([a-z]+)/gi)].map((m) => m[1]!.toLowerCase())
+
 /** Slot da peça pelo nome (m_ha_01 → "ha"). */
 export const slotOf = (part: string) => stem(part).split('_')[1]?.toLowerCase() ?? 'outro'
 
@@ -43,6 +65,8 @@ export function buildCharacterCatalog(paths: string[]): CharacterEntry[] {
   const byDir = Map.groupBy(paths, dir)
   const characters: CharacterEntry[] = []
   for (const skeleton of paths.filter((p) => /\.bpet$/i.test(p)).sort(natural)) {
+    // Só personagens (data/avatar/...); outros .bpet são cenário animado.
+    if (!/(^|\/)avatar\//i.test(skeleton)) continue
     const files = byDir.get(dir(skeleton)) ?? []
     const name = stem(skeleton)
     const prefix = name.split('_')[0]!.toLowerCase()
@@ -64,11 +88,14 @@ export function buildCharacterCatalog(paths: string[]): CharacterEntry[] {
       if (!choice) continue
       defaults.push(choice)
       covered.add(slot)
-      for (const hidden of hiddenSlots(choice)) covered.add(hidden)
+      for (const other of [...hiddenSlots(choice), ...subSlots(choice)]) covered.add(other)
     }
+    if (defaults.length === 0) continue
     characters.push({
       id: skeleton.replace(/\.bpet$/i, ''),
-      name: `${dir(skeleton).split('/').pop() ?? ''}/${name}`.replace(/^\//, ''),
+      name:
+        NAMES[name.toLowerCase()] ??
+        `${dir(skeleton).split('/').pop() ?? ''}/${name}`.replace(/^\//, ''),
       skeleton,
       animations,
       parts,

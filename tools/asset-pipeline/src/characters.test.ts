@@ -13,10 +13,14 @@ describe('catálogo de personagens', () => {
     'data/avatar/male/m_pv_01.mpet',
     'data/avatar/male/m_ft_01.mpet',
     'data/avatar/male/m_hn_01.mpet',
+    'data/avatar/male/m_lg_00.mpet',
     'data/avatar/male/m_wi_01.mpet',
     'data/avatar/male/m_skin.jpg',
     'data/avatar/female/f_def.bpet',
     'data/avatar/female/f_ha_01.mpet',
+    'data/avatar/female/f_ft_01_sub_lg.mpet',
+    'data/avatar/female/f_lg_00.mpet',
+    'data/map/hell_mountain01.bpet',
   ]
 
   it('lê slot e peças escondidas pelo nome', () => {
@@ -25,10 +29,12 @@ describe('catálogo de personagens', () => {
   })
 
   it('agrupa esqueleto, animação e peças da mesma pasta, com roupa padrão completa', () => {
-    const [female, male] = buildCharacterCatalog(files)
+    const catalog = buildCharacterCatalog(files)
+    expect(catalog).toHaveLength(2) // hell_mountain01.bpet não é personagem
+    const [female, male] = catalog
     expect(male).toMatchObject({
       id: 'data/avatar/male/m_def',
-      name: 'male/m_def',
+      name: 'Nuri',
       animations: 'data/avatar/male/m_def.apet',
     })
     expect(male!.parts['ha']).toEqual([
@@ -42,10 +48,13 @@ describe('catálogo de personagens', () => {
       'data/avatar/male/m_pv_01.mpet',
       'data/avatar/male/m_ft_01.mpet',
       'data/avatar/male/m_hn_01.mpet',
+      'data/avatar/male/m_lg_00.mpet',
     ])
+    // Sapato "_sub_lg" já inclui as pernas: a peça lg não entra.
     expect(female).toMatchObject({
+      name: 'Hana',
       animations: undefined,
-      defaults: ['data/avatar/female/f_ha_01.mpet'],
+      defaults: ['data/avatar/female/f_ha_01.mpet', 'data/avatar/female/f_ft_01_sub_lg.mpet'],
     })
   })
 })

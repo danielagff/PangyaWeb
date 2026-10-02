@@ -294,6 +294,14 @@ export function startOnlineMode() {
             ...(message.impact !== undefined && { impact: message.impact }),
           })
           view.showResult(`${name}: ${message.message}`)
+          const type = message.outcome.type
+          const pose =
+            type === 'hole'
+              ? view.react(message.playerId, 'putt')
+              : type === 'water' || type === 'outOfBounds'
+                ? view.react(message.playerId, 'trouble')
+                : 0
+          if (pose) await new Promise((r) => setTimeout(r, Math.min(pose, 3) * 1000))
           say(`<strong>${escapeHtml(name)}</strong>: ${escapeHtml(message.message)}`)
         })
         break

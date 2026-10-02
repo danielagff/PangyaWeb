@@ -96,7 +96,18 @@ export async function showDiagnostics() {
   // Sons.
   const sounds = names.filter((n) => /\.(wav|ogg|mp3)$/.test(n))
   log(`\n== SONS (${sounds.length})`)
-  log(sounds.slice(0, 300).join(' | '))
+  // Vozes: <prefixo>_<código><n>.wav (py = "Pangya!", bi = birdie, ob = O.B., …).
+  const voice = /^(.*)_(bi|bo|bu|dbo|dps|e|ha|lose|ob|par|pre|ps|py|w|win)\d\.(wav|ogg|mp3)$/
+  const prefixes = new Map<string, number>()
+  const effects: string[] = []
+  for (const n of sounds) {
+    const m = voice.exec(n)
+    if (m) prefixes.set(m[1]!, (prefixes.get(m[1]!) ?? 0) + 1)
+    else effects.push(n)
+  }
+  log(`vozes (${prefixes.size} prefixos): ${[...prefixes.keys()].slice(0, 200).join(' | ')}`)
+  log(`\nefeitos (${effects.length}):`)
+  log(effects.slice(0, 1500).join(' | '))
 
   log(`\n(base dos assets: ${ASSET_BASE})`)
   box.querySelector('button')!.addEventListener('click', () => {

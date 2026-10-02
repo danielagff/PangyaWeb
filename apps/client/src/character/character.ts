@@ -36,6 +36,7 @@ import {
   type KeyframeTrack,
 } from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
+import type { MotionInfo } from './motions.ts'
 import { ASSET_BASE, tryFetchBytes } from '../hole/assets.ts'
 import { TextureLibrary } from '../hole/textures.ts'
 
@@ -221,8 +222,11 @@ export const CHARACTER_TUNING = {
   impactAt: 0.55,
 }
 
-/** Osso onde prender um taco .pet (nomes do 3ds Max/Biped e variações). */
-const CLUB_BONE = /club|weapon|r\s*hand|hand_?r\b|righthand|r_hand/i
+/**
+ * Osso do taco: "Bone01" (filho da mão esquerda; as caixas COLL club/head_wood/head_iron
+ * ficam nele em todos os personagens do cliente JP). Senão, a mão.
+ */
+const CLUB_BONES = [/^bone01$/i, /club/i, /l\s*hand$/i, /r\s*hand$/i]
 
 export class CharacterModel {
   /** Nó na cena (posição/rotação); dentro dele o modelo fica no espaço do Pangya. */
@@ -234,6 +238,9 @@ export class CharacterModel {
   private club: { path: string; object: Object3D } | undefined
   /** Esqueleto e texturas, guardados para prender peças depois (taco). */
   private rig!: { pet: Pet; bones: Bone[]; restWorld: Matrix4[]; textures: TextureLibrary }
+
+  /** Movimentos do .apet (nome e quadros), para escolher pelo nome real. */
+  motions: MotionInfo[] = []
 
   private constructor(
     readonly entry: CharacterEntry,
@@ -258,12 +265,18 @@ export class CharacterModel {
     return undefined
   }
 
-  /** Toca um movimento; devolve a duração (s). */
-  play(name: string | undefined, loop = true, fade = 0.2): number {
+  /** Movimento tocando agora. */
+  get playing() {
+    return this.current?.getClip().name
+  }
+
+  /** Toca um movimento (a partir de `from` segundos); devolve a duração (s). */
+  play(name: string | undefined, loop = true, fade = 0.2, from = 0): number {
     const clip = name ? this.clips.get(name) : undefined
     if (!clip) return 0
     const action = this.mixer.clipAction(clip)
     action.reset()
+    action.time = from
     action.setLoop(loop ? LoopRepeat : LoopOnce, Infinity)
     action.clampWhenFinished = !loop
     if (this.current && this.current !== action) action.crossFadeFrom(this.current, fade, false)
@@ -312,7 +325,11 @@ export class CharacterModel {
           ),
         )
       }
-      const hand = skeleton.bones.findIndex((b) => CLUB_BONE.test(b.name))
+      let hand = -1
+      for (const pattern of CLUB_BONES) {
+        hand = skeleton.bones.findIndex((b) => pattern.test(b.name.trim()))
+        if (hand >= 0) break
+      }
       ;(bones[hand] ?? this.inner).add(group)
       object = group
     }
@@ -350,6 +367,11 @@ export class CharacterModel {
     const clips = apet ? buildClips(apet, skeletonPet, rest) : new Map<string, AnimationClip>()
     const model = new CharacterModel(entry, clips)
     model.rig = { pet: skeletonPet, bones, restWorld, textures }
+    model.motions = (apet?.motions ?? []).map(({ name, frameStart, frameEnd }) => ({
+      name,
+      frameStart,
+      frameEnd,
+    }))
     for (const [i, b] of skeletonPet.bones.entries()) {
       if (b.parent < 0 || b.parent >= bones.length) model.inner.add(bones[i]!)
     }

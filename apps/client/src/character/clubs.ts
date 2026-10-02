@@ -5,11 +5,13 @@
  */
 import { findAsset } from '../hole/assets.ts'
 
-export type ClubCategory = 'wood' | 'iron' | 'wedge' | 'putter'
+import type { ClubCategory } from './motions.ts'
+
+export type { ClubCategory }
 
 const KIND: Record<ClubCategory, number> = { wood: 0, iron: 1, wedge: 2, putter: 3 }
 
-let table: Promise<{ name?: string; model?: string; kind?: number }[]> | undefined
+let table: Promise<{ name?: string; model?: string; kind?: number | string }[]> | undefined
 const chosen = new Map<ClubCategory, Promise<string | undefined>>()
 
 /** Categoria pelo id do taco da física (1W, 5I, PW, PT1…). */
@@ -31,7 +33,8 @@ export function clubModelFor(category: ClubCategory): Promise<string | undefined
       .catch(() => [])
     path = table.then(async (clubs) => {
       for (const club of clubs) {
-        if (club.kind !== KIND[category] || !club.model) continue
+        // O pipeline grava o tipo como texto ("wood"); versões antigas, como número.
+        if ((club.kind !== KIND[category] && club.kind !== category) || !club.model) continue
         const model = club.model
         for (const name of [`${model}.mpet`, `${model}.pet`, model]) {
           const found = await findAsset(name, '')

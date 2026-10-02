@@ -38,6 +38,7 @@ import {
 } from 'three'
 import { SoundLibrary, type SynthSound } from '../audio/sounds.ts'
 import { categoryOfClub, clubModelFor } from '../character/clubs.ts'
+import { golfMotions, reactionMotion, type Reaction } from '../character/motions.ts'
 import {
   CHARACTER_TUNING,
   CharacterModel,
@@ -69,16 +70,6 @@ export interface ViewPlayer {
   /** Personagem (id do catálogo); sem ele, só a bola. */
   character?: string | undefined
 }
-
-/** Movimentos procurados pelo nome no .apet (nomes reais a confirmar com o cliente). */
-const IDLE_MOTIONS = [/^(stand|idle|wait|ready|address)/i, /stand|idle|wait|ready/i]
-const SWING_MOTIONS: Record<string, RegExp[]> = {
-  wood: [/dr|wood|1w|driver/i],
-  iron: [/iron|ir\b|_i\d/i],
-  wedge: [/ap|approach|pw|sw|wedge/i],
-  putter: [/put|pt/i],
-}
-const ANY_SWING = [/swing|shot/i]
 
 /** Etiqueta com o nome acima da bola (multiplayer). */
 function nameTag(name: string, color: number) {
@@ -157,6 +148,9 @@ export class HoleView {
   private readonly ready = new Map<string, CharacterModel>()
   /** Movimento escolhido com a tecla N (depuração). */
   private motionIndex = -1
+  /** O backswing já começou com a barra (a tacada continua do topo). */
+  private backswing = false
+  private walking = false
 
   /** Chamado quando o jogador da vez bate (espaço ou botão). */
   onShoot: (request: ShotRequest) => void = () => {}
@@ -283,7 +277,10 @@ export class HoleView {
     this.panel.onChange(() => {
       this.targetDirty = true
       const model = this.active && this.ready.get(this.active.id)
-      if (model?.root.visible) this.equipClub(model)
+      if (model?.root.visible && this.phase === 'aim' && !this.bar.active) {
+        this.equipClub(model)
+        this.idle(model)
+      }
     })
 
     this.listen(window, 'keydown', (e) => {
@@ -333,6 +330,7 @@ export class HoleView {
       phase: this.phase,
       aim: this.aim,
       active: this.active?.id,
+      motion: this.active && this.ready.get(this.active.id)?.playing,
       players: this.players.map((p) => ({ id: p.id, state: p.state })),
     })
   }
@@ -470,6 +468,7 @@ export class HoleView {
     this.showCharacter(this.active)
     if (changedTurn) {
       this.bar.cancel()
+      this.backswing = false
       this.aim = this.world.aimAtPin(state.ball)
       if (this.controllable) {
         const { club, percent } = this.world.suggestClub(state)
@@ -502,8 +501,7 @@ export class HoleView {
             this.ready.set(player.id, m)
             m.root.visible = false
             this.scene.add(m.root)
-            m.play(m.findMotion(...IDLE_MOTIONS) ?? m.motionNames[0])
-            console.info(`personagem ${m.entry.name}: movimentos`, m.motionNames)
+            this.idle(m)
           }
           return m
         })
@@ -525,7 +523,26 @@ export class HoleView {
       model.root.visible = true
       this.placeCharacter(model)
       this.equipClub(model)
+      this.idle(model)
     })
+  }
+
+  /** Movimentos de golfe do personagem para o taco (o do painel, se não informado). */
+  private golf(model: CharacterModel, club: string = this.panel.read().club) {
+    return golfMotions(model.motions, categoryOfClub(club))
+  }
+
+  /** Postura de preparação para o taco atual. */
+  private idle(model: CharacterModel) {
+    const name = this.golf(model).idle
+    if (name && model.playing !== name) model.play(name)
+  }
+
+  /** Pose de reação (comemoração/decepção) do personagem; devolve a duração (s). */
+  react(playerId: string, reaction: Reaction): number {
+    const model = this.ready.get(playerId)
+    if (!model?.root.visible) return 0
+    return model.play(reactionMotion(model.motions, reaction), false, 0.2)
   }
 
   private placeCharacter(model: CharacterModel) {
@@ -558,26 +575,21 @@ export class HoleView {
     this.panel.showResult(`Movimento ${this.motionIndex + 1}/${model.motionNames.length}: ${name}`)
   }
 
-  /** Começa o swing do personagem; devolve quanto falta (s) até o taco acertar a bola. */
+  /**
+   * Tacada do personagem: continua do topo do backswing (se a barra o começou) ou faz o
+   * swing inteiro. Devolve quanto falta (s) até o taco acertar a bola.
+   */
   private startSwing(playerId: string, club: string | undefined): number {
+    const fromTop = this.backswing
+    this.backswing = false
     const model = this.ready.get(playerId)
     if (!model || !model.root.visible) return 0
-    const category =
-      club === undefined
-        ? ''
-        : club.startsWith('PT')
-          ? 'putter'
-          : /W$/.test(club)
-            ? 'wood'
-            : /^(PW|SW)$/.test(club)
-              ? 'wedge'
-              : 'iron'
-    const swing = model.findMotion(...(SWING_MOTIONS[category] ?? []), ...ANY_SWING)
-    if (!swing) return 0
     if (club) this.equipClub(model, club)
-    const duration = model.play(swing, false, 0.1)
-    setTimeout(() => model.play(model.findMotion(...IDLE_MOTIONS) ?? swing), duration * 1000)
-    return duration * CHARACTER_TUNING.impactAt
+    const motions = this.golf(model, club)
+    if (!motions.swing) return 0
+    const from = fromTop ? motions.top : 0
+    model.play(motions.swing, false, fromTop ? 0.05 : 0.15, from)
+    return Math.max(0, motions.impact - from)
   }
 
   private ballPosition() {
@@ -616,6 +628,12 @@ export class HoleView {
     if (this.bar.active) {
       this.bar.press()
       return
+    }
+    const model = this.active && this.ready.get(this.active.id)
+    const backswing = model?.root.visible ? this.golf(model).backswing : undefined
+    if (model && backswing) {
+      model.play(backswing, false, 0.15)
+      this.backswing = true
     }
     this.bar.start(({ percent, impact }) => {
       this.panel.setPercent(percent)
@@ -804,11 +822,18 @@ export class HoleView {
         this.controllable && !this.bar.active
           ? (this.keys.has('ArrowLeft') ? 1 : 0) - (this.keys.has('ArrowRight') ? 1 : 0)
           : 0
+      const model = this.active && this.ready.get(this.active.id)
       if (turn) {
         this.aim += turn * dt * (this.greenGrid.visible ? 0.25 : 0.6)
         this.targetDirty = true
-        const model = this.active && this.ready.get(this.active.id)
         if (model?.root.visible) this.placeCharacter(model)
+      }
+      // Andando de lado enquanto gira a mira; parado, volta à preparação.
+      if (model?.root.visible && !this.bar.active && Boolean(turn) !== this.walking) {
+        this.walking = Boolean(turn)
+        const walk = this.golf(model).walk
+        if (this.walking && walk) model.play(walk, true, 0.1)
+        else this.idle(model)
       }
       if (this.targetDirty) this.updateWind()
       if (this.controllable && this.targetDirty) this.updateTarget()

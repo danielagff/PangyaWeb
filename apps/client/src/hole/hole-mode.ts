@@ -9,6 +9,7 @@ import {
   type HoleRef,
 } from '@pangya/game'
 import { chosenCharacter } from '../character/character.ts'
+import { reactionForScore } from '../character/motions.ts'
 import { HoleView } from './hole-view.ts'
 
 /** Cartão de placar carregado de buraco em buraco pela URL: "4:4,3:3" (tacadas:par). */
@@ -61,6 +62,15 @@ export async function startHoleMode(ref: HoleRef) {
     })
     state = applyShot(state, played.outcome)
     view.showResult(describeShot(from, played))
+    // Reação do personagem: comemora ao embocar, lamenta água/O.B.
+    const type = played.outcome.type
+    const pose =
+      type === 'hole'
+        ? view.react(me.id, reactionForScore(state.strokes, state.par))
+        : type === 'water' || type === 'outOfBounds'
+          ? view.react(me.id, 'trouble')
+          : 0
+    if (pose) await new Promise((r) => setTimeout(r, Math.min(pose, 3) * 1000))
     view.setPlayers([{ ...me, state }], state.finished ? undefined : me.id, true)
     if (state.finished) endHole()
   }
