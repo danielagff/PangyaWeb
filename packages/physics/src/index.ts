@@ -4,6 +4,8 @@ export * from './units.ts'
 export * from './clubs.ts'
 export * from './power.ts'
 export {
+  beamCapture,
+  CUP_BEAM,
   DEFAULT_PLAYER,
   FlightSimulator,
   simulateFlight,

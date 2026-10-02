@@ -33,6 +33,11 @@ e o jogador usa a distância + inclinação para calcular a quebra do putt.
 - Grade de inclinação: traços apontando para a descida, maiores e mais vermelhos quanto
   mais inclinado, amostrados a cada 4 unidades na malha de colisão do green.
 - Testes: putt reto em green plano para a ±2%; quebra para o lado da descida; entra na cova.
+- Sem bandeira: a cova tem a **luz** que puxa a bola. Na física (`CUP_BEAM` em
+  `packages/physics/src/flight.ts`): se a bola, descendo, passa por cima da cova dentro de
+  `radius` (0,8) e abaixo de `height` (1,75 unidade ≈ 0,5 m), é puxada para dentro (alguns
+  quadros de animação) e conta como embocada. Alta demais, passa. Valores a calibrar.
+  Na tela, a faixa amarela de baixo da luz mostra essa altura.
 
 ## Critérios de aceite
 

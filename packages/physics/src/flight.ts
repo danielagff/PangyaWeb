@@ -408,7 +408,15 @@ export class FlightSimulator {
     groundAt: (x: number, z: number) => number | undefined,
     floor = -1000,
     obstacles?: Obstacles,
-  ): FlightResult & { landed: boolean; velocity: Vec3; spin: number; obstacle?: string } {
+    cup?: Vec3,
+  ): FlightResult & {
+    landed: boolean
+    velocity: Vec3
+    spin: number
+    obstacle?: string
+    /** A bola passou pela luz da cova baixo o bastante e foi puxada para dentro. */
+    holed?: boolean
+  } {
     const frames: number[] = []
     const push = () =>
       frames.push(this.state.position.x, this.state.position.y, this.state.position.z)
@@ -430,6 +438,22 @@ export class FlightSimulator {
         push()
         break
       }
+      if (cup && this.state.apexStep !== -1) {
+        const at = beamCapture(previous.position, this.state.position, cup)
+        if (at) {
+          // Puxada pela luz: alguns quadros até o fundo da cova.
+          for (let i = 1; i <= CUP_BEAM.pullFrames; i++) {
+            const f = i / CUP_BEAM.pullFrames
+            frames.push(
+              at.x + (cup.x - at.x) * f,
+              at.y + (cup.y - at.y) * f,
+              at.z + (cup.z - at.z) * f,
+            )
+          }
+          this.state.position = V.from(cup)
+          return { ...this.result(frames), landed: true, holed: true }
+        }
+      }
       push()
       landed = this.state.apexStep !== -1 && this.state.position.y <= ground()
     } while (!landed && this.state.position.y > floor && steps++ < MAX_STEPS)
@@ -446,6 +470,10 @@ export class FlightSimulator {
       push()
     }
 
+    return { ...this.result(frames), landed, ...(obstacle !== undefined && { obstacle }) }
+  }
+
+  private result(frames: number[]) {
     const p = this.state.position
     const dx = p.x - this.origin.x
     const dz = p.z - this.origin.z
@@ -456,12 +484,40 @@ export class FlightSimulator {
       lateral: unitsToYards(dx),
       apex: this.state.apex,
       range: this.range,
-      landed,
       velocity: { x: this.state.velocity.x, y: this.state.velocity.y, z: this.state.velocity.z },
       spin: this.spin,
-      ...(obstacle !== undefined && { obstacle }),
     }
   }
+}
+
+/**
+ * Luz da cova (o feixe que "puxa" a bola no Pangya): se a bola, descendo, passa por cima da
+ * cova dentro do raio e abaixo da altura, cai dentro. Não faz milagre: alta demais, passa.
+ * Valores a calibrar com o jogo original.
+ */
+export const CUP_BEAM = {
+  /** Raio horizontal da luz (unidades; a cova tem ~0,55). */
+  radius: 0.8,
+  /** Altura máxima acima da cova em que a luz ainda pega a bola (unidades; 1,75 ≈ 0,5 m). */
+  height: 1.75,
+  /** Quadros da animação da bola sendo puxada. */
+  pullFrames: 8,
+}
+
+/** Ponto do trecho a→b (descendo) onde a bola passa pela luz da cova, ou undefined. */
+export function beamCapture(a: Vec3, b: Vec3, cup: Vec3): Vec3 | undefined {
+  const dx = b.x - a.x
+  const dz = b.z - a.z
+  const length2 = dx * dx + dz * dz
+  // Ponto do trecho mais perto da cova (no plano), com a altura nesse ponto.
+  const t =
+    length2 === 0
+      ? 0
+      : Math.max(0, Math.min(1, ((cup.x - a.x) * dx + (cup.z - a.z) * dz) / length2))
+  const p = { x: a.x + dx * t, y: a.y + (b.y - a.y) * t, z: a.z + dz * t }
+  if (Math.hypot(p.x - cup.x, p.z - cup.z) > CUP_BEAM.radius) return undefined
+  const above = p.y - cup.y
+  return above <= CUP_BEAM.height && above >= -0.5 ? p : undefined
 }
 
 /** Atalho: simula o voo de uma tacada até o chão na altura `landingY` (unidades). */

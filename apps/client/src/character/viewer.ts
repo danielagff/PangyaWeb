@@ -330,7 +330,7 @@ export async function startCharacterViewer() {
     const atBall = !studio()
     ball.visible = target.visible = atBall
     if (atBall) {
-      placeAtBall(model, ball.position, new Vector3(1, 0, 0), () => 0)
+      placeAtBall(model, ball.position, new Vector3(1, 0, 0), () => 0, 0)
     } else {
       model.root.position.set(0, 0, 0)
       // De frente para +Z (para a câmera): o modelo olha para -X no próprio espaço

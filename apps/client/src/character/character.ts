@@ -254,6 +254,9 @@ export const CHARACTER_TUNING = {
   impactAt: 0.55,
 }
 
+/** Quanto o taco pode esticar/encolher para encostar no chão (fora disso, fica como está). */
+export const CLUB_FIT = { min: 0.75, max: 1.5 }
+
 /**
  * Osso do taco: "Bone01" (filho da mão esquerda; as caixas COLL club/head_wood/head_iron
  * ficam nele em todos os personagens do cliente JP). Senão, a mão.
@@ -270,6 +273,7 @@ export function placeAtBall(
   ball: Vector3,
   right: Vector3,
   groundY: (at: Vector3) => number,
+  ballGroundY?: number,
 ) {
   const head = model.addressHead
   let at: Vector3
@@ -287,6 +291,9 @@ export function placeAtBall(
   }
   at.y = groundY(at)
   model.root.position.copy(at)
+  // Taco encostando no chão debaixo da bola (o terreno pode estar mais alto ou mais baixo
+  // que debaixo dos pés).
+  if (ballGroundY !== undefined) model.fitClub(ballGroundY - at.y)
 }
 
 /** Texturas e rostos (FANM) de uma peça, para o visualizador. */
@@ -318,6 +325,8 @@ export class CharacterModel {
 
   /** Cabeça do taco na postura de preparação (espaço de `root`), medida por `address`. */
   addressHead: Vector3 | undefined
+  /** Mão que segura o taco na postura de preparação (espaço de `root`). */
+  addressGrip: Vector3 | undefined
   /** Para qual taco/movimento `addressHead` foi medida. */
   addressKey = ''
 
@@ -428,7 +437,33 @@ export class CharacterModel {
     }
     if (key === this.addressKey) return
     this.addressKey = key
+    // Mede com o taco no tamanho original (fitClub ajusta depois).
+    this.club?.object.scale.setScalar(1)
     this.addressHead = this.clubHead()
+    this.addressGrip = this.clubGrip()
+  }
+
+  /** Mão que segura o taco (origem do osso onde ele está preso), no espaço de `root`. */
+  private clubGrip(): Vector3 | undefined {
+    const bone = this.club?.object.parent
+    if (!(bone instanceof Bone)) return undefined
+    this.root.updateMatrixWorld(true)
+    return this.root.worldToLocal(bone.getWorldPosition(new Vector3()))
+  }
+
+  /**
+   * Faz a cabeça do taco encostar no chão (altura `groundY` no espaço de `root`) na postura
+   * de preparação: estica ou encolhe o taco a partir da mão, ao longo do cabo. Sem isso o
+   * taco do jogo fica flutuando, porque a postura e o chão do nosso buraco não batem exato.
+   */
+  fitClub(groundY: number) {
+    const head = this.addressHead
+    const grip = this.addressGrip
+    const object = this.club?.object
+    if (!head || !grip || !object || head.y >= grip.y) return
+    const scale = (groundY - grip.y) / (head.y - grip.y)
+    if (!Number.isFinite(scale)) return
+    object.scale.setScalar(Math.min(CLUB_FIT.max, Math.max(CLUB_FIT.min, scale)))
   }
 
   /**

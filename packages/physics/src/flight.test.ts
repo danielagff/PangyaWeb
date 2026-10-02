@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { CLUB_IDS } from './clubs.ts'
 import {
+  beamCapture,
+  CUP_BEAM,
   DEFAULT_PLAYER,
   FlightSimulator,
   simulateFlight,
@@ -113,5 +115,25 @@ describe('flyOverGround', () => {
     const uphill = new FlightSimulator(shot()).flyOverGround(() => 60)
     expect(uphill.landing.y).toBeCloseTo(60, 3)
     expect(uphill.carry).toBeLessThan(simulateFlight(shot(), 0).carry)
+  })
+})
+
+describe('luz da cova (beamCapture)', () => {
+  const cup = { x: 0, y: 0, z: 0 }
+  it('pega a bola que passa baixa por cima da cova', () => {
+    const at = beamCapture({ x: -2, y: 1.2, z: 0 }, { x: 2, y: 0.8, z: 0 }, cup)
+    expect(at).toBeDefined()
+    expect(at!.x).toBeCloseTo(0)
+  })
+  it('não faz milagre: alta demais ou longe da cova, passa', () => {
+    expect(beamCapture({ x: -2, y: 5, z: 0 }, { x: 2, y: 4, z: 0 }, cup)).toBeUndefined()
+    expect(beamCapture({ x: -2, y: 1, z: 2 }, { x: 2, y: 0.5, z: 2 }, cup)).toBeUndefined()
+  })
+  it('limite de altura em CUP_BEAM', () => {
+    const h = CUP_BEAM.height
+    expect(beamCapture({ x: -1, y: h - 0.1, z: 0 }, { x: 1, y: h - 0.1, z: 0 }, cup)).toBeDefined()
+    expect(
+      beamCapture({ x: -1, y: h + 0.1, z: 0 }, { x: 1, y: h + 0.1, z: 0 }, cup),
+    ).toBeUndefined()
   })
 })

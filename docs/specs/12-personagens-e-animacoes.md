@@ -50,6 +50,8 @@ e mascotes.
   (padrões `IDLE_MOTIONS`/`SWING_MOTIONS` em hole-view.ts), para onde o modelo olha
   (`facingDegrees`), a escala e o momento do impacto.
 - Ainda não: trocar roupa/peças na interface, expressões faciais (FANM), taco na mão.
+- Taco encostando no chão: na postura de preparação, `fitClub` estica/encolhe o taco a
+  partir da mão (0,75–1,5×, `CLUB_FIT`) para a cabeça tocar o chão debaixo da bola.
 
 ## Critérios de aceite
 

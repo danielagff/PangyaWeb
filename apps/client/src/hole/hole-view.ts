@@ -8,7 +8,7 @@ import {
   type ShotRequest,
 } from '@pangya/game'
 import type { SurfaceKind } from '@pangya/formats'
-import { STEP_TIME, unitsToYards, type Wind } from '@pangya/physics'
+import { CUP_BEAM, STEP_TIME, unitsToYards, type Wind } from '@pangya/physics'
 import {
   AmbientLight,
   BufferGeometry,
@@ -26,7 +26,6 @@ import {
   MeshBasicMaterial,
   MeshLambertMaterial,
   PerspectiveCamera,
-  PlaneGeometry,
   Raycaster,
   RingGeometry,
   Scene,
@@ -59,8 +58,75 @@ const BALL_RADIUS = 0.2
 const MAX_TRAIL = 4000
 /** Raio da cova desenhada (unidades); a captura da física usa GROUND_TUNING.cupRadius. */
 const CUP_RADIUS = 0.45
-/** Altura da bandeira do pin (unidades; ~2,5 jardas). */
-const FLAG_HEIGHT = 8
+/** Altura desenhada da luz da cova (unidades); a parte que pega a bola é CUP_BEAM.height. */
+const BEAM_HEIGHT = 26
+/** Segundos antes de a bola cair em que a câmera livre do voo volta ao normal. */
+const FREE_CAMERA_UNTIL_LANDING = 0.8
+const UP = new Vector3(0, 1, 0)
+
+/**
+ * Luz da cova (no lugar da bandeira): coluna de luz que "puxa" a bola. A faixa de baixo,
+ * mais forte, é a altura em que ela ainda pega a bola (CUP_BEAM.height).
+ */
+function cupBeam() {
+  const canvas = document.createElement('canvas')
+  canvas.width = 4
+  canvas.height = 256
+  const g = canvas.getContext('2d')!
+  const strong = 1 - CUP_BEAM.height / BEAM_HEIGHT
+  const gradient = g.createLinearGradient(0, 0, 0, 256)
+  gradient.addColorStop(0, 'rgba(90,190,255,0)')
+  gradient.addColorStop(Math.max(0, strong - 0.4), 'rgba(90,190,255,0.12)')
+  gradient.addColorStop(Math.max(0, strong - 0.02), 'rgba(110,205,255,0.3)')
+  gradient.addColorStop(strong, 'rgba(255,225,120,0.55)')
+  gradient.addColorStop(1, 'rgba(255,235,150,0.65)')
+  g.fillStyle = gradient
+  g.fillRect(0, 0, 4, 256)
+  const material = new MeshBasicMaterial({
+    map: new CanvasTexture(canvas),
+    transparent: true,
+    depthWrite: false,
+    side: DoubleSide,
+    fog: false,
+  })
+  const beam = new Mesh(
+    new CylinderGeometry(CUP_BEAM.radius, CUP_BEAM.radius, BEAM_HEIGHT, 24, 1, true),
+    material,
+  )
+  beam.position.y = BEAM_HEIGHT / 2
+  beam.renderOrder = 2
+  const group = new Group()
+  group.add(beam)
+  return { group, material }
+}
+
+/** Rosa dos ventos: mostrador redondo, seta azul (girada pelo vento) e selo com os metros. */
+const WIND_DIAL = `
+  <svg viewBox="0 0 100 100" aria-hidden="true">
+    <defs>
+      <linearGradient id="wind-ring" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#f4f6f8" /><stop offset="0.5" stop-color="#9aa4ae" />
+        <stop offset="1" stop-color="#e3e7ea" />
+      </linearGradient>
+      <radialGradient id="wind-face" cx="0.5" cy="0.4" r="0.6">
+        <stop offset="0" stop-color="#2e7d5b" /><stop offset="1" stop-color="#0f3d2a" />
+      </radialGradient>
+    </defs>
+    <circle cx="50" cy="50" r="48" fill="#26323a" />
+    <circle cx="50" cy="50" r="44" fill="url(#wind-ring)" />
+    <circle cx="50" cy="50" r="35" fill="url(#wind-face)" stroke="#0b1f16" stroke-width="2" />
+  </svg>
+  <svg class="arrow" viewBox="0 0 100 100" aria-hidden="true">
+    <defs>
+      <linearGradient id="wind-arrow" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="#7fd4ff" /><stop offset="0.5" stop-color="#2f8fe0" />
+        <stop offset="1" stop-color="#1257a8" />
+      </linearGradient>
+    </defs>
+    <path d="M50 20 L72 48 L59 48 L59 78 L41 78 L41 48 L28 48 Z"
+      fill="url(#wind-arrow)" stroke="#0b3566" stroke-width="2.5" stroke-linejoin="round" />
+  </svg>
+  <div class="speed">0m</div>`
 
 export interface ViewPlayer {
   id: string
@@ -118,6 +184,15 @@ export class HoleView {
   private readonly cleanups: (() => void)[] = []
   private readonly bar: PowerBar
   private readonly windBox: HTMLElement
+  private beamMaterial!: MeshBasicMaterial
+  /** Câmera livre mirando (arrastar o mouse; roda = zoom). undefined = câmera padrão. */
+  private orbit: { yaw: number; pitch: number; distance: number } | undefined
+  private dragging: { x: number; y: number } | undefined
+  /** Câmera livre no voo: giro (A/D) e vista de cima (S), até a bola quase cair. */
+  private flightYaw = 0
+  private flightTop = false
+  /** Câmera parada pelo __debugCup (testes). */
+  private debugFreeze = false
   private wind: Wind = { speed: 0, degree: 0 }
 
   private players: ViewPlayer[] = []
@@ -141,6 +216,10 @@ export class HoleView {
         /** Quantos eventos da linha do tempo já tocaram. */
         fired: number
         impact: number | undefined
+        /** Quadro em que a bola toca o chão pela primeira vez. */
+        landing: number
+        /** Quadro mostrado agora. */
+        index: number
       }
     | undefined
   readonly sounds: SoundLibrary
@@ -202,7 +281,7 @@ export class HoleView {
     this.boxLines.visible = false
     scene.add(this.boxLines)
 
-    // Cova (disco escuro com borda, deitado na inclinação do green) e bandeira do pin.
+    // Cova (disco escuro com borda, deitado na inclinação do green) e a luz que puxa a bola.
     const cupHit = world.grid.groundAt(world.cup.x, world.cup.z)
     const [nx, ny, nz] = cupHit ? world.grid.normalOf(cupHit.triangle) : [0, 1, 0]
     const cup = new Group()
@@ -219,20 +298,10 @@ export class HoleView {
     cup.position.copy(toScene(world.cup.x, world.cup.y + 0.02, world.cup.z))
     cup.quaternion.setFromUnitVectors(new Vector3(0, 1, 0), new Vector3(nx, ny, -nz).normalize())
     scene.add(cup)
-    const flag = new Group()
-    const pole = new Mesh(
-      new CylinderGeometry(0.06, 0.06, FLAG_HEIGHT),
-      new MeshLambertMaterial({ color: 0xffffff, emissive: 0x555555 }),
-    )
-    pole.position.y = FLAG_HEIGHT / 2
-    const cloth = new Mesh(
-      new PlaneGeometry(2.4, 1.6),
-      new MeshLambertMaterial({ color: 0xe53935, emissive: 0x551111, side: DoubleSide }),
-    )
-    cloth.position.set(1.2, FLAG_HEIGHT - 0.9, 0)
-    flag.add(pole, cloth)
-    flag.position.copy(toScene(world.cup.x, world.cup.y, world.cup.z))
-    scene.add(flag)
+    const beam = cupBeam()
+    beam.group.position.copy(toScene(world.cup.x, world.cup.y, world.cup.z))
+    scene.add(beam.group)
+    this.beamMaterial = beam.material
 
     this.greenGrid = buildGreenGrid(
       world.grid,
@@ -273,7 +342,7 @@ export class HoleView {
     this.cleanups.push(() => this.bar.dispose())
     this.windBox = document.createElement('div')
     this.windBox.className = 'wind'
-    this.windBox.innerHTML = '<div><div class="arrow">↑</div><div class="speed">0 m</div></div>'
+    this.windBox.innerHTML = WIND_DIAL
     document.body.appendChild(this.windBox)
     this.elements.push(this.windBox)
     this.panel.onChange(() => {
@@ -294,10 +363,39 @@ export class HoleView {
           this.sounds.toggleMute() ? '🔇 som desligado (V)' : '🔊 som ligado (V)',
         )
       }
-      if (key === 'ArrowLeft' || key === 'ArrowRight') {
+      if (key === 'KeyR') this.orbit = undefined
+      if (key === 'KeyS' && this.flight && this.freeFlightCamera()) this.flightTop = !this.flightTop
+      if (['ArrowLeft', 'ArrowRight', 'KeyA', 'KeyD'].includes(key)) {
         e.preventDefault()
         this.keys.add(key)
       }
+    })
+    // Câmera livre antes da tacada: arrastar gira em volta da bola, roda aproxima/afasta.
+    const canvas = renderer.domElement
+    this.listen(canvas, 'contextmenu', (e) => e.preventDefault())
+    this.listen(canvas, 'pointerdown', (e) => {
+      const p = e as PointerEvent
+      if (this.phase !== 'aim') return
+      this.dragging = { x: p.clientX, y: p.clientY }
+      this.orbit ??= this.defaultOrbit()
+    })
+    this.listen(window, 'pointerup', () => (this.dragging = undefined))
+    this.listen(window, 'pointermove', (e) => {
+      const p = e as PointerEvent
+      if (!this.dragging || !this.orbit) return
+      this.orbit.yaw -= (p.clientX - this.dragging.x) * 0.006
+      this.orbit.pitch = Math.min(
+        1.5,
+        Math.max(0.03, this.orbit.pitch + (p.clientY - this.dragging.y) * 0.004),
+      )
+      this.dragging = { x: p.clientX, y: p.clientY }
+    })
+    this.listen(canvas, 'wheel', (e) => {
+      if (this.phase !== 'aim') return
+      e.preventDefault()
+      this.orbit ??= this.defaultOrbit()
+      const factor = (e as WheelEvent).deltaY > 0 ? 1.15 : 1 / 1.15
+      this.orbit.distance = Math.min(400, Math.max(6, this.orbit.distance * factor))
     })
     this.listen(window, 'keyup', (e) => this.keys.delete((e as KeyboardEvent).code))
     this.listen(window, 'resize', () => {
@@ -323,7 +421,16 @@ export class HoleView {
       }
     })
 
-    // Depuração (testes automatizados).
+    // Depuração (testes automatizados): câmera perto da cova para ver a luz.
+    ;(window as unknown as { __debugCup: () => void }).__debugCup = () => {
+      const at = toScene(world.cup.x, world.cup.y, world.cup.z)
+      this.orbit = undefined
+      this.aerial = false
+      this.phase = 'idle'
+      camera.position.copy(at).add(new Vector3(14, 7, 14))
+      camera.lookAt(at.clone().add(new Vector3(0, 4, 0)))
+      this.debugFreeze = true
+    }
     ;(window as unknown as { __debug: () => unknown }).__debug = () => ({
       camera: camera.position.toArray().map((v) => Math.round(v)),
       phase: this.phase,
@@ -373,7 +480,8 @@ export class HoleView {
         ` · ${course.texturesLoaded} texturas` +
         (course.texturesMissing.length ? ` (${course.texturesMissing.length} faltando)` : '') +
         ` · ${world.obstacles.size} caixas de colisão (${data.obstacleSource})` +
-        ' · ←→ mirar · espaço bater · M aérea · T pisos · F névoa · C colisão'
+        ' · A/D ou ←→ mirar · arrastar o mouse: câmera livre (R volta) · espaço bater' +
+        ' · no voo: A/D gira a câmera, S vista de cima · M aérea · T pisos · F névoa · C colisão'
       if (course.texturesMissing.length) {
         console.info('texturas não encontradas:', course.texturesMissing)
       }
@@ -400,9 +508,9 @@ export class HoleView {
   private updateWind() {
     const wind = this.panel.read().wind ?? this.wind
     const relative = wind.degree - (this.aim * 180) / Math.PI
-    const arrow = this.windBox.querySelector('.arrow') as HTMLElement
+    const arrow = this.windBox.querySelector('.arrow') as SVGElement
     arrow.style.transform = `rotate(${-relative}deg)`
-    ;(this.windBox.querySelector('.speed') as HTMLElement).textContent = `${wind.speed} m`
+    ;(this.windBox.querySelector('.speed') as HTMLElement).textContent = `${wind.speed}m`
   }
 
   /** Linha extra no HUD (placar, mensagens). */
@@ -466,6 +574,7 @@ export class HoleView {
     const state = this.active.state
     this.showCharacter(this.active)
     if (changedTurn) {
+      this.orbit = undefined
       this.bar.cancel()
       this.backswing = false
       this.aim = this.world.aimAtPin(state.ball)
@@ -565,6 +674,7 @@ export class HoleView {
       ball,
       right,
       (at) => this.world.grid.groundAt(at.x, -at.z)?.y ?? ball.y - BALL_RADIUS,
+      ball.y - BALL_RADIUS,
     )
   }
 
@@ -646,10 +756,30 @@ export class HoleView {
       model.play(backswing, false, 0.15)
       this.backswing = true
     }
-    this.bar.start(({ percent, impact }) => {
-      this.panel.setPercent(percent)
-      this.fire({ ...this.request(), percent, impact })
-    })
+    this.orbit = undefined
+    this.bar.start(
+      ({ percent, impact }) => {
+        this.panel.setPercent(percent)
+        this.fire({ ...this.request(), percent, impact })
+      },
+      {
+        maxYards: this.maxYards(),
+        // Deixou passar da zona: desistiu de bater agora; volta a mirar.
+        onCancel: () => {
+          this.backswing = false
+          if (model?.root.visible) this.idle(model)
+          this.readyAt = performance.now()
+        },
+      },
+    )
+  }
+
+  /** Distância (jardas) da tacada a 100% com o taco atual, para a escala da barra. */
+  private maxYards() {
+    if (!this.active) return 0
+    const ball = this.active.state.ball
+    const p = this.world.predictLanding(this.active.state, { ...this.request(), percent: 1 })
+    return unitsToYards(Math.hypot(p.x - ball.x, p.z - ball.z))
   }
 
   private fire(request: ShotRequest) {
@@ -678,6 +808,9 @@ export class HoleView {
     this.panel.setEnabled(false, 'Espaço: pular animação')
     const player = this.players.find((p) => p.id === playerId)
     if (player) this.ballOf(player, this.players.length > 1)
+    this.flightYaw = 0
+    this.flightTop = false
+    this.orbit = undefined
     return new Promise((resolve) => {
       this.flight = {
         playerId,
@@ -687,8 +820,37 @@ export class HoleView {
         events,
         fired: 0,
         impact,
+        landing: this.landingIndex(frames),
+        index: 0,
       }
     })
+  }
+
+  /** Primeiro quadro, depois do ponto mais alto, em que a bola chega ao chão. */
+  private landingIndex(frames: Float32Array) {
+    const count = frames.length / 3
+    let apex = 0
+    for (let i = 1; i < count; i++) if (frames[i * 3 + 1]! > frames[apex * 3 + 1]!) apex = i
+    for (let i = apex; i < count; i++) {
+      const ground = this.world.grid.groundAt(frames[i * 3]!, frames[i * 3 + 2]!)?.y
+      if (ground !== undefined && frames[i * 3 + 1]! - ground <= 0.5) return i
+    }
+    return count - 1
+  }
+
+  /** A câmera livre do voo vale até pouco antes de a bola cair. */
+  private freeFlightCamera() {
+    const f = this.flight
+    if (!f || f.start === -Infinity) return false
+    return f.index < f.landing - FREE_CAMERA_UNTIL_LANDING / STEP_TIME
+  }
+
+  /** Câmera livre começa onde a câmera padrão está (atrás da bola). */
+  private defaultOrbit() {
+    const putting = this.greenGrid.visible
+    const back = putting ? 18 : 22
+    const up = putting ? 9 : 8
+    return { yaw: 0, pitch: Math.atan2(up, back), distance: Math.hypot(back, up) }
   }
 
   showResult(text: string) {
@@ -773,8 +935,35 @@ export class HoleView {
       camera.lookAt(middle)
       return
     }
-    const forward = this.phase === 'flying' ? this.shotForward : aimDirection(this.aim)
+    let forward = this.phase === 'flying' ? this.shotForward : aimDirection(this.aim)
     const putting = this.phase === 'aim' && this.greenGrid.visible
+    const free = this.phase === 'flying' && this.freeFlightCamera()
+    if (free) forward = forward.clone().applyAxisAngle(UP, this.flightYaw)
+    if (this.phase === 'aim' && this.orbit) {
+      // Câmera livre: gira em volta da bola olhando para ela.
+      const { yaw, pitch, distance } = this.orbit
+      const back = forward.clone().negate().applyAxisAngle(UP, yaw)
+      const desired = focus
+        .clone()
+        .addScaledVector(back, Math.cos(pitch) * distance)
+        .add(new Vector3(0, Math.sin(pitch) * distance, 0))
+      this.moveCamera(focus, desired, Math.max(lerp, 0.25))
+      camera.lookAt(focus)
+      return
+    }
+    if (free && this.flightTop) {
+      // Vista de cima da bola em voo (S).
+      this.moveCamera(
+        focus,
+        focus
+          .clone()
+          .add(new Vector3(0, 70, 0))
+          .addScaledVector(forward, -6),
+        0.12,
+      )
+      camera.lookAt(focus)
+      return
+    }
     // Mirando: perto, atrás do jogador; voando: mais longe para acompanhar a bola.
     const flying = this.phase === 'flying'
     const back = putting ? 18 : flying ? 55 : 22
@@ -783,9 +972,16 @@ export class HoleView {
       .clone()
       .addScaledVector(forward, -back)
       .add(new Vector3(0, up, 0))
-    // As proteções valem para a posição real de cada quadro (deslizando, a câmera
-    // poderia atravessar paredes do terreno).
-    const next = camera.position.clone().lerp(desired, lerp)
+    this.moveCamera(focus, desired, lerp)
+    camera.lookAt(focus.clone().addScaledVector(forward, putting ? 25 : flying ? 60 : 40))
+  }
+
+  /**
+   * Desliza a câmera até `desired`. As proteções valem para a posição real de cada quadro
+   * (deslizando, a câmera poderia atravessar paredes do terreno).
+   */
+  private moveCamera(focus: Vector3, desired: Vector3, lerp: number) {
+    const next = this.camera.position.clone().lerp(desired, lerp)
     const toCamera = next.clone().sub(focus)
     const distance = toCamera.length()
     if (distance > 0.001) {
@@ -794,10 +990,9 @@ export class HoleView {
       const hit = this.ray.intersectObjects(this.course.terrainMeshes, false)[0]
       if (hit) next.copy(focus).addScaledVector(toCamera, Math.max(4, hit.distance - 4))
     }
-    const below = world.grid.groundAt(next.x, -next.z)
+    const below = this.world.grid.groundAt(next.x, -next.z)
     if (below && next.y < below.y + 6) next.y = below.y + 6
-    camera.position.copy(next)
-    camera.lookAt(focus.clone().addScaledVector(forward, putting ? 25 : flying ? 60 : 40))
+    this.camera.position.copy(next)
   }
 
   private frameAt(frames: Float32Array, i: number) {
@@ -812,6 +1007,17 @@ export class HoleView {
       const elapsed = (now - this.flight.start) / 1000
       const index = Math.max(0, Math.min(Math.floor(elapsed / STEP_TIME), count - 1))
       if (elapsed >= 0) this.playEvents(index, skipped)
+      this.flight.index = index
+      // Câmera livre do voo: A/D giram em volta da bola; perto de cair, volta ao normal.
+      if (this.freeFlightCamera()) {
+        const spin =
+          (this.keys.has('KeyA') || this.keys.has('ArrowLeft') ? 1 : 0) -
+          (this.keys.has('KeyD') || this.keys.has('ArrowRight') ? 1 : 0)
+        this.flightYaw += spin * dt * 1.6
+      } else {
+        this.flightYaw *= 0.9
+        this.flightTop = false
+      }
       this.placeBall(playerId, this.frameAt(frames, index))
       const shown = Math.min(index + 1, MAX_TRAIL)
       for (let i = 0; i < shown; i++) {
@@ -831,10 +1037,12 @@ export class HoleView {
       // Mira só antes de começar a barra.
       const turn =
         this.controllable && !this.bar.active
-          ? (this.keys.has('ArrowLeft') ? 1 : 0) - (this.keys.has('ArrowRight') ? 1 : 0)
+          ? (this.keys.has('ArrowLeft') || this.keys.has('KeyA') ? 1 : 0) -
+            (this.keys.has('ArrowRight') || this.keys.has('KeyD') ? 1 : 0)
           : 0
       const model = this.active && this.ready.get(this.active.id)
       if (turn) {
+        this.orbit = undefined // mirar volta a câmera para trás do jogador
         this.aim += turn * dt * (this.greenGrid.visible ? 0.25 : 0.6)
         this.targetDirty = true
         if (model?.root.visible) this.placeCharacter(model)
@@ -850,10 +1058,11 @@ export class HoleView {
       if (this.controllable && this.targetDirty) this.updateTarget()
       this.target.visible = this.controllable
       this.placeCamera(this.ballPosition(), turn ? 0.3 : 0.08)
-    } else {
+    } else if (!this.debugFreeze) {
       this.placeCamera(this.ballPosition(), 0.08)
     }
     for (const model of this.ready.values()) if (model.root.visible) model.update(dt)
+    this.beamMaterial.opacity = 0.8 + 0.2 * Math.sin(now / 300)
     this.course.update(this.camera)
     this.renderer.render(this.scene, this.camera)
   }

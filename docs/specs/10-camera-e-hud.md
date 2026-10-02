@@ -46,6 +46,14 @@ Câmeras de jogo e HUD com as informações necessárias para mirar como no orig
   barra (espaço bate direto com a força do slider).
 - Rosa do vento no canto: seta relativa à mira (para cima = a favor) e força em m.
 - Faltam: mini-mapa, mensagens grandes ("Nice Shot"), animação do personagem.
+- Câmera livre mirando: arrastar o mouse gira em volta da bola, a roda aproxima/afasta;
+  R, mirar (A/D/setas) ou começar a barra volta à câmera padrão.
+- Câmera do voo: A/D giram em volta da bola, S alterna a vista de cima; 0,8 s antes de a bola
+  tocar o chão (`FREE_CAMERA_UNTIL_LANDING`) volta sozinha à câmera padrão.
+- Barra de força no estilo do original: escala de jardas (meio e máximo do taco), zona de
+  impacto amarela com a faixa PANGYA (rosa, `IMPACT_TUNING.pangyaZone`) e linha central;
+  deixar o marcador passar da zona cancela a tacada (o jogador desistiu) e volta a mirar.
+- Rosa dos ventos redonda com seta azul e selo com os metros.
 
 ## Problemas conhecidos
 

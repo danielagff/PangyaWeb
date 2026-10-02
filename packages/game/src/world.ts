@@ -225,8 +225,26 @@ export class HoleWorld {
       (x, z) => this.grid.groundAt(x, z)?.y,
       -1000,
       this.obstacles,
+      withGround ? this.cup : undefined,
     )
     const hitObject = flight.obstacle !== undefined
+    if (flight.holed) {
+      // Puxada pela luz da cova ainda no ar: embocou.
+      const ground: GroundResult = {
+        frames: new Float32Array(0),
+        events: [{ type: 'hole', at: { ...this.cup }, step: -1 }],
+        final: { ...this.cup },
+        outcome: 'hole',
+        surface: 'green',
+      }
+      return {
+        frames: flight.frames,
+        carry: flight.carry,
+        ground,
+        hitObject,
+        flightFrames: flight.frames.length / 3,
+      }
+    }
     if (!withGround || !flight.landed) {
       return {
         frames: flight.frames,
