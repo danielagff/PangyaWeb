@@ -5,6 +5,7 @@ import { resolve } from 'node:path'
 import type { ClientMessage } from '@pangya/game'
 import { WebSocketServer } from 'ws'
 import { DiskFiles, listCourses } from './files.ts'
+import { handleOutfits } from './outfits.ts'
 import { Room } from './room.ts'
 import { serveStatic } from './static.ts'
 
@@ -39,6 +40,10 @@ const server = createServer((req, res) => {
     res
       .writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' })
       .end(JSON.stringify(listCourses(original)))
+    return
+  }
+  if (url.pathname === '/api/roupas-padrao') {
+    handleOutfits(req, res, resolve(dirs.assets, 'converted/data/roupas-padrao.json'))
     return
   }
   serveStatic(req, res, dirs)

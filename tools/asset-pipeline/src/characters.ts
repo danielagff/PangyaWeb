@@ -8,6 +8,8 @@
  * hn mão…); o sufixo `!xx!yy` lista os slots que a peça esconde.
  */
 
+import { parsePartName } from '@pangya/formats'
+
 export interface CharacterEntry {
   /** Identificador estável: caminho do .bpet sem extensão. */
   id: string
@@ -50,16 +52,26 @@ const dir = (path: string) => path.slice(0, Math.max(0, path.lastIndexOf('/')))
 const stem = (path: string) => base(path).replace(/\.[^.]+$/, '')
 const natural = (a: string, b: string) => a.localeCompare(b, undefined, { numeric: true })
 
-/** Slots que a peça esconde (sufixo "!hn!pv"). */
-export const hiddenSlots = (part: string) =>
-  [...stem(part).matchAll(/!([a-z]+)/gi)].map((m) => m[1]!.toLowerCase())
-
-/** Slots que a peça também cobre ("_sub_lg" = inclui as pernas). */
-export const subSlots = (part: string) =>
-  [...stem(part).matchAll(/_sub_([a-z]+)/gi)].map((m) => m[1]!.toLowerCase())
-
 /** Slot da peça pelo nome (m_ha_01 → "ha"). */
 export const slotOf = (part: string) => stem(part).split('_')[1]?.toLowerCase() ?? 'outro'
+
+/**
+ * Peça padrão de um slot: a base (código numérico, não acessório) de menor número, de
+ * preferência uma que não esconda outros slots (ex.: rosto fc_01_!fc, cabelo ha_01).
+ * Exceções (ex.: a mão sem luva da Cecilia R é cc_hn_28) são definidas no mapeador.
+ */
+export function defaultPart(options: string[]): string | undefined {
+  const bases = options
+    .map((path) => ({ path, name: parsePartName(path) }))
+    .filter((p) => !p.name.accessory)
+    .sort(
+      (a, b) =>
+        a.name.hides.length - b.name.hides.length ||
+        a.name.number - b.name.number ||
+        natural(a.path, b.path),
+    )
+  return bases[0]?.path ?? options[0]
+}
 
 export function buildCharacterCatalog(paths: string[]): CharacterEntry[] {
   const byDir = Map.groupBy(paths, dir)
@@ -82,13 +94,12 @@ export function buildCharacterCatalog(paths: string[]): CharacterEntry[] {
     const covered = new Set<string>()
     for (const slot of BASIC_SLOTS) {
       if (covered.has(slot)) continue
-      const options = parts[slot] ?? []
-      // Prefere peças que não escondem outras (roupa "normal").
-      const choice = options.find((p) => hiddenSlots(p).length === 0) ?? options[0]
+      const choice = defaultPart(parts[slot] ?? [])
       if (!choice) continue
       defaults.push(choice)
       covered.add(slot)
-      for (const other of [...hiddenSlots(choice), ...subSlots(choice)]) covered.add(other)
+      const { hides, covers } = parsePartName(choice)
+      for (const other of [...hides, ...covers]) covered.add(other)
     }
     if (defaults.length === 0) continue
     characters.push({

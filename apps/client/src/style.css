@@ -464,3 +464,22 @@
 .viewer-side .motions summary small {
   display: inline;
 }
+.viewer-side details.slot > summary {
+  cursor: pointer;
+  font-weight: bold;
+  margin: 8px 0 2px;
+  color: #ffd54f;
+}
+.viewer-side details.slot > summary small {
+  display: inline;
+  font-weight: normal;
+  color: #fff;
+}
+.viewer-side h4 {
+  margin: 6px 0 2px;
+  font-size: 12px;
+  opacity: 0.85;
+}
+.viewer-side .outfit-state {
+  color: #9be59b;
+}

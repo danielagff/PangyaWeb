@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { buildCharacterCatalog, hiddenSlots, slotOf } from './characters.ts'
+import { parsePartName } from '@pangya/formats'
+import { buildCharacterCatalog, defaultPart, slotOf } from './characters.ts'
 
 describe('catálogo de personagens', () => {
   const files = [
     'data/avatar/male/m_def.bpet',
     'data/avatar/male/m_def.apet',
     'data/avatar/male/m_fc_01.mpet',
+    'data/avatar/male/m_fc_a_z01.mpet',
     'data/avatar/male/m_ha_10.mpet',
     'data/avatar/male/m_ha_2.mpet',
     'data/avatar/male/m_ts_34_!hn!pv!la!lb!ft.mpet',
@@ -25,7 +27,26 @@ describe('catálogo de personagens', () => {
 
   it('lê slot e peças escondidas pelo nome', () => {
     expect(slotOf('x/m_ts_34_!hn!pv.mpet')).toBe('ts')
-    expect(hiddenSlots('x/m_ts_34_!hn!pv!la.mpet')).toEqual(['hn', 'pv', 'la'])
+    expect(parsePartName('x/m_ts_34_!hn!pv!la.mpet')).toMatchObject({
+      slot: 'ts',
+      number: 34,
+      accessory: false,
+      hides: ['hn', 'pv', 'la'],
+    })
+    expect(parsePartName('x/h_fc_01_!fc.mpet')).toMatchObject({ number: 1, hides: [] })
+    expect(parsePartName('x/h_fc_a_z01.mpet')).toMatchObject({ accessory: true })
+    expect(parsePartName('x/h_ha_a09_!ha.mpet')).toMatchObject({ accessory: true, hides: [] })
+    expect(parsePartName('x/c_ft_01_sub_lg.mpet').covers).toEqual(['lg'])
+  })
+
+  it('peça padrão: a base de menor número, sem acessórios (rosto fc_01_!fc)', () => {
+    expect(defaultPart(['h/h_fc_a_z01.mpet', 'h/h_fc_02_!fc.mpet', 'h/h_fc_01_!fc.mpet'])).toBe(
+      'h/h_fc_01_!fc.mpet',
+    )
+    expect(defaultPart(['h/h_ha_a09_!ha.mpet', 'h/h_ha_10.mpet', 'h/h_ha_01.mpet'])).toBe(
+      'h/h_ha_01.mpet',
+    )
+    expect(defaultPart(['c/cc_ft_00.mpet', 'c/cc_ft_01.mpet'])).toBe('c/cc_ft_00.mpet')
   })
 
   it('agrupa esqueleto, animação e peças da mesma pasta, com roupa padrão completa', () => {

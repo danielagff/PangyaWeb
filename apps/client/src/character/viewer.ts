@@ -21,6 +21,7 @@ import {
   Vector3,
   WebGLRenderer,
 } from 'three'
+import { parsePartName } from '@pangya/formats'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { clubModelFor, type ClubCategory } from './clubs.ts'
 import {
@@ -28,6 +29,7 @@ import {
   loadCatalog,
   placeAtBall,
   readPartInfo,
+  saveOutfit,
   type CharacterEntry,
 } from './character.ts'
 import { describeMotion, MOTION_CATEGORIES } from './motion-names.ts'
@@ -35,20 +37,53 @@ import { golfMotions } from './motions.ts'
 
 const BALL_RADIUS = 0.2
 
-/** Slots conhecidos (palpite; o resto aparece pelo código). */
+/** Slots das peças, traduzidos (conferidos com o jogo; "?" = ainda a confirmar). */
 const SLOT_NAMES: Record<string, string> = {
-  fc: 'rosto?',
-  ha: 'cabelo?',
-  ts: 'tronco/camisa?',
-  pv: 'calça/saia?',
-  ft: 'sapatos?',
-  hn: 'mãos/luvas?',
-  lg: 'pernas (corpo)?',
-  am: 'braços (corpo)?',
-  la: 'la?',
-  lb: 'lb?',
+  fc: 'Rosto',
+  ha: 'Cabelo',
+  ts: 'Tronco / camisa / vestido',
+  pv: 'Calça / saia',
+  ft: 'Pés / sapatos',
+  hn: 'Mãos / luvas',
+  wi: 'Asas',
+  tl: 'Cauda?',
+  earing: 'Brinco',
+  hd: 'Cabeça?',
+  hair: 'Cabelo extra?',
+  glasses: 'Óculos',
+  um: 'Guarda-chuva?',
+  belt: 'Cinto',
+  wr: 'Pulso?',
+  lg: 'Pernas (corpo)',
+  am: 'Braços (corpo)',
+  la: 'Corpo (la)?',
+  lb: 'Corpo (lb)?',
 }
 const SLOT_ORDER = Object.keys(SLOT_NAMES)
+const slotName = (slot: string) => SLOT_NAMES[slot] ?? `Item: ${slot}`
+
+/** Rótulo da peça: "nº 01", "acessório a z01", com o que esconde/cobre. */
+function partLabel(path: string) {
+  const p = parsePartName(path)
+  const rest = fileName(path)
+    .replace(/\.[^.]+$/, '')
+    .split('_')
+    .slice(2)
+    .filter((x) => !x.startsWith('!') && x !== 'sub' && !p.covers.includes(x))
+    .join(' ')
+    .replace(/!.*/, '')
+  const extra = [
+    p.hides.length ? `esconde: ${p.hides.map(slotName).join(', ')}` : '',
+    p.covers.length ? `inclui: ${p.covers.map(slotName).join(', ')}` : '',
+  ].filter(Boolean)
+  return `${p.accessory ? 'acessório' : 'nº'} ${rest}${extra.length ? ` · ${extra.join(' · ')}` : ''}`
+}
+
+/** Chave no conjunto vestido: a base e um acessório por slot. */
+const keyOf = (path: string) => {
+  const p = parsePartName(path)
+  return p.accessory ? `${p.slot}+` : p.slot
+}
 
 const CLUBS: { value: ClubCategory | ''; label: string }[] = [
   { value: '', label: 'sem taco' },
@@ -172,7 +207,11 @@ export async function startCharacterViewer() {
     <div class="motions"></div>`
   const right = document.createElement('div')
   right.className = 'viewer-side right'
-  right.innerHTML = `<h2>Peças (skins) por slot</h2><div class="parts"></div>
+  right.innerHTML = `<h2>Peças (skins) por categoria</h2>
+    <p class="outfit-state"></p>
+    <p><button class="save-outfit">⭐ Usar esta roupa como padrão</button>
+      <button class="reset-outfit">Voltar ao automático</button></p>
+    <div class="parts"></div>
     <h2>Texturas não achadas</h2><ul class="missing"></ul>`
   const timeline = document.createElement('div')
   timeline.className = 'viewer-timeline'
@@ -248,10 +287,6 @@ export async function startCharacterViewer() {
       const ib = SLOT_ORDER.indexOf(b)
       return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.localeCompare(b)
     })
-  }
-
-  function slotOf(path: string) {
-    return slots().find((s) => entry.parts[s]!.includes(path))
   }
 
   async function rebuild() {
@@ -387,27 +422,49 @@ export async function startCharacterViewer() {
 
   function renderParts() {
     const box = $<HTMLDivElement>(right, '.parts')
+    const list = (slot: string, key: string, paths: string[], title: string) => {
+      if (paths.length === 0) return ''
+      const rows = ['', ...paths]
+        .map((path) => {
+          const checked = (equipped.get(key) ?? '') === path ? 'checked' : ''
+          const label = path ? escapeHtml(partLabel(path)) : '<em>nenhum</em>'
+          const extra = path
+            ? `<small>${escapeHtml(fileName(path))}</small>
+               <input class="note" data-path="${escapeHtml(path)}" placeholder="o que é?" value="${escapeHtml(readNote(noteKey('peca', path)))}" />
+               <details data-path="${escapeHtml(path)}"><summary>texturas</summary><div></div></details>`
+            : ''
+          return `<li><label><input type="radio" name="slot-${escapeHtml(key)}" value="${escapeHtml(path)}" ${checked} /> ${label}</label>${extra}</li>`
+        })
+        .join('')
+      return `<h4>${title} (${paths.length})</h4><ul>${rows}</ul>`
+    }
     box.innerHTML = slots()
       .map((slot) => {
         const paths = entry.parts[slot]!
-        const rows = ['', ...paths]
-          .map((path) => {
-            const checked = (equipped.get(slot) ?? '') === path ? 'checked' : ''
-            const label = path ? escapeHtml(fileName(path)) : '<em>nenhuma</em>'
-            const note = path
-              ? `<input class="note" data-path="${escapeHtml(path)}" placeholder="o que é?" value="${escapeHtml(readNote(noteKey('peca', path)))}" />
-                 <details data-path="${escapeHtml(path)}"><summary>texturas</summary><div></div></details>`
-              : ''
-            return `<li><label><input type="radio" name="slot-${slot}" value="${escapeHtml(path)}" ${checked} /> ${label}</label>${note}</li>`
-          })
-          .join('')
-        return `<section><h3>${escapeHtml(slot)} <small>${SLOT_NAMES[slot] ?? ''} · ${paths.length}</small></h3><ul>${rows}</ul></section>`
+        const bases = paths.filter((p) => !parsePartName(p).accessory)
+        const accessories = paths.filter((p) => parsePartName(p).accessory)
+        const worn = [equipped.get(slot), equipped.get(`${slot}+`)]
+          .filter(Boolean)
+          .map((p) => partLabel(p!))
+          .join(' + ')
+        return `<details class="slot"><summary>${escapeHtml(slotName(slot))} <small>${escapeHtml(slot)} · ${escapeHtml(worn || 'nada')}</small></summary>
+          ${list(slot, slot, bases, 'Peça base')}${list(slot, `${slot}+`, accessories, 'Acessórios')}</details>`
       })
       .join('')
     box.querySelectorAll<HTMLInputElement>('input[type=radio]').forEach((radio) =>
       radio.addEventListener('change', () => {
-        const slot = radio.name.slice('slot-'.length)
-        equipped.set(slot, radio.value)
+        const key = radio.name.slice('slot-'.length)
+        equipped.set(key, radio.value)
+        // Peça que esconde outros slots (vestido esconde a saia): tira as bases deles.
+        if (radio.value)
+          for (const hidden of parsePartName(radio.value).hides) equipped.delete(hidden)
+        const open = [...box.querySelectorAll<HTMLDetailsElement>('details.slot')].map(
+          (d) => d.open,
+        )
+        renderParts()
+        box
+          .querySelectorAll<HTMLDetailsElement>('details.slot')
+          .forEach((d, i) => (d.open = open[i] ?? false))
         void rebuild()
       }),
     )
@@ -415,7 +472,7 @@ export async function startCharacterViewer() {
       .querySelectorAll<HTMLInputElement>('input.note')
       .forEach((note) => bindNote(note, noteKey('peca', note.dataset.path!)))
     updateCount()
-    box.querySelectorAll<HTMLDetailsElement>('details').forEach((details) =>
+    box.querySelectorAll<HTMLDetailsElement>('details[data-path]').forEach((details) =>
       details.addEventListener('toggle', () => {
         const target = $<HTMLDivElement>(details, 'div')
         if (!details.open || target.dataset.loaded) return
@@ -451,13 +508,28 @@ export async function startCharacterViewer() {
   function selectCharacter(index: number) {
     entry = catalog[index]!
     motion = undefined
-    equipped = new Map()
-    for (const path of entry.defaults) {
-      const slot = slotOf(path)
-      if (slot) equipped.set(slot, path)
-    }
+    equipped = new Map(entry.defaults.map((path) => [keyOf(path), path]))
+    renderOutfitState()
     renderParts()
     void rebuild()
+  }
+
+  /** Mostra se a roupa padrão deste personagem é a automática ou a escolhida aqui. */
+  function renderOutfitState() {
+    const custom = entry.autoDefaults && entry.defaults.join() !== entry.autoDefaults.join()
+    $(right, '.outfit-state').textContent = custom
+      ? '⭐ Roupa padrão escolhida por você (o jogo usa esta).'
+      : 'Roupa padrão automática (menor número de cada categoria).'
+  }
+
+  async function storeOutfit(parts: string[]) {
+    if (!(await saveOutfit(entry.id, parts))) {
+      status('Não consegui salvar a roupa padrão (o servidor/mapeador está ligado?).')
+      return
+    }
+    entry.defaults = parts.length ? parts : (entry.autoDefaults ?? entry.defaults)
+    renderOutfitState()
+    status(parts.length ? 'Roupa padrão salva! O jogo já usa esta.' : 'Voltou à roupa automática.')
   }
 
   function copyList() {
@@ -474,14 +546,18 @@ export async function startCharacterViewer() {
       }
     }
     lines.push('', 'PEÇAS')
+    const worn = new Set(equipped.values())
     for (const slot of slots()) {
-      lines.push(`[${slot}]`)
+      lines.push(`[${slot} — ${slotName(slot)}]`)
       for (const path of entry.parts[slot]!) {
         const note = readNote(noteKey('peca', path))
-        const on = equipped.get(slot) === path ? ' (vestida)' : ''
-        lines.push(`  - ${fileName(path)}${on}${note ? ` — NOTA: ${note}` : ''}`)
+        const on = worn.has(path) ? ' (vestida)' : ''
+        lines.push(
+          `  - ${fileName(path)} — ${partLabel(path)}${on}${note ? ` — NOTA: ${note}` : ''}`,
+        )
       }
     }
+    lines.push('', `ROUPA VESTIDA: ${[...worn].filter(Boolean).map(fileName).join(', ')}`)
     const missing = model?.missingTextures ?? []
     if (missing.length) lines.push('', `TEXTURAS NÃO ACHADAS: ${missing.join(', ')}`)
     const text = lines.join('\n')
@@ -541,6 +617,13 @@ export async function startCharacterViewer() {
     $(left, 'output').textContent = `${speedInput.value}×`
   })
   $(left, 'button.copy').addEventListener('click', copyList)
+  $(right, 'button.save-outfit').addEventListener(
+    'click',
+    () => void storeOutfit([...equipped.values()].filter(Boolean)),
+  )
+  $(right, 'button.reset-outfit').addEventListener('click', () => {
+    void storeOutfit([]).then(() => selectCharacter(Number(characterInput.value)))
+  })
 
   selectCharacter(0)
 

@@ -47,16 +47,45 @@ export interface CharacterEntry {
   animations: string | undefined
   parts: Record<string, string[]>
   defaults: string[]
+  /** Roupa padrão da regra automática (antes da escolhida no mapeador). */
+  autoDefaults?: string[]
 }
 
 let catalog: Promise<CharacterEntry[]> | undefined
 
 /** Personagens encontrados na extração (assets/original/_characters.json). */
 export function loadCatalog(): Promise<CharacterEntry[]> {
-  catalog ??= fetch(`${ASSET_BASE}/_characters.json`)
-    .then((r) => (r.ok ? (r.json() as Promise<CharacterEntry[]>) : []))
-    .catch(() => [])
+  catalog ??= Promise.all([
+    fetch(`${ASSET_BASE}/_characters.json`)
+      .then((r) => (r.ok ? (r.json() as Promise<CharacterEntry[]>) : []))
+      .catch(() => [] as CharacterEntry[]),
+    loadOutfits(),
+  ]).then(([list, outfits]) =>
+    // Roupa padrão escolhida no mapeador vale mais que a regra automática da extração.
+    list.map((c) => ({ ...c, autoDefaults: c.defaults, defaults: outfits[c.id] ?? c.defaults })),
+  )
   return catalog
+}
+
+/** Roupas padrão gravadas pelo mapeador (servidor da partida; vazio sem ele). */
+export function loadOutfits(): Promise<Record<string, string[]>> {
+  return fetch('/api/roupas-padrao', { cache: 'no-store' })
+    .then((r) => (r.ok ? (r.json() as Promise<Record<string, string[]>>) : {}))
+    .catch(() => ({}))
+}
+
+/** Grava a roupa padrão de um personagem (parts vazio = volta à regra automática). */
+export async function saveOutfit(id: string, parts: string[]): Promise<boolean> {
+  try {
+    const r = await fetch('/api/roupas-padrao', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, parts }),
+    })
+    return r.ok
+  } catch {
+    return false
+  }
 }
 
 const CHOICE_KEY = 'pangyaweb.personagem'
