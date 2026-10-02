@@ -118,3 +118,31 @@ describe('sanitizeRequest e frames', () => {
     expect(Array.from(decodeFrames(encodeFrames(frames)))).toEqual(Array.from(frames))
   })
 })
+
+describe('erro de impacto da barra', () => {
+  const world = new HoleWorld(flatHole())
+  const state = startHole(4, world.tee)
+  const shot = (impact?: number) =>
+    world.play(
+      state,
+      { club: '5I', percent: 1, aim: 0, ...(impact !== undefined && { impact }) },
+      calm,
+    )
+
+  it('perto do centro é Pangya (igual a sem barra)', () => {
+    expect(shot(0.1).outcome.at).toEqual(shot().outcome.at)
+    expect(describeShot(state.ball, shot(0.1))).toMatch(/^✨ PANGYA!/)
+  })
+
+  it('fora do centro curva para o lado do erro', () => {
+    const left = shot(0.8).outcome.at.x
+    const right = shot(-0.8).outcome.at.x
+    expect(Math.sign(left)).not.toBe(Math.sign(right))
+    expect(Math.abs(left)).toBeGreaterThan(3)
+  })
+
+  it('fora da zona perde força', () => {
+    expect(shot(2).carry).toBeLessThan(shot(0.9).carry)
+    expect(describeShot(state.ball, shot(2))).toMatch(/errou a zona/)
+  })
+})

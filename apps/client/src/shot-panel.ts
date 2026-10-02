@@ -47,6 +47,7 @@ export function createShotPanel(
       <input name="wind" type="range" min="0" max="9" value="0" /></label>
     <label>Direção do vento <output name="windDegOut">0°</output>
       <input name="windDeg" type="range" min="0" max="359" value="0" /></label>
+    <label class="check"><input name="bar" type="checkbox" checked /> Barra de força (3 toques)</label>
     <button type="submit">Bater (espaço)</button>
     <p class="result" aria-live="polite"></p>
   `
@@ -117,6 +118,8 @@ export function createShotPanel(
     },
     read,
     setClub: (club: ClubId) => set('club', club),
+    /** Barra de força ligada (senão, espaço bate direto com a força do painel). */
+    usesBar: () => (panel.elements.namedItem('bar') as HTMLInputElement).checked,
     setPercent: (percent: number) => set('percent', Math.max(1, Math.round(percent * 100))),
     setWind(speed: number, degree: number) {
       field('wind').value = String(speed)

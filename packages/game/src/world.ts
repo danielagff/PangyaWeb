@@ -38,7 +38,26 @@ export interface ShotRequest {
   curve?: number
   /** Mira em radianos (0 = +Z do Pangya, positivo = esquerda). */
   aim: number
+  /**
+   * Onde a barra parou em relação à zona de impacto, em meias-larguras da zona
+   * (0 = centro, ±1 = borda). Omitido = tacada perfeita (sem barra).
+   */
+  impact?: number
 }
+
+/**
+ * Efeito do erro de impacto da barra (estimativa — a calibrar com o original):
+ * dentro de PANGYA_ZONE é "Pangya!" (perfeito); fora disso a bola curva para o lado do
+ * erro e, fora da zona, perde força.
+ */
+export const IMPACT_TUNING = {
+  pangyaZone: 0.2,
+  curvePerZone: 0.35,
+  missPowerLoss: 0.1,
+}
+
+export const isPangya = (impact: number | undefined) =>
+  impact === undefined || Math.abs(impact) <= IMPACT_TUNING.pangyaZone
 
 /** Resultado completo de uma tacada, pronto para animar e aplicar às regras. */
 export interface PlayedShot {
@@ -51,6 +70,8 @@ export interface PlayedShot {
   hits: number
   /** Força do piso aplicada (%). */
   groundPower: number
+  /** Erro de impacto da barra (ver ShotRequest.impact). */
+  impact?: number
 }
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v))
@@ -70,6 +91,8 @@ export function sanitizeRequest(request: ShotRequest): ShotRequest {
     spin: clamp(finite(request.spin), -1, 1),
     curve: clamp(finite(request.curve), -1, 1),
     aim: finite(request.aim),
+    ...(typeof request.impact === 'number' &&
+      Number.isFinite(request.impact) && { impact: clamp(request.impact, -4, 4) }),
   }
 }
 
@@ -150,15 +173,19 @@ export class HoleWorld {
     const ground = lie ? lie.power.min + random() * (lie.power.max - lie.power.min) : 100
     const hit = this.grid.groundAt(state.ball.x, state.ball.z)
     const normal = hit && state.lie !== 'tee' ? this.grid.normalOf(hit.triangle) : undefined
+    // Erro da barra: curva para o lado do erro (no putt, desvia a mira); fora da zona, perde força.
+    const impact = isPangya(request.impact) ? 0 : request.impact!
+    const miss = Math.min(1, Math.max(0, Math.abs(impact) - 1))
+    const putter = CLUBS[request.club].category === 'putter'
     return {
       club: request.club,
       player: DEFAULT_PLAYER,
-      percent: request.percent,
+      percent: request.percent * (1 - IMPACT_TUNING.missPowerLoss * miss),
       shot: request.shot ?? 'dunk',
       powerShot: request.powerShot ?? 'none',
       spin: request.spin ?? 0,
-      curve: request.curve ?? 0,
-      aim: request.aim,
+      curve: (request.curve ?? 0) + (putter ? 0 : impact * IMPACT_TUNING.curvePerZone),
+      aim: request.aim + (putter ? impact * 0.015 : 0),
       wind,
       targetDistance: this.distanceToPin(state.ball),
       ground,
@@ -268,6 +295,7 @@ export class HoleWorld {
       outcome,
       hits,
       groundPower: input.ground ?? 100,
+      ...(request.impact !== undefined && { impact: request.impact }),
     }
   }
 }
@@ -286,8 +314,12 @@ export function describeShot(from: Point, shot: PlayedShot): string {
     outOfBounds: '🚫 O.B.! +1 de penalidade, volta para onde bateu',
     stop: '',
   }
+  const pangya = shot.impact === undefined ? '' : isPangya(shot.impact) ? '✨ PANGYA! · ' : ''
+  const missed = shot.impact !== undefined && Math.abs(shot.impact) > 1 ? ' · errou a zona' : ''
   return (
+    pangya +
     travel +
+    missed +
     (shot.hits ? ' · 🌳 bateu em objeto' : '') +
     (endings[shot.outcome.type] ? ' · ' + endings[shot.outcome.type] : '')
   )

@@ -37,7 +37,15 @@ Câmeras de jogo e HUD com as informações necessárias para mirar como no orig
   próxima no green.
 - Anel amarelo no ponto de queda previsto com a força/spin/curva atuais, sem vento (como o
   anel do jogo). No putt, a distância escolhida em linha reta.
-- Faltam: seta do vento, barra de força animada, mini-mapa, mensagens grandes ("Nice Shot").
+- Barra de força em 3 toques de espaço (começa, fixa a força, acerta o impacto na volta),
+  em `apps/client/src/hole/power-bar.ts`. O toque vale pela posição desenhada (o que o
+  jogador viu). Velocidade (1,1 s) e zona (±3,5%) são estimativas — `POWER_BAR_TUNING`.
+- Erro de impacto (`ShotRequest.impact`, efeito em `IMPACT_TUNING` de packages/game):
+  centro = "PANGYA!"; fora do centro curva para o lado do erro (no putt desvia a mira);
+  fora da zona perde até 10% de força. Estimativa a calibrar. No painel dá para desligar a
+  barra (espaço bate direto com a força do slider).
+- Rosa do vento no canto: seta relativa à mira (para cima = a favor) e força em m.
+- Faltam: mini-mapa, mensagens grandes ("Nice Shot"), animação do personagem.
 
 ## Problemas conhecidos
 

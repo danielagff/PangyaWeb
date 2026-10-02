@@ -38,6 +38,7 @@ import { browserFiles } from './assets.ts'
 import { aimDirection, toScene } from './coords.ts'
 import { buildCourseScene, SKY_RADIUS, type CourseScene } from './course-scene.ts'
 import { buildGreenGrid } from './green-grid.ts'
+import { createPowerBar, type PowerBar } from './power-bar.ts'
 import { SURFACE_LABELS } from './surface-colors.ts'
 import { TextureLibrary } from './textures.ts'
 
@@ -96,6 +97,9 @@ export class HoleView {
   private readonly ray = new Raycaster()
   private readonly keys = new Set<string>()
   private readonly cleanups: (() => void)[] = []
+  private readonly bar: PowerBar
+  private readonly windBox: HTMLElement
+  private wind: Wind = { speed: 0, degree: 0 }
 
   private players: ViewPlayer[] = []
   private active: ViewPlayer | undefined
@@ -216,6 +220,13 @@ export class HoleView {
       lockWind: options.lockWind,
     })
     this.cleanups.push(() => this.panel.dispose())
+    this.bar = createPowerBar()
+    this.cleanups.push(() => this.bar.dispose())
+    this.windBox = document.createElement('div')
+    this.windBox.className = 'wind'
+    this.windBox.innerHTML = '<div><div class="arrow">↑</div><div class="speed">0 m</div></div>'
+    document.body.appendChild(this.windBox)
+    this.elements.push(this.windBox)
     this.panel.onChange(() => {
       this.targetDirty = true
     })
@@ -322,7 +333,18 @@ export class HoleView {
   }
 
   setWind(wind: Wind) {
+    this.wind = wind
     this.panel.setWind(wind.speed, wind.degree)
+    this.updateWind()
+  }
+
+  /** Seta do vento relativa à mira (para cima = a favor da tacada). */
+  private updateWind() {
+    const wind = this.panel.read().wind ?? this.wind
+    const relative = wind.degree - (this.aim * 180) / Math.PI
+    const arrow = this.windBox.querySelector('.arrow') as HTMLElement
+    arrow.style.transform = `rotate(${-relative}deg)`
+    ;(this.windBox.querySelector('.speed') as HTMLElement).textContent = `${wind.speed} m`
   }
 
   /** Linha extra no HUD (placar, mensagens). */
@@ -384,6 +406,7 @@ export class HoleView {
     this.readyAt = performance.now()
     const state = this.active.state
     if (changedTurn) {
+      this.bar.cancel()
       this.aim = this.world.aimAtPin(state.ball)
       if (this.controllable) {
         const { club, percent } = this.world.suggestClub(state)
@@ -421,7 +444,7 @@ export class HoleView {
     }
   }
 
-  /** Espaço/botão: bate (na vez deste navegador) ou pula a animação em andamento. */
+  /** Espaço/botão: barra de força (3 toques), tacada direta ou pula a animação. */
   private shoot() {
     if (this.flight) {
       this.flight.start = -Infinity
@@ -431,9 +454,24 @@ export class HoleView {
     if (this.phase !== 'aim' || !this.controllable || performance.now() - this.readyAt < 600) {
       return
     }
+    if (!this.panel.usesBar()) {
+      this.fire(this.request())
+      return
+    }
+    if (this.bar.active) {
+      this.bar.press()
+      return
+    }
+    this.bar.start(({ percent, impact }) => {
+      this.panel.setPercent(percent)
+      this.fire({ ...this.request(), percent, impact })
+    })
+  }
+
+  private fire(request: ShotRequest) {
     this.phase = 'idle'
     this.panel.setEnabled(false, 'Batendo…')
-    this.onShoot(this.request())
+    this.onShoot(request)
   }
 
   /** Anima a trajetória da bola de `playerId`; resolve quando ela para. */
@@ -552,13 +590,16 @@ export class HoleView {
         done()
       }
     } else if (this.phase === 'aim') {
-      const turn = this.controllable
-        ? (this.keys.has('ArrowLeft') ? 1 : 0) - (this.keys.has('ArrowRight') ? 1 : 0)
-        : 0
+      // Mira só antes de começar a barra.
+      const turn =
+        this.controllable && !this.bar.active
+          ? (this.keys.has('ArrowLeft') ? 1 : 0) - (this.keys.has('ArrowRight') ? 1 : 0)
+          : 0
       if (turn) {
         this.aim += turn * dt * (this.greenGrid.visible ? 0.25 : 0.6)
         this.targetDirty = true
       }
+      if (this.targetDirty) this.updateWind()
       if (this.controllable && this.targetDirty) this.updateTarget()
       this.target.visible = this.controllable
       this.placeCamera(this.ballPosition(), turn ? 0.3 : 0.08)
