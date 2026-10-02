@@ -74,6 +74,18 @@ Câmeras de jogo e HUD com as informações necessárias para mirar como no orig
   zoom suave (segurando), A/D giram a mira e a câmera acompanha; a roda troca o taco e o X vai
   junto. M/0 abre com a linha inteira e o pin; Delete+0 abre perto do X e segue o X até ↑/↓.
   **Espaço** na vista aérea só volta para a câmera normal; o próximo começa a barra.
+  Câmera da vista aérea com **molas** (`hole/smooth.ts`, a conta do SmoothDamp): giro,
+  posição na linha, altura e chão aceleram e freiam aos poucos, contando pelo tempo — sem
+  trancos nos toques nem nos recálculos da física; a entrada vem da câmera normal em 0,45 s.
+  A linha é **recortada no plano da câmera** (com zoom perto do X a bola fica atrás da
+  câmera e a linha sumia) e os desenhos usam a posição da câmera do próprio quadro. Sem
+  névoa na vista aérea (de cima, nítido como no original).
+- **Marcador do pin como no original** (`COURSE_OVERLAY`): bandeira, triângulo branco,
+  desnível em m e distância em jardas — no topo da luz da cova na câmera normal e na cova na
+  vista aérea. **Luz da cova** verde-água, alta (`BEAM_HEIGHT`, ~28 m), mais clara no meio,
+  com no mínimo 6 px de largura na tela (engrossa de longe); some na vista aérea.
+- Câmera normal: suavização contando pelo tempo (`lerpFactor`), igual em qualquer taxa de
+  quadros.
 - **Calibrador** (`power-bar.ts`): um ponteiro na barra com a força e as jardas. Mouse em cima
   da barra mostra marcas a cada 1% e a leitura do ponto; **clique** (ou arrastar) põe o
   ponteiro ali, **botão direito** tira; **X sobe e Z desce 0,1%** (Shift: 1%; segurando,

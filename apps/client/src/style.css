@@ -1181,50 +1181,60 @@
   }
 }
 
-/* Vista aérea como no original: linha vermelha até o X (100% do taco) e o pin com o
-   desnível e a distância. */
-.aerial-overlay-box {
+/* Desenhos por cima do jogo, como no original: linha vermelha até o X (vista aérea) e o
+   marcador do pin (bandeira, triângulo, desnível em m e distância). */
+.course-overlay-box {
   position: fixed;
   inset: 0;
   z-index: 4;
   pointer-events: none;
 }
-.aerial-overlay {
+.course-overlay {
   display: block;
   font:
     800 17px/1 system-ui,
     sans-serif;
 }
-.aerial-overlay text {
-  fill: #c8102e;
-  stroke: #fff;
+.course-overlay text {
   stroke-width: 3px;
   paint-order: stroke fill;
 }
-.aerial-overlay .aim-line {
+.course-overlay .aim-line {
   stroke: #c8102e;
   stroke-width: 2.5px;
 }
-.aerial-overlay .x-outline {
+.course-overlay .x-outline {
   stroke: #fff;
   stroke-width: 6px;
   stroke-linecap: round;
 }
-.aerial-overlay .x-cross {
+.course-overlay .x-cross {
   stroke: #c8102e;
   stroke-width: 3px;
   stroke-linecap: round;
 }
-.aerial-overlay .pin-pole {
-  stroke: #333;
+.course-overlay .x-label,
+.course-overlay .pin-distance {
+  fill: #e0102e;
+  stroke: #fff;
+}
+.course-overlay .pin-pole {
+  stroke: #222;
   stroke-width: 2px;
 }
-.aerial-overlay .pin-flag {
+.course-overlay .pin-flag {
   fill: #e00;
   stroke: #fff;
   stroke-width: 1px;
 }
-.aerial-overlay .pin-height {
+.course-overlay .pin-tip {
+  fill: #f4f4f4;
+  stroke: #333;
+  stroke-width: 1.5px;
+  stroke-linejoin: round;
+}
+.course-overlay .pin-height {
   font-size: 14px;
-  fill: #222;
+  fill: #fff;
+  stroke: #111;
 }

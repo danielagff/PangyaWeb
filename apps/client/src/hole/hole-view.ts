@@ -10,7 +10,6 @@ import {
 } from '@pangya/game'
 import type { SurfaceKind } from '@pangya/formats'
 import {
-  CUP_BEAM,
   CUP_DEPTH,
   dropIntoCup,
   STEP_TIME,
@@ -66,6 +65,7 @@ import { buildCourseScene, SKY_RADIUS, type CourseScene } from './course-scene.t
 import { buildGreenGrid } from './green-grid.ts'
 import type { PowerBar } from './power-bar.ts'
 import { createShotHud, type ShotHud } from './shot-hud.ts'
+import { lerpFactor, Smooth } from './smooth.ts'
 import { SURFACE_LABELS } from './surface-colors.ts'
 import { TextureLibrary } from './textures.ts'
 
@@ -74,13 +74,19 @@ const BALL_RADIUS = 0.2
 const MAX_TRAIL = 4000
 /** Raio da cova desenhada (unidades); a captura da física usa GROUND_TUNING.cupRadius. */
 const CUP_RADIUS = 0.45
-/** Altura desenhada da luz da cova (unidades); a parte que pega a bola é CUP_BEAM.height. */
-const BEAM_HEIGHT = 26
+/**
+ * Altura desenhada da luz da cova (unidades, ~28 m), alta como no original; a parte que pega a
+ * bola é CUP_BEAM.height. No topo dela fica o marcador do pin (desnível e distância).
+ */
+const BEAM_HEIGHT = 100
+/** Raio da coluna de luz (unidades) e a largura mínima dela na tela (px). */
+const BEAM_RADIUS = 0.9
+const BEAM_MIN_PIXELS = 6
 /** Segundos antes de a bola cair em que a câmera livre do voo volta ao normal. */
 const FREE_CAMERA_UNTIL_LANDING = 0.8
 const UP = new Vector3(0, 1, 0)
 /** Altura da vista aérea (unidades): perto da cova até o buraco inteiro. */
-const AERIAL = { minHeight: 12, maxHeight: 1500 }
+const AERIAL = { minHeight: 12, maxHeight: 3000 }
 /**
  * Vista aérea segurando as teclas: Shift+↑/↓ = zoom (fator por segundo); ↑/↓ = andar pela
  * linha da mira (fração da altura por segundo, para valer em qualquer zoom).
@@ -126,11 +132,12 @@ function saveAutoPangya(on: boolean) {
 }
 
 /**
- * Desenho da vista aérea como no original: linha vermelha da bola até o X (onde a bola cai a
- * 100% com o taco e a mira atuais) com a distância, e no pin a bandeira com o desnível (m) e a
- * distância (y).
+ * Desenhos por cima do jogo, como no original: na vista aérea, a linha vermelha da bola até o
+ * X (onde a bola cai a 100% com o taco e a mira atuais) com a distância; sempre, o marcador do
+ * pin (bandeira, triângulo, desnível em m e distância) — no topo da luz da cova na câmera
+ * normal, na cova na vista aérea.
  */
-const AERIAL_OVERLAY = `<svg class="aerial-overlay" width="100%" height="100%" aria-hidden="true">
+const COURSE_OVERLAY = `<svg class="course-overlay" width="100%" height="100%" aria-hidden="true">
   <line class="aim-line" />
   <g class="x-mark">
     <path d="M-7 -7 L7 7 M7 -7 L-7 7" class="x-outline" />
@@ -138,48 +145,51 @@ const AERIAL_OVERLAY = `<svg class="aerial-overlay" width="100%" height="100%" a
     <text class="x-label" y="-14" text-anchor="middle"></text>
   </g>
   <g class="pin-mark">
-    <path d="M0 0 L0 -26" class="pin-pole" />
-    <path d="M0 -26 L14 -21 L0 -16 Z" class="pin-flag" />
-    <text class="pin-height" x="12" y="-2"></text>
-    <text class="pin-distance" y="20" text-anchor="middle"></text>
+    <path d="M0 -13 L0 -38" class="pin-pole" />
+    <path d="M0 -38 L13 -33 L0 -28 Z" class="pin-flag" />
+    <path d="M-7 -13 L7 -13 L0 0 Z" class="pin-tip" />
+    <text class="pin-height" x="11" y="-4"></text>
+    <text class="pin-distance" y="17" text-anchor="middle"></text>
   </g>
 </svg>`
 
 /**
- * Luz da cova (no lugar da bandeira): coluna de luz que "puxa" a bola. A faixa de baixo,
- * mais forte, é a altura em que ela ainda pega a bola (CUP_BEAM.height).
+ * Luz da cova (no lugar da bandeira), como no original: coluna verde-água alta, mais clara no
+ * meio e sumindo no topo. Ela "puxa" a bola que passa baixo o bastante (CUP_BEAM.height, na
+ * física); o desenho é só a coluna.
  */
 function cupBeam() {
   const canvas = document.createElement('canvas')
   canvas.width = 4
   canvas.height = 256
   const g = canvas.getContext('2d')!
-  const strong = 1 - CUP_BEAM.height / BEAM_HEIGHT
   const gradient = g.createLinearGradient(0, 0, 0, 256)
-  gradient.addColorStop(0, 'rgba(90,190,255,0)')
-  gradient.addColorStop(Math.max(0, strong - 0.4), 'rgba(90,190,255,0.1)')
-  gradient.addColorStop(Math.max(0, strong - 0.02), 'rgba(110,205,255,0.22)')
-  gradient.addColorStop(strong, 'rgba(255,225,120,0.38)')
-  gradient.addColorStop(0.97, 'rgba(255,235,150,0.2)')
-  gradient.addColorStop(1, 'rgba(255,235,150,0.05)')
+  gradient.addColorStop(0, 'rgba(255,255,255,0)')
+  gradient.addColorStop(0.12, 'rgba(255,255,255,1)')
+  gradient.addColorStop(1, 'rgba(255,255,255,1)')
   g.fillStyle = gradient
   g.fillRect(0, 0, 4, 256)
-  const material = new MeshBasicMaterial({
-    map: new CanvasTexture(canvas),
-    transparent: true,
-    depthWrite: false,
-    side: DoubleSide,
-    fog: false,
-  })
-  const beam = new Mesh(
-    new CylinderGeometry(CUP_BEAM.radius, CUP_BEAM.radius, BEAM_HEIGHT, 24, 1, true),
-    material,
-  )
-  beam.position.y = BEAM_HEIGHT / 2
-  beam.renderOrder = 2
+  const fade = new CanvasTexture(canvas)
+  const column = (radius: number, color: number, opacity: number) => {
+    const material = new MeshBasicMaterial({
+      color,
+      map: fade,
+      transparent: true,
+      opacity,
+      depthWrite: false,
+      side: DoubleSide,
+      fog: false,
+    })
+    const mesh = new Mesh(new CylinderGeometry(radius, radius, BEAM_HEIGHT, 24, 1, true), material)
+    mesh.position.y = BEAM_HEIGHT / 2
+    mesh.renderOrder = 2
+    return mesh
+  }
+  const outer = column(BEAM_RADIUS, 0x2ec4b6, 0.45)
+  const core = column(BEAM_RADIUS / 3, 0xb8fff6, 0.85)
   const group = new Group()
-  group.add(beam)
-  return { group, material }
+  group.add(outer, core)
+  return { group, material: outer.material as MeshBasicMaterial }
 }
 
 /** Ordem de desenho da cova (depois do terreno e dos objetos opacos). */
@@ -343,6 +353,7 @@ export class HoleView {
   private readonly bar: PowerBar
   private readonly windBox: HTMLElement
   private beamMaterial!: MeshBasicMaterial
+  private beam!: Group
   /** Câmera livre no voo: giro (A/D) e vista de cima (S), até a bola quase cair. */
   private flightYaw = 0
   private flightTop = false
@@ -372,11 +383,17 @@ export class HoleView {
    * (Delete+0) até a câmera ser movida.
    */
   private aerial: { along: number; height: number; follow: boolean } | undefined
-  /** Ponto para onde a câmera aérea olha (suavizado). */
-  private aerialLook: Vector3 | undefined
+  /** Câmera aérea suavizada (molas): giro, quanto à frente na linha, altura e chão. */
+  private aerialCam: { yaw: Smooth; along: Smooth; height: Smooth; ground: Smooth } | undefined
+  /** Entrando na vista aérea: de onde a câmera saiu e quando (passagem suave). */
+  private aerialFrom: { position: Vector3; look: Vector3; at: number } | undefined
+  /** X desenhado (suavizado): ângulo em relação à mira e distância da bola. */
+  private readonly shownX = { offset: new Smooth(0, 0.08), reach: new Smooth(0, 0.08) }
+  /** Duração do quadro atual (s), para as suavizações contarem pelo tempo. */
+  private frameDt = 1 / 60
   /** Quando ↑/↓ começaram a ser segurados (acelera andando pela linha). */
   private aerialMoveStart = 0
-  private readonly aerialOverlay: HTMLDivElement
+  private readonly drawings: HTMLDivElement
   /** Ferramentas de desenvolvimento (tecla P: sempre PANGYA) — só no modo sozinho. */
   private readonly devTools: boolean
   private autoPangya = false
@@ -469,6 +486,7 @@ export class HoleView {
     beam.group.name = 'luz-da-cova'
     scene.add(beam.group)
     this.beamMaterial = beam.material
+    this.beam = beam.group
 
     this.greenGrid = buildGreenGrid(
       world.grid,
@@ -505,12 +523,11 @@ export class HoleView {
     this.hud.dataset.title = options.title
     this.windBox = document.createElement('div')
     this.windBox.className = 'wind'
-    this.aerialOverlay = document.createElement('div')
-    this.aerialOverlay.className = 'aerial-overlay-box'
-    this.aerialOverlay.innerHTML = AERIAL_OVERLAY
-    this.aerialOverlay.hidden = true
-    document.body.appendChild(this.aerialOverlay)
-    this.elements.push(this.aerialOverlay)
+    this.drawings = document.createElement('div')
+    this.drawings.className = 'course-overlay-box'
+    this.drawings.innerHTML = COURSE_OVERLAY
+    document.body.appendChild(this.drawings)
+    this.elements.push(this.drawings)
     if (this.devTools) {
       this.setAutoPangya(readAutoPangya(), false)
       // Calibrador da régua: o 2º espaço usa a força dele.
@@ -533,7 +550,7 @@ export class HoleView {
       }
       if (key === 'Delete') this.keys.add(key)
       if (key === 'KeyT') this.course.setSurfaceView((this.surfaceView = !this.surfaceView))
-      if (key === 'KeyF') this.course.setFog((this.fogOn = !this.fogOn))
+      if (key === 'KeyF') this.course.setFog((this.fogOn = !this.fogOn) && !this.aerial)
       if (key === 'KeyC') this.boxLines.visible = !this.boxLines.visible
       if (key === 'KeyN') this.cycleMotion()
       if (key === 'KeyV') {
@@ -624,6 +641,7 @@ export class HoleView {
     ;(window as unknown as { __debugScene: Scene }).__debugScene = scene
     ;(window as unknown as { __debug: () => unknown }).__debug = () => ({
       camera: camera.position.toArray().map((v) => Math.round(v)),
+      cameraExact: camera.position.toArray(),
       phase: this.phase,
       aim: this.aim,
       active: this.active?.id,
@@ -1000,25 +1018,45 @@ export class HoleView {
   private toggleAerial(onTarget = false) {
     if (this.aerial && !onTarget) {
       this.aerial = undefined
-      this.aerialOverlay.hidden = true
+      this.aerialCam = undefined
+      this.aerialFrom = undefined
+      this.course.setFog(this.fogOn)
       return
     }
     if (!this.active) return
     this.refreshLanding()
     const reach = this.landingReach()
-    this.aerialLook = undefined
     if (onTarget) {
       this.aerial = { along: reach, height: 90, follow: true }
-      return
+    } else {
+      const ball = this.active.state.ball
+      const pin = Math.hypot(this.world.cup.x - ball.x, this.world.cup.z - ball.z)
+      const span = Math.max(reach, pin, 30)
+      // A linha inteira e o pin, entre o HUD de cima e o de baixo.
+      this.aerial = {
+        along: span * 0.5,
+        height: Math.min(AERIAL.maxHeight, Math.max(AERIAL.minHeight, span * 1.6 + 60)),
+        follow: false,
+      }
     }
-    const ball = this.active.state.ball
-    const pin = Math.hypot(this.world.cup.x - ball.x, this.world.cup.z - ball.z)
-    const span = Math.max(reach, pin, 30)
-    // A linha inteira e o pin, com a bola acima do HUD de baixo.
-    this.aerial = {
-      along: span * 0.42,
-      height: Math.min(AERIAL.maxHeight, Math.max(AERIAL.minHeight, span * 1.35 + 60)),
-      follow: false,
+    if (this.aerialCam) return // Delete+0 com a vista aérea já aberta: só muda o alvo
+    // De cima, sem névoa (nítido como no original; de tão alto, a névoa apagava o campo).
+    this.course.setFog(false)
+    // Molas começando no lugar certo; a passagem da câmera normal para cá é suave (0,45 s).
+    const ball = this.restingBall()!
+    const ground = this.world.grid.groundAt(ball.x, -ball.z)?.y ?? ball.y
+    this.aerialCam = {
+      yaw: new Smooth(this.aim, 0.15),
+      along: new Smooth(this.aerial.along, 0.2),
+      height: new Smooth(this.aerial.height, 0.2),
+      ground: new Smooth(ground, 0.35),
+    }
+    const look = new Vector3()
+    this.camera.getWorldDirection(look)
+    this.aerialFrom = {
+      position: this.camera.position.clone(),
+      look: this.camera.position.clone().addScaledVector(look, 40),
+      at: performance.now(),
     }
   }
 
@@ -1041,6 +1079,33 @@ export class HoleView {
     const ball = this.restingBall()
     const full = this.landingPoint('full')
     return ball && full ? Math.hypot(full.x - ball.x, full.z - ball.z) : 0
+  }
+
+  /**
+   * X desenhado: o ponto de queda a 100% visto da bola (ângulo em relação à mira e distância),
+   * suavizado para os recálculos da física não darem pulo na tela.
+   */
+  private shownFull(): Vector3 | undefined {
+    const ball = this.restingBall()
+    const full = this.landingPoint('full')
+    if (!ball || !full) return undefined
+    const dx = full.x - ball.x
+    const dz = full.z - ball.z
+    let offset = Math.atan2(-dx, -dz) - this.aim
+    offset = Math.atan2(Math.sin(offset), Math.cos(offset))
+    const reach = Math.hypot(dx, dz)
+    const { shownX } = this
+    if (this.frameDt <= 0 || Math.abs(shownX.reach.value - reach) > yardsToUnits(40)) {
+      shownX.offset.snap(offset)
+      shownX.reach.snap(reach)
+    }
+    const angle = this.aim + shownX.offset.update(offset, this.frameDt)
+    const point = ball.addScaledVector(
+      aimDirection(angle),
+      shownX.reach.update(reach, this.frameDt),
+    )
+    point.y = this.world.grid.groundAt(point.x, -point.z)?.y ?? full.y
+    return point
   }
 
   /** Recalcula os pontos de queda exatos (física) com a mira atual. */
@@ -1094,47 +1159,86 @@ export class HoleView {
     if (aerial.follow) aerial.along = this.landingReach()
   }
 
-  /** Linha até o X com a distância e o pin com desnível e distância (vista aérea). */
-  private updateAerialOverlay() {
-    const ball = this.restingBall()
-    const full = this.landingPoint('full')
-    const show =
-      this.aerial !== undefined && this.phase === 'aim' && this.controllable && !!ball && !!full
-    this.aerialOverlay.hidden = !show
-    if (!show) return
-    const screen = (p: Vector3) => {
-      const v = p.clone().project(this.camera)
-      return v.z > 1
-        ? undefined
-        : { x: ((v.x + 1) / 2) * window.innerWidth, y: ((1 - v.y) / 2) * window.innerHeight }
+  /**
+   * Desenhos por cima do jogo (ver COURSE_OVERLAY). A linha é recortada no plano da câmera:
+   * mesmo com a bola atrás da câmera (zoom perto do X), o pedaço visível continua na tela.
+   */
+  private updateOverlay() {
+    const camera = this.camera
+    camera.updateMatrixWorld() // a posição deste quadro (senão o desenho fica um quadro atrás)
+    const width = window.innerWidth
+    const height = window.innerHeight
+    const nearZ = -camera.near * 1.01
+    const toView = (p: Vector3) => p.clone().applyMatrix4(camera.matrixWorldInverse)
+    const toScreen = (v: Vector3) => {
+      const n = v.clone().applyMatrix4(camera.projectionMatrix)
+      return { x: ((n.x + 1) / 2) * width, y: ((1 - n.y) / 2) * height }
     }
-    const svg = this.aerialOverlay
-    const $ = (selector: string) => svg.querySelector(selector) as SVGElement
-    const from = screen(ball!)
-    const to = screen(full!)
+    const point = (p: Vector3) => {
+      const v = toView(p)
+      return v.z < nearZ ? toScreen(v) : undefined
+    }
+    const $ = (selector: string) => this.drawings.querySelector(selector) as SVGElement
+    const show = (el: SVGElement, on: boolean) => (el.style.display = on ? '' : 'none')
+    const aiming = this.phase === 'aim' && !!this.active
+
+    // Vista aérea: linha da bola até o X e a distância.
+    const ball = this.restingBall()
+    const full = this.aerial && aiming && this.controllable ? this.shownFull() : undefined
     const line = $('.aim-line')
     const mark = $('.x-mark')
-    line.style.display = mark.style.display = from && to ? '' : 'none'
-    if (from && to) {
-      line.setAttribute('x1', String(from.x))
-      line.setAttribute('y1', String(from.y))
-      line.setAttribute('x2', String(to.x))
-      line.setAttribute('y2', String(to.y))
-      mark.setAttribute('transform', `translate(${to.x} ${to.y})`)
+    let segment: [{ x: number; y: number }, { x: number; y: number }] | undefined
+    if (ball && full) {
+      let a = toView(ball)
+      let b = toView(full)
+      if (a.z < nearZ || b.z < nearZ) {
+        if (a.z >= nearZ) a = a.clone().lerp(b, (a.z - nearZ) / (a.z - b.z))
+        if (b.z >= nearZ) b = b.clone().lerp(a, (b.z - nearZ) / (b.z - a.z))
+        segment = [toScreen(a), toScreen(b)]
+      }
+    }
+    show(line, !!segment)
+    if (segment) {
+      line.setAttribute('x1', String(segment[0].x))
+      line.setAttribute('y1', String(segment[0].y))
+      line.setAttribute('x2', String(segment[1].x))
+      line.setAttribute('y2', String(segment[1].y))
+    }
+    const x = full && point(full)
+    show(mark, !!x)
+    if (x) {
+      mark.setAttribute('transform', `translate(${x.x} ${x.y})`)
       $('.x-label').textContent = `${unitsToYards(this.landingReach()).toFixed(2)}y`
     }
+
+    // Pin: no topo da luz da cova (câmera normal) ou na cova (vista aérea).
     const cup = this.world.cup
-    const pin = screen(toScene(cup.x, cup.y, cup.z))
+    const anchor = toScene(cup.x, cup.y + (this.aerial ? 0 : BEAM_HEIGHT), cup.z)
+    const pin = aiming ? point(anchor) : undefined
     const pinMark = $('.pin-mark')
-    pinMark.style.display = pin ? '' : 'none'
+    show(pinMark, !!pin)
     if (pin) {
       pinMark.setAttribute('transform', `translate(${pin.x} ${pin.y})`)
       const state = this.active!.state
       const rise = unitsToMeters(cup.y - state.ball.y)
-      $('.pin-height').textContent =
-        `${rise >= 0 ? '▲' : '▼'} ${rise >= 0 ? '+' : ''}${rise.toFixed(2)} m`
+      $('.pin-height').textContent = `${rise.toFixed(2)} m`
       $('.pin-distance').textContent = `${this.world.distanceToPin(state.ball).toFixed(2)}y`
     }
+  }
+
+  /**
+   * A luz da cova engrossa com a distância, para ter sempre uns 6 px na tela (de longe ela
+   * some de tão fina). Na vista aérea some: lá o pin é o marcador desenhado.
+   */
+  private fitBeam() {
+    this.beam.visible = !this.aerial
+    if (!this.beam.visible) return
+    const at = this.beam.position
+    const distance = Math.hypot(this.camera.position.x - at.x, this.camera.position.z - at.z)
+    const pixelsPerUnit =
+      window.innerHeight / 2 / Math.tan((this.camera.fov * DEG) / 2) / Math.max(distance, 1)
+    const scale = Math.max(1, BEAM_MIN_PIXELS / 2 / pixelsPerUnit / BEAM_RADIUS)
+    this.beam.scale.set(scale, 1, scale)
   }
 
   /** Tecla P (só sozinho): impacto sempre PANGYA, para testar a física. */
@@ -1276,21 +1380,33 @@ export class HoleView {
   private placeCamera(focus: Vector3, lerp: number) {
     const { camera, world } = this
     const ball = this.restingBall()
-    if (this.aerial && ball) {
-      // De cima, com a linha da mira subindo na tela (a bola embaixo, o X em cima).
-      const { along, height } = this.aerial
-      const forward = aimDirection(this.aim)
+    if (this.aerial && this.aerialCam && ball) {
+      // De cima, com a linha da mira subindo na tela (a bola embaixo, o X em cima). Giro,
+      // posição na linha, altura e chão seguem molas: sem trancos nos toques nem nos
+      // recálculos.
+      const cam = this.aerialCam
+      const dt = this.frameDt
+      const forward = aimDirection(cam.yaw.update(this.aim, dt))
+      const along = cam.along.update(this.aerial.along, dt)
+      const height = cam.height.update(this.aerial.height, dt)
       const center = ball.clone().addScaledVector(forward, along)
-      center.y = world.grid.groundAt(center.x, -center.z)?.y ?? ball.y
-      this.aerialLook = (this.aerialLook ?? center.clone()).lerp(center, 0.25)
-      camera.position.lerp(
-        this.aerialLook
-          .clone()
-          .add(new Vector3(0, height, 0))
-          .addScaledVector(forward, -height * 0.12),
-        0.25,
-      )
-      camera.lookAt(this.aerialLook)
+      const ground = world.grid.groundAt(center.x, -center.z)?.y ?? ball.y
+      center.y = cam.ground.update(ground, dt)
+      const position = center
+        .clone()
+        .add(new Vector3(0, height, 0))
+        .addScaledVector(forward, -height * 0.12)
+      let look = center
+      const from = this.aerialFrom
+      if (from) {
+        const t = Math.min(1, (performance.now() - from.at) / 450)
+        const k = t * t * (3 - 2 * t)
+        position.copy(from.position.clone().lerp(position, k))
+        look = from.look.clone().lerp(center, k)
+        if (t >= 1) this.aerialFrom = undefined
+      }
+      camera.position.copy(position)
+      camera.lookAt(look)
       return
     }
     let forward = this.phase === 'flying' ? this.shotForward : aimDirection(this.aim)
@@ -1327,7 +1443,8 @@ export class HoleView {
    * (deslizando, a câmera poderia atravessar paredes do terreno).
    */
   private moveCamera(focus: Vector3, desired: Vector3, lerp: number) {
-    const next = this.camera.position.clone().lerp(desired, lerp)
+    // `lerp` é por quadro a 60 quadros/s; convertido para o tempo do quadro de verdade.
+    const next = this.camera.position.clone().lerp(desired, lerpFactor(lerp, this.frameDt))
     const toCamera = next.clone().sub(focus)
     const distance = toCamera.length()
     if (distance > 0.001) {
@@ -1346,6 +1463,7 @@ export class HoleView {
   }
 
   private frame(now: number, dt: number) {
+    this.frameDt = dt
     if (this.flight) {
       const { frames, playerId } = this.flight
       const count = frames.length / 3
@@ -1419,13 +1537,14 @@ export class HoleView {
       this.placeTarget()
       this.target.visible = this.controllable
       this.moveAerial(dt, now)
-      this.placeCamera(this.ballPosition(), turn ? 0.3 : 0.08)
+      this.placeCamera(this.ballPosition(), 0.12)
     } else if (!this.debugFreeze) {
       this.placeCamera(this.ballPosition(), 0.08)
     }
     for (const model of this.ready.values()) if (model.root.visible) model.update(dt)
-    this.updateAerialOverlay()
-    this.beamMaterial.opacity = 0.8 + 0.2 * Math.sin(now / 300)
+    this.updateOverlay()
+    this.beamMaterial.opacity = 0.4 + 0.08 * Math.sin(now / 300)
+    this.fitBeam()
     this.course.update(this.camera)
     this.renderer.render(this.scene, this.camera)
   }

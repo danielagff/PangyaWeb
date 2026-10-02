@@ -2,7 +2,7 @@
 
 > Resumo vivo do PangyaWeb: o que estamos fazendo, o que já funciona, o que está em
 > andamento, o que falta, as decisões tomadas e os projetos de referência que estudamos.
-> Atualizado a cada entrega (última: 02/10/2026). Detalhes técnicos de cada parte ficam nas
+> Atualizado a cada entrega (última: 03/10/2026). Detalhes técnicos de cada parte ficam nas
 > [specs](./specs/README.md).
 
 ## O que estamos fazendo
@@ -46,12 +46,17 @@ jogar com amigos, com o **PC do Daniel como servidor**. Não é vendido nem publ
 
 ## Em andamento agora
 
-Última entrega (02/10/2026), ajustes do Daniel depois de testar: o **mouse nunca move a
-câmera**; **mira precisa** (toque = 0,1°, segurando acelera, sem pulos); **vista aérea como no
-original** (linha vermelha até o X do 100% com a distância, pin com desnível em m e distância;
-↑/↓ andam pela linha, Shift+↑/↓ zoom suave; espaço na vista aérea só volta à câmera normal);
-**calibrador com um ponteiro só** (clique põe, X sobe e Z desce 0,1%; no modo sozinho o 2º
-espaço usa a força dele).
+Última entrega (03/10/2026), ajustes do Daniel (vídeo): **câmera sem trancos** (molas que
+aceleram e freiam aos poucos, contando pelo tempo); a **linha até o X não some mais** com o
+zoom (recortada no plano da câmera); **marcador do pin como no original** no topo da **luz da
+cova verde-água** (desnível em m e distância); vista aérea geral sem névoa e com a linha e o
+pin enquadrados.
+
+Antes (versão `9a2a031`): o **mouse nunca move a câmera**; **mira precisa** (toque = 0,1°,
+segurando acelera); **vista aérea como no original** (linha vermelha até o X do 100% com a
+distância; ↑/↓ andam pela linha, Shift+↑/↓ zoom; espaço volta à câmera normal); **calibrador
+com um ponteiro só** (clique põe, X sobe e Z desce 0,1%; no modo sozinho o 2º espaço usa a
+força dele).
 
 Antes (versão `70ea45c`): roda sempre troca o taco; 2º espaço com a força da marca da régua.
 
