@@ -41,6 +41,7 @@ if (Get-Command cloudflared -ErrorAction SilentlyContinue) {
   Write-Host '   winget install Cloudflare.cloudflared' -ForegroundColor Yellow
 }
 
+Write-Host "`n   Mapeador de personagens (com o servidor ligado): http://localhost:$porta/mapeador.html" -ForegroundColor Green
 Passo 'Ligando o servidor (feche esta janela para parar)'
 AbrirQuandoPronto "http://localhost:$porta/"
 $env:PORT = $porta
