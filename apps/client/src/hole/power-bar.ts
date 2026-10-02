@@ -8,6 +8,11 @@
  * ("PANGYA") marcado no meio dela. Se o marcador passa da zona sem o 3º toque, a tacada é
  * cancelada (o jogador desistiu de bater naquela hora) e ele volta a mirar.
  *
+ * Régua (para acertar uma força exata): com o mouse em cima da barra aparecem marcas a cada
+ * 1% e a força/jardas daquele ponto; Z e X marcam esse ponto na barra (fora da barra, apagam).
+ * "Sempre PANGYA" (desenvolvimento): o impacto sai sempre perfeito — sozinho, no ponto
+ * PANGYA, ou no 3º toque.
+ *
  * Velocidade e largura da zona são estimativas (a comparar com o original).
  */
 import { IMPACT_TUNING } from '@pangya/game'
@@ -44,23 +49,55 @@ export interface PowerBarOptions {
 
 const IDLE_LABEL = 'Espaço: começar · roda do mouse: taco · Alt: power shot'
 
+/** Marcas da régua (Z e X), em fração da barra; ficam salvas neste navegador. */
+type RulerMarks = Partial<Record<'z' | 'x', number>>
+const MARKS_KEY = 'pangyaweb.regua'
+function readMarks(): RulerMarks {
+  try {
+    const value = JSON.parse(localStorage.getItem(MARKS_KEY) ?? '{}') as RulerMarks
+    const valid = (n: unknown) => typeof n === 'number' && n >= 0 && n <= 1
+    return {
+      ...(valid(value.z) && { z: value.z! }),
+      ...(valid(value.x) && { x: value.x! }),
+    }
+  } catch {
+    return {}
+  }
+}
+function saveMarks(marks: RulerMarks) {
+  try {
+    localStorage.setItem(MARKS_KEY, JSON.stringify(marks))
+  } catch {
+    // sem armazenamento: as marcas valem só nesta página
+  }
+}
+
+/** "73,5%" (uma casa, vírgula como no Brasil). */
+export const percentText = (fraction: number) =>
+  `${(Math.round(fraction * 1000) / 10).toFixed(1).replace('.', ',')}%`
+
 export function createPowerBar(parent: HTMLElement = document.body) {
   const k = POWER_BAR_TUNING
   const root = document.createElement('div')
   root.className = 'power-bar'
   root.innerHTML = `
+    <div class="readout" hidden></div>
     <div class="scale">
       <span class="tag pangya-tag">PANGYA</span>
       <span class="tag half"></span>
       <span class="tag max"></span>
       <span class="tag pin-tag"></span>
     </div>
-    <div class="track">
+    <div class="track" title="Régua: o mouse mostra a força e as jardas; Z/X marcam o ponto (fora da barra, apagam)">
       <div class="ticks"></div>
+      <div class="ruler"></div>
       <div class="fill"></div>
       <div class="zone"><div class="pangya"></div></div>
       <div class="power"><span></span></div>
       <div class="pin"></div>
+      <div class="mark" data-mark="z" hidden><span></span></div>
+      <div class="mark" data-mark="x" hidden><span></span></div>
+      <div class="guide" hidden></div>
       <div class="marker"></div>
     </div>
     <div class="label">${IDLE_LABEL}</div>`
@@ -85,6 +122,8 @@ export function createPowerBar(parent: HTMLElement = document.body) {
   pangya.style.width = `${PANGYA_WINDOW * 100}%`
   $<HTMLSpanElement>('.pangya-tag').style.left = `${ZONE * 100}%`
   powerMark.hidden = true
+  const guide = $<HTMLDivElement>('.guide')
+  const readout = $<HTMLDivElement>('.readout')
 
   let stage: 'idle' | 'rising' | 'returning' = 'idle'
   let started = 0
@@ -96,6 +135,11 @@ export function createPowerBar(parent: HTMLElement = document.body) {
   let resetTimer = 0
   let finish: ((result: PowerBarResult) => void) | undefined
   let cancelled: (() => void) | undefined
+  /** Impacto sempre perfeito (desenvolvimento: testar a física). */
+  let autoPangya = false
+  /** Ponto da régua sob o mouse (fração da barra), undefined = mouse fora. */
+  let hover: number | undefined
+  let marks = readMarks()
 
   /** Posição atual do marcador (fração da barra). */
   const position = (now: number) => {
@@ -107,6 +151,54 @@ export function createPowerBar(parent: HTMLElement = document.body) {
   }
 
   const yards = (fraction: number) => (maxYards ? `${Math.round(maxYards * fraction)}y` : '')
+  /** Jardas com uma casa (régua). */
+  const fineYards = (fraction: number) =>
+    maxYards ? `${(maxYards * fraction).toFixed(1).replace('.', ',')}y` : ''
+  const rulerText = (fraction: number) =>
+    [percentText(fraction), fineYards(fraction)].filter(Boolean).join(' · ')
+
+  /** Desenha a linha do mouse e as marcas Z/X com a força e as jardas de cada uma. */
+  const drawRuler = () => {
+    guide.hidden = readout.hidden = hover === undefined
+    root.classList.toggle('ruling', hover !== undefined)
+    if (hover !== undefined) {
+      guide.style.left = readout.style.left = `${hover * 100}%`
+      readout.textContent = rulerText(hover)
+    }
+    for (const key of ['z', 'x'] as const) {
+      const at = marks[key]
+      const line = root.querySelector<HTMLElement>(`.mark[data-mark="${key}"]`)!
+      line.hidden = at === undefined
+      if (at === undefined) continue
+      line.style.left = `${at * 100}%`
+      // Perto do fim da barra, o texto fica do lado esquerdo da linha.
+      line.classList.toggle('flip', at > 0.85)
+      line.querySelector('span')!.textContent = `${key.toUpperCase()} ${rulerText(at)}`
+    }
+  }
+  const hoverAt = (e: PointerEvent) => {
+    const rect = track.getBoundingClientRect()
+    hover = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width))
+    drawRuler()
+  }
+  track.addEventListener('pointermove', hoverAt)
+  track.addEventListener('pointerenter', hoverAt)
+  track.addEventListener('pointerleave', () => {
+    hover = undefined
+    drawRuler()
+  })
+  /** Z/X: marca o ponto sob o mouse; com o mouse fora da barra, apaga a marca. */
+  const onKey = (e: KeyboardEvent) => {
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+    const key = e.code === 'KeyZ' ? 'z' : e.code === 'KeyX' ? 'x' : undefined
+    if (!key || e.repeat) return
+    if (hover === undefined) delete marks[key]
+    else marks = { ...marks, [key]: hover }
+    saveMarks(marks)
+    drawRuler()
+  }
+  window.addEventListener('keydown', onKey)
+  drawRuler()
 
   const draw = (now: number) => {
     if (stage === 'idle') return
@@ -115,8 +207,14 @@ export function createPowerBar(parent: HTMLElement = document.body) {
     marker.style.left = `${Math.max(0, p) * 100}%`
     if (stage === 'rising') {
       fill.style.width = `${p * 100}%`
-      label.textContent = `${Math.round(p * 100)}% ${yards(p)} · espaço: fixar a força`
+      label.textContent = `${percentText(p)} ${yards(p)} · espaço: fixar a força`
       if (p >= 1) setPower(now, 1) // chegou no máximo: 100%
+    } else if (autoPangya && p <= ZONE) {
+      // Sempre PANGYA: bate sozinho no centro da zona.
+      shown = ZONE
+      marker.style.left = `${ZONE * 100}%`
+      done(0)
+      return
     } else {
       // Perto da zona, ela pisca para chamar a atenção.
       root.classList.toggle('near', p < ZONE + 0.12 && p > ZONE - k.zoneHalf)
@@ -135,7 +233,9 @@ export function createPowerBar(parent: HTMLElement = document.body) {
     powerMark.hidden = false
     stage = 'returning'
     started = now
-    label.textContent = `${Math.round(power * 100)}% ${yards(power)} · espaço no PANGYA (rosa)`
+    label.textContent = autoPangya
+      ? `${percentText(power)} ${yards(power)} · sempre PANGYA: o impacto sai sozinho`
+      : `${percentText(power)} ${yards(power)} · espaço no PANGYA (rosa)`
   }
 
   /** Volta a barra ao repouso (sempre visível) pouco depois do resultado. */
@@ -186,6 +286,12 @@ export function createPowerBar(parent: HTMLElement = document.body) {
       maxYards = yardsAt100
       half.textContent = yards(0.5)
       max.textContent = yards(1)
+      drawRuler()
+    },
+    /** Liga/desliga o "sempre PANGYA" (impacto perfeito em toda tacada). */
+    setAutoPangya(on: boolean) {
+      autoPangya = on
+      root.classList.toggle('auto-pangya', on)
     },
     /** Linha vermelha da distância até o pin (undefined = esconde). */
     setPin(yardsToPin: number | undefined, text = '') {
@@ -216,7 +322,7 @@ export function createPowerBar(parent: HTMLElement = document.body) {
     press() {
       const now = performance.now()
       if (stage === 'rising') setPower(now)
-      else if (stage === 'returning') done((shown - ZONE) / k.zoneHalf)
+      else if (stage === 'returning') done(autoPangya ? 0 : (shown - ZONE) / k.zoneHalf)
     },
     /** Interrompe (troca de vez, fim do buraco) e volta ao repouso. */
     cancel() {
@@ -235,6 +341,7 @@ export function createPowerBar(parent: HTMLElement = document.body) {
     dispose() {
       cancelAnimationFrame(raf)
       clearTimeout(resetTimer)
+      window.removeEventListener('keydown', onKey)
       root.remove()
     },
     track,

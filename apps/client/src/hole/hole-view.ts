@@ -80,6 +80,33 @@ const FREE_CAMERA_UNTIL_LANDING = 0.8
 const UP = new Vector3(0, 1, 0)
 /** Altura da vista aérea (unidades): perto da cova até o buraco inteiro. */
 const AERIAL = { minHeight: 12, maxHeight: 1500 }
+/** Quanto cada Shift+↑/↓ aproxima/afasta a vista aérea. */
+const AERIAL_ZOOM_STEP = 1.25
+
+/** "Sempre PANGYA" (desenvolvimento, só sozinho), lembrado neste navegador. */
+const AUTO_PANGYA_KEY = 'pangyaweb.semprePangya'
+function readAutoPangya() {
+  try {
+    return localStorage.getItem(AUTO_PANGYA_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+function saveAutoPangya(on: boolean) {
+  try {
+    localStorage.setItem(AUTO_PANGYA_KEY, on ? '1' : '0')
+  } catch {
+    // sem armazenamento: vale só nesta página
+  }
+}
+
+/** Bonequinho da vista aérea: onde a bola cai com o taco atual a 100%. */
+const AERIAL_FIGURE = `<svg viewBox="0 0 24 40" width="24" height="40" aria-hidden="true">
+  <ellipse cx="12" cy="37" rx="10" ry="3" fill="rgba(0,0,0,0.35)" />
+  <path d="M7 36 L9 24 L6 23 L8 14 Q12 12 16 14 L18 23 L15 24 L17 36 L13 36 L12 27 L11 36 Z"
+    fill="#ffeb3b" stroke="#0b2a4a" stroke-width="1.5" stroke-linejoin="round" />
+  <circle cx="12" cy="8" r="5" fill="#ffeb3b" stroke="#0b2a4a" stroke-width="1.5" />
+</svg>`
 
 /**
  * Luz da cova (no lugar da bandeira): coluna de luz que "puxa" a bola. A faixa de baixo,
@@ -297,8 +324,19 @@ export class HoleView {
   private shotForward = aimDirection(0)
   private targetDirty = true
   private readyAt = 0
-  /** Vista aérea (M ou 0): centro e altura; roda aproxima até perto da cova. */
-  private aerial: { center: Vector3; height: number } | undefined
+  /**
+   * Vista aérea (M ou 0): centro e altura (Shift+↑/↓ aproxima/afasta). `follow`: o centro
+   * acompanha o bonequinho (onde a bola cai a 100%) quando o taco ou a mira mudam.
+   */
+  private aerial: { center: Vector3; height: number; follow: boolean } | undefined
+  /** Onde a bola cai a 100% com o taco atual (bonequinho da vista aérea) e o texto dele. */
+  private aerialLanding: Vector3 | undefined
+  private aerialLabel = ''
+
+  private readonly aerialMarker: HTMLDivElement
+  /** Ferramentas de desenvolvimento (tecla P: sempre PANGYA) — só no modo sozinho. */
+  private readonly devTools: boolean
+  private autoPangya = false
   private surfaceView = false
   private fogOn = true
   private flight:
@@ -338,9 +376,10 @@ export class HoleView {
     scene: Scene,
     course: CourseScene,
     status: HTMLElement,
-    options: { lockWind: boolean; title: string },
+    options: { lockWind: boolean; title: string; devTools: boolean },
   ) {
     this.world = world
+    this.devTools = options.devTools
     this.sounds = new SoundLibrary(world.data.ref.round)
     this.renderer = renderer
     this.camera = camera
@@ -423,6 +462,13 @@ export class HoleView {
     this.hud.dataset.title = options.title
     this.windBox = document.createElement('div')
     this.windBox.className = 'wind'
+    this.aerialMarker = document.createElement('div')
+    this.aerialMarker.className = 'aerial-marker'
+    this.aerialMarker.innerHTML = `${AERIAL_FIGURE}<span></span>`
+    this.aerialMarker.hidden = true
+    document.body.appendChild(this.aerialMarker)
+    this.elements.push(this.aerialMarker)
+    if (this.devTools) this.setAutoPangya(readAutoPangya(), false)
     this.windBox.innerHTML = WIND_DIAL
     document.body.appendChild(this.windBox)
     this.elements.push(this.windBox)
@@ -449,6 +495,15 @@ export class HoleView {
         )
       }
       if (key === 'KeyR') this.orbit = undefined
+      if (key === 'KeyP' && this.devTools && !(e as KeyboardEvent).repeat) {
+        this.setAutoPangya(!this.autoPangya)
+      }
+      // Shift+↑/↓: zoom da vista aérea, aproximando do bonequinho (como no jogo).
+      if ((key === 'ArrowUp' || key === 'ArrowDown') && (e as KeyboardEvent).shiftKey) {
+        e.preventDefault()
+        if (this.aerial)
+          this.zoomAerial(key === 'ArrowUp' ? 1 / AERIAL_ZOOM_STEP : AERIAL_ZOOM_STEP)
+      }
       if (key === 'KeyS' && this.flight && this.freeFlightCamera()) this.flightTop = !this.flightTop
       if (['ArrowLeft', 'ArrowRight', 'KeyA', 'KeyD'].includes(key)) {
         e.preventDefault()
@@ -472,7 +527,8 @@ export class HoleView {
     this.listen(window, 'pointermove', (e) => {
       const p = e as PointerEvent
       if (this.dragging && this.aerial) {
-        // Vista aérea: arrastar move o mapa.
+        // Vista aérea: arrastar move o mapa (e para de seguir o bonequinho).
+        this.aerial.follow = false
         const scale = this.aerial.height / window.innerHeight
         const right = new Vector3()
           .setFromMatrixColumn(this.camera.matrixWorld, 0)
@@ -493,14 +549,16 @@ export class HoleView {
       )
       this.dragging = { x: p.clientX, y: p.clientY }
     })
-    // Roda do mouse: zoom na vista aérea (para onde o mouse aponta), zoom da câmera livre
-    // ou, mirando com a câmera normal, troca o taco.
+    // Roda do mouse: troca o taco (também na vista aérea, como no jogo: o bonequinho
+    // vai para onde o novo taco alcança); na câmera livre, zoom. Ctrl+roda (ou pinça no
+    // touchpad) dá zoom na vista aérea para onde o mouse aponta.
     this.listen(canvas, 'wheel', (e) => {
       const wheel = e as WheelEvent
       e.preventDefault()
       const out = wheel.deltaY > 0
       if (this.aerial) {
-        this.zoomAerial(out ? 1.35 : 1 / 1.35, wheel)
+        if (wheel.ctrlKey) this.zoomAerial(out ? AERIAL_ZOOM_STEP : 1 / AERIAL_ZOOM_STEP, wheel)
+        else if (this.phase === 'aim' && this.controllable) this.panel.cycleClub(out ? 1 : -1)
         return
       }
       if (this.phase !== 'aim') return
@@ -582,8 +640,15 @@ export class HoleView {
     this.cleanups.push(() => target.removeEventListener(type, handler))
   }
 
-  /** Carrega o buraco e monta a cena (com progresso no canto da tela). */
-  static async create(ref: HoleRef, options: { lockWind?: boolean } = {}): Promise<HoleView> {
+  /**
+   * Carrega o buraco e monta a cena (com progresso no canto da tela). `lockWind`: vento vem
+   * do servidor (sala). `devTools`: atalhos de desenvolvimento (P = sempre PANGYA) — só no
+   * modo sozinho, para não valer na sala com os amigos.
+   */
+  static async create(
+    ref: HoleRef,
+    options: { lockWind?: boolean; devTools?: boolean } = {},
+  ): Promise<HoleView> {
     const status = document.createElement('div')
     status.className = 'hole-status'
     status.textContent = 'Carregando buraco…'
@@ -608,6 +673,7 @@ export class HoleView {
       })
       const view = new HoleView(world, renderer, camera, scene, course, status, {
         lockWind: options.lockWind ?? false,
+        devTools: options.devTools ?? false,
         title: `${ref.prefix} — buraco ${ref.hole}`,
       })
       status.textContent =
@@ -618,7 +684,9 @@ export class HoleView {
         ` · ${world.obstacles.size} caixas de colisão (${data.obstacleSource})` +
         ' · A/D mirar · roda: taco · Alt: power shot (2× = 2 PS) · espaço: barra (3 toques)' +
         ' · clique na bola do mostrador: spin/curva · arrastar: câmera livre (R volta)' +
-        ' · M ou 0: vista aérea (roda: zoom; Delete+0: onde a tacada cai)' +
+        ' · M ou 0: vista aérea (roda: taco; Shift+↑/↓: zoom; Delete+0: onde a tacada cai)' +
+        ' · régua: mouse na barra, Z/X marcam' +
+        (options.devTools ? ' · P: sempre PANGYA' : '') +
         ' · no voo: A/D gira, S de cima · T pisos · F névoa · C colisão'
       if (course.texturesMissing.length) {
         console.info('texturas não encontradas:', course.texturesMissing)
@@ -919,39 +987,94 @@ export class HoleView {
     this.bar.setPin(pin, `${pin.toFixed(0)}y ${rise >= 0 ? '↑' : '↓'}${Math.abs(rise).toFixed(1)}`)
   }
 
-  /** Liga/desliga a vista aérea; `onTarget` já abre aproximada onde a tacada cai a 100%. */
+  /**
+   * Liga/desliga a vista aérea; `onTarget` (Delete+0) já abre aproximada no bonequinho
+   * (onde a tacada cai a 100%) e fica seguindo ele.
+   */
   private toggleAerial(onTarget = false) {
     if (this.aerial && !onTarget) {
       this.aerial = undefined
+      this.aerialMarker.hidden = true
       return
     }
     const { world } = this
-    if (onTarget && this.active) {
-      const p = world.predictLanding(this.active.state, { ...this.request(), percent: 1 })
-      this.aerial = { center: toScene(p.x, p.y, p.z), height: 90 }
+    this.updateAerialLanding()
+    if (onTarget && this.aerialLanding) {
+      this.aerial = { center: this.aerialLanding.clone(), height: 90, follow: true }
       return
     }
     const tee = toScene(world.tee.x, world.tee.y, world.tee.z)
     const pin = toScene(world.cup.x, world.cup.y, world.cup.z)
-    this.aerial = { center: tee.add(pin).multiplyScalar(0.5), height: 1100 }
+    this.aerial = { center: tee.add(pin).multiplyScalar(0.5), height: 1100, follow: false }
   }
 
-  /** Zoom da vista aérea na direção do ponto do terreno sob o mouse (até bem perto do chão). */
-  private zoomAerial(factor: number, at: { clientX: number; clientY: number }) {
+  /**
+   * Bonequinho: onde a bola do jogador da vez cai a 100% com o taco e a mira atuais (sem
+   * vento), com o taco e o alcance da barra.
+   */
+  private updateAerialLanding() {
+    if (!this.active) {
+      this.aerialLanding = undefined
+      return
+    }
+    const request = this.request()
+    const p = this.world.predictLanding(this.active.state, { ...request, percent: 1 })
+    this.aerialLanding = toScene(p.x, p.y, p.z)
+    const range = this.world.shotRange(this.active.state, request)
+    this.aerialLabel = `${request.club === 'PT1' ? 'PT' : request.club} · ${Math.round(range)}y`
+  }
+
+  /**
+   * Zoom da vista aérea: aproximando, puxa o centro para o ponto sob o mouse (Ctrl+roda)
+   * ou para o bonequinho (Shift+↑), que passa a ser seguido.
+   */
+  private zoomAerial(factor: number, at?: { clientX: number; clientY: number }) {
     const aerial = this.aerial!
-    const mouse = new Vector2(
-      (at.clientX / window.innerWidth) * 2 - 1,
-      -(at.clientY / window.innerHeight) * 2 + 1,
-    )
-    this.ray.setFromCamera(mouse, this.camera)
-    this.ray.far = Infinity
-    const hit = this.ray.intersectObjects(this.course.terrainMeshes, false)[0]
+    let point = this.aerialLanding
+    if (at) {
+      const mouse = new Vector2(
+        (at.clientX / window.innerWidth) * 2 - 1,
+        -(at.clientY / window.innerHeight) * 2 + 1,
+      )
+      this.ray.setFromCamera(mouse, this.camera)
+      this.ray.far = Infinity
+      point = this.ray.intersectObjects(this.course.terrainMeshes, false)[0]?.point
+    }
     const height = Math.min(AERIAL.maxHeight, Math.max(AERIAL.minHeight, aerial.height * factor))
-    if (hit && factor < 1) {
-      const pull = 1 - height / aerial.height
-      aerial.center.lerp(hit.point, pull)
+    if (point && factor < 1) {
+      aerial.center.lerp(point, 1 - height / aerial.height)
+      aerial.follow = !at && point === this.aerialLanding
     }
     aerial.height = height
+  }
+
+  /** Bonequinho da vista aérea na tela, com o taco e o alcance a 100%. */
+  private updateAerialMarker() {
+    const show =
+      this.aerial !== undefined &&
+      this.phase === 'aim' &&
+      this.controllable &&
+      this.aerialLanding !== undefined
+    this.aerialMarker.hidden = !show
+    if (!show) return
+    const p = this.aerialLanding!.clone().project(this.camera)
+    if (p.z > 1) {
+      this.aerialMarker.hidden = true
+      return
+    }
+    this.aerialMarker.style.left = `${((p.x + 1) / 2) * window.innerWidth}px`
+    this.aerialMarker.style.top = `${((1 - p.y) / 2) * window.innerHeight}px`
+    this.aerialMarker.querySelector('span')!.textContent = this.aerialLabel
+  }
+
+  /** Tecla P (só sozinho): impacto sempre PANGYA, para testar a física. */
+  private setAutoPangya(on: boolean, announce = true) {
+    this.autoPangya = on
+    saveAutoPangya(on)
+    this.bar.setAutoPangya(on)
+    if (announce) {
+      this.panel.showResult(on ? '✨ Sempre PANGYA ligado (P)' : 'Sempre PANGYA desligado (P)')
+    }
   }
 
   private fire(request: ShotRequest) {
@@ -1088,12 +1211,16 @@ export class HoleView {
     if (!this.active) return
     const p = this.world.predictLanding(this.active.state, this.request())
     this.target.position.copy(toScene(p.x, p.y + 0.3, p.z))
+    if (this.aerial) this.updateAerialLanding()
   }
 
   private placeCamera(focus: Vector3, lerp: number) {
     const { camera, world } = this
     if (this.aerial) {
       // Olhando para baixo, levemente inclinada na direção do buraco (tee → pin).
+      if (this.aerial.follow && this.aerialLanding) {
+        this.aerial.center.lerp(this.aerialLanding, Math.max(lerp, 0.15))
+      }
       const { center, height } = this.aerial
       const forward = toScene(world.cup.x, 0, world.cup.z)
         .sub(toScene(world.tee.x, 0, world.tee.z))
@@ -1241,6 +1368,7 @@ export class HoleView {
       this.placeCamera(this.ballPosition(), 0.08)
     }
     for (const model of this.ready.values()) if (model.root.visible) model.update(dt)
+    this.updateAerialMarker()
     this.beamMaterial.opacity = 0.8 + 0.2 * Math.sin(now / 300)
     this.course.update(this.camera)
     this.renderer.render(this.scene, this.camera)

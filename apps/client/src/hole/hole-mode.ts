@@ -54,7 +54,8 @@ const today = () => new Date().toISOString().slice(0, 10)
 
 /** Jogo sozinho: um buraco por página, com o placar seguindo pela URL até o fim do plano. */
 export async function startHoleMode(ref: HoleRef) {
-  const view = await HoleView.create(ref)
+  // Sozinho: atalhos de desenvolvimento ligados (P = sempre PANGYA).
+  const view = await HoleView.create(ref, { devTools: true })
   const { world } = view
   const allCard = readCard()
   const plan = readPlan(ref.hole, allCard.length)
