@@ -225,21 +225,26 @@ export async function startHoleMode(ref: HoleRef) {
       camera.lookAt(middle)
       return
     }
-    let desired = target
+    const desired = target
       .clone()
       .addScaledVector(forward, -70)
       .add(new Vector3(0, 28, 0))
-    // Não deixa o terreno ficar entre a bola e a câmera (ex.: bola no fundo de um penhasco).
-    const toCamera = desired.clone().sub(target)
+    // A câmera desliza até a posição desejada; as proteções valem para a posição real
+    // de cada quadro (deslizando, ela poderia atravessar paredes do terreno).
+    const next = camera.position.clone().lerp(desired, lerp)
+    // Terreno entre a bola e a câmera (ex.: bola no fundo de um penhasco): aproxima.
+    const toCamera = next.clone().sub(target)
     const distance = toCamera.length()
-    ray.set(target, toCamera.normalize())
-    ray.far = distance
-    const hit = ray.intersectObjects(terrainMeshes, false)[0]
-    if (hit) desired = target.clone().addScaledVector(toCamera, Math.max(4, hit.distance - 4))
-    // E mantém a câmera acima do chão logo abaixo dela (cena tem Z invertido).
-    const below = grid.groundAt(desired.x, -desired.z)
-    if (below && desired.y < below.y + 6) desired.y = below.y + 6
-    camera.position.lerp(desired, lerp)
+    if (distance > 0.001) {
+      ray.set(target, toCamera.normalize())
+      ray.far = distance
+      const hit = ray.intersectObjects(terrainMeshes, false)[0]
+      if (hit) next.copy(target).addScaledVector(toCamera, Math.max(4, hit.distance - 4))
+    }
+    // Sempre acima do chão logo abaixo dela (a cena tem Z invertido).
+    const below = grid.groundAt(next.x, -next.z)
+    if (below && next.y < below.y + 6) next.y = below.y + 6
+    camera.position.copy(next)
     camera.lookAt(target.clone().addScaledVector(forward, 60))
   }
   placeCamera(ball.position, 1)
@@ -255,6 +260,9 @@ export async function startHoleMode(ref: HoleRef) {
       return
     }
     flight = { result, start: performance.now() }
+    // Nova tacada: câmera volta direto para trás do tee (sem deslizar pelo mapa).
+    ball.position.copy(frameAt(result.frames, 0))
+    placeCamera(ball.position, 1)
     panel.showResult('…')
   })
 
@@ -270,6 +278,12 @@ export async function startHoleMode(ref: HoleRef) {
         `Erro ao desenhar: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}`,
       )
     }
+  })
+
+  // Depuração (testes automatizados): estado da câmera e da bola.
+  ;(window as unknown as { __debug: () => unknown }).__debug = () => ({
+    ball: ball.position.toArray().map((v) => Math.round(v)),
+    camera: camera.position.toArray().map((v) => Math.round(v)),
   })
 
   function frame(now: number) {
