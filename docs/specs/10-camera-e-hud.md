@@ -73,6 +73,12 @@ Câmeras de jogo e HUD com as informações necessárias para mirar como no orig
   jogador. No putt: atrás da bola, baixa. A/D no voo giram (câmera de perseguição) e S
   mostra de cima, como antes. `window.__shotCamera = 'sky'` força uma câmera (testes);
   `__debugDrop(jardas)` rola a bola até a cova.
+- **Câmera do jogo original**: o `ProjectG.exe` é protegido (tudo criptografado), então não dá
+  para ler a câmera nele daqui. O diagnóstico (`?diagnostico`, seção "== CÂMERA",
+  `camera-search.ts`) procura pistas nos arquivos de dados: tipos de arquivo, nomes com cara
+  de câmera, a lista das tabelas dentro do `pangya_<região>.iff` e as palavras "camera",
+  "cam_", "카메라", "연출" (direção de cena), "시점" (ponto de vista), "리플레이" dentro das
+  tabelas e dos arquivos de dados. Esperando o Daniel rodar.
 - **Comemoração** (`celebrate`): depois de embocar, 1,6 s vendo a cova (moedas) e corta para o
   personagem perto da cova, de frente para a câmera (enquadrado pela altura do esqueleto),
   fazendo a pose do resultado; depois fica na pose final ("…끝") com o quadro do fim do

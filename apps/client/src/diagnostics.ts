@@ -3,9 +3,13 @@
  * movimentos, tacos e sons, para ajustar o jogo aos nomes reais do cliente. Tudo fica num
  * texto com botão de copiar (para colar na conversa).
  */
-import { readPet } from '@pangya/formats'
+import { readIffArchive, readPet } from '@pangya/formats'
 import { loadCatalog } from './character/character.ts'
+import { CAMERA_NAME, DATA_FILE, extensionCounts, findCameraMarkers } from './camera-search.ts'
 import { ASSET_BASE, assetNames, assetPaths, findAsset, tryFetchBytes } from './hole/assets.ts'
+
+/** Arquivos de dados lidos por dentro na busca da câmera (no máximo) e o tamanho máximo. */
+const CAMERA_SEARCH = { maxFiles: 4000, maxBytes: 8 * 1024 * 1024, parallel: 6 }
 
 async function petOf(path: string, kind: 'bpet' | 'apet') {
   const bytes = await tryFetchBytes(path)
@@ -122,9 +126,66 @@ export async function showDiagnostics() {
   log(`\n== MÚSICAS (${music.length})`)
   log(music.join(' | '))
 
+  await cameraSection(await assetPaths(), log)
+
   log(`\n(base dos assets: ${ASSET_BASE})`)
   box.querySelector('button')!.addEventListener('click', () => {
     text.select()
     void navigator.clipboard?.writeText(text.value).catch(() => document.execCommand('copy'))
   })
+}
+
+/**
+ * Pistas da câmera nos arquivos do jogo: tipos de arquivo, nomes com cara de câmera, as
+ * tabelas .iff e palavras de câmera dentro dos arquivos de dados.
+ */
+async function cameraSection(paths: string[], log: (line?: string) => void) {
+  log('\n== CÂMERA')
+  log(
+    `tipos de arquivo: ${extensionCounts(paths)
+      .map(([ext, n]) => `${ext} (${n})`)
+      .join(' | ')}`,
+  )
+  const named = paths.filter((p) => CAMERA_NAME.test(p))
+  log(`\nnomes com cara de câmera (${named.length}): ${named.slice(0, 300).join(' | ')}`)
+  // As tabelas do jogo ficam dentro de pangya_<região>.iff (um zip): o nome e o tamanho de
+  // cada uma, e as palavras de câmera dentro delas.
+  for (const archive of paths.filter((p) => /(^|\/)pangya_\w+\.iff$/i.test(p))) {
+    const bytes = await tryFetchBytes(archive)
+    let tables: Map<string, Uint8Array> | undefined
+    try {
+      tables = bytes && readIffArchive(bytes)
+    } catch (err) {
+      log(`\n${archive}: não abriu (${err instanceof Error ? err.message : String(err)})`)
+    }
+    if (!tables) continue
+    log(`\ntabelas em ${archive} (${tables.size}):`)
+    log([...tables].map(([name, t]) => `${name} (${t.length} bytes)`).join(' | '))
+    const found = [...tables].flatMap(([name, t]) =>
+      findCameraMarkers(t).map((f) => `${name} → ${f}`),
+    )
+    log(`palavras de câmera nas tabelas (${found.length}):`)
+    log(found.slice(0, 200).join('\n') || '(nenhuma)')
+  }
+
+  const data = paths
+    .filter((p) => DATA_FILE.test(p) && !/(^|\/)pangya_\w+\.iff$/i.test(p))
+    .slice(0, CAMERA_SEARCH.maxFiles)
+  log(`\nprocurando palavras de câmera dentro de ${data.length} arquivos de dados…`)
+  const hits: string[] = []
+  let done = 0
+  let next = 0
+  const worker = async () => {
+    while (next < data.length) {
+      const path = data[next++]!
+      const bytes = await tryFetchBytes(path).catch(() => undefined)
+      if (bytes && bytes.length <= CAMERA_SEARCH.maxBytes) {
+        for (const found of findCameraMarkers(bytes)) hits.push(`${path} → ${found}`)
+      }
+      done++
+    }
+  }
+  await Promise.all(Array.from({ length: CAMERA_SEARCH.parallel }, worker))
+  log(`lidos ${done}; achados (${hits.length}):`)
+  log(hits.slice(0, 400).join('\n') || '(nenhum)')
 }

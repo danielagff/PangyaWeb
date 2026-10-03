@@ -161,6 +161,9 @@ lugar da bandeira, vista aérea com zoom (M/0, Delete+0), câmera livre e mira A
   swing de cada taco) e das peças.
 - **Sons**: abrir o `mapeador.cmd` → 🔊 Sons, ouvir e conferir o que foi achado sozinho (e
   trocar o que estiver errado). A música de cada curso agora vem da trilha oficial.
+- **Câmera do jogo original**: rodar o diagnóstico (`jogar.cmd` → página de diagnóstico,
+  `?diagnostico`) e mandar a parte "== CÂMERA" (o `.exe` é protegido; procuramos a câmera
+  nos arquivos de dados).
 - **Câmeras da tacada, comemoração e pangs**: se as câmeras sorteadas e a da queda estão
   parecidas com as do jogo (tempos e distâncias em `SHOT_CAMERA`, `CELEBRATION`,
   `hole-view.ts`), se a comemoração é perto da cova mesmo e quando os pangs devem sair (hoje:
