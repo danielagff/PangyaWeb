@@ -86,6 +86,8 @@ export async function startHoleMode(ref: HoleRef) {
     .filter(Boolean)
     .join(' · ')
   view.setPlayers([{ ...me, state }], me.id, true)
+  // Começo do buraco: a entrada do personagem (como no jogo).
+  if (state.strokes === 0) void view.entrance(me.id)
 
   view.onShoot = async (request) => {
     const played = world.play(state, request, wind)

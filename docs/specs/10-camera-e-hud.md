@@ -100,6 +100,13 @@ Câmeras de jogo e HUD com as informações necessárias para mirar como no orig
   segunda metade, tamanho 2×). Os efeitos do jogo são texto: `.seq` (roteiro, chama
   "sprays") e `.spr` (partículas, com os campos comentados em coreano) — dá para refazer os
   outros (brilho do PANGYA `pangya_shot.seq`, hole in one `hole_in_eff.seq`…).
+- **Entrada do personagem** (`entrance`, no começo de cada buraco no modo sozinho): o
+  movimento `등장모션` com a câmera animada do jogo (`등장모션_01`); controles bloqueados desde
+  o começo (mesmo carregando), Espaço pula. Falta no online.
+- **2º power shot de madeira**: o swing especial do personagem (`우드샷파워2`, o salto do Kaz…)
+  com uma das 4 câmeras do jogo (`우드파워샷2_0N`) até a bola sair; o taco acerta em 45% do
+  movimento (`POWER_SHOT_TWO.impact`, estimado — o jogo não guarda o quadro). O 1º power
+  shot e os de ferro ainda usam o swing normal.
 - **Comemoração** (`celebrate`): depois de embocar, 1,6 s vendo a cova (moedas) e corta para o
   personagem perto da cova, sem o taco, com a **câmera animada do jogo** para aquela pose
   (uma das 4 versões, sorteada; sem o arquivo, uma câmera parada de frente, enquadrada pela

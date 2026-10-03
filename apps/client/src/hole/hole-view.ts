@@ -163,6 +163,13 @@ const NEAR_CUP_SLOW = {
   holeIn: { radius: 1.5, speed: 0.1, ease: 0.1 },
   height: 2,
 }
+/**
+ * 2º power shot de madeira: o movimento do personagem, a cena das câmeras animadas e em que
+ * fração do movimento o taco acerta a bola (estimada; o jogo não guarda o quadro).
+ */
+const POWER_SHOT_TWO = { motion: '우드샷파워2', camera: '우드파워샷2', impact: 0.45 }
+/** Entrada do personagem no começo do buraco (movimento e cena das câmeras). */
+const ENTRANCE = '등장모션'
 /** Força da barra (0..1) a partir da qual o swing usa o som forte ("_s"). */
 const SWING_STRONG_PERCENT = 0.7
 /** Moedas (pangs) que saem da bola no PANGYA e da cova quando a bola entra. */
@@ -444,6 +451,9 @@ export class HoleView {
     | { path: CameraPath; segment: CameraSegment; model: CharacterModel; started: number }
     | undefined
   /** Câmeras animadas de cada personagem (arquivo <personagem>_cam.apet), já carregadas. */
+  /** Entrada do personagem tocando (sem mira nem tacada; espaço pula). */
+  private entering = false
+  private skipEntrance: (() => void) | undefined
   /** Abertura normal da câmera (a comemoração usa a das câmeras do jogo). */
   private readonly baseFov: number
   private readonly cameraPaths = new Map<CharacterModel, Promise<CameraPath | undefined>>()
@@ -794,6 +804,7 @@ export class HoleView {
       camera: camera.position.toArray().map((v) => Math.round(v)),
       cameraExact: camera.position.toArray(),
       phase: this.phase,
+      entering: this.entering,
       aim: this.aim,
       active: this.active?.id,
       motion: this.active && this.ready.get(this.active.id)?.playing,
@@ -1099,12 +1110,26 @@ export class HoleView {
    * Tacada do personagem: continua do topo do backswing (se a barra o começou) ou faz o
    * swing inteiro. Devolve quanto falta (s) até o taco acertar a bola.
    */
-  private startSwing(playerId: string, club: string | undefined): number {
+  private startSwing(playerId: string, club: string | undefined, powerShot?: PowerShot): number {
     const fromTop = this.backswing
     this.backswing = false
     const model = this.ready.get(playerId)
     if (!model || !model.root.visible) return 0
     if (club) void this.equipClub(model, club)
+    // 2º power shot de madeira: o swing especial do personagem (우드샷파워2) com a câmera
+    // animada do jogo (uma das 4 versões de 우드파워샷2), até a bola sair.
+    if (powerShot === 'two' && club && categoryOfClub(club) === 'wood') {
+      const duration = model.play(POWER_SHOT_TWO.motion, false, 0.1)
+      if (duration > 0) {
+        void this.cameraPathOf(model).then((path) => {
+          const segment = path?.segment(POWER_SHOT_TWO.camera)
+          if (path && segment && this.flight && this.flight.index === 0) {
+            this.startCinematic({ path, segment, model, started: performance.now() })
+          }
+        })
+        return duration * POWER_SHOT_TWO.impact
+      }
+    }
     const motions = this.golf(model, club)
     if (!motions.swing) return 0
     const from = fromTop ? motions.top : 0
@@ -1134,6 +1159,12 @@ export class HoleView {
 
   /** Espaço/botão: barra de força (3 toques), tacada direta ou pula a animação. */
   private shoot() {
+    if (this.entering) {
+      // Pulou antes de a entrada começar: nem começa.
+      if (this.skipEntrance) this.skipEntrance()
+      else this.entering = false
+      return
+    }
     if (this.flight) {
       this.flight.start = -Infinity
       return
@@ -1575,7 +1606,7 @@ export class HoleView {
     const { aim, events = [], impact, club, powerShot, percent } = options
     this.flight?.done()
     // A bola só sai quando o taco acerta (meio do swing do personagem).
-    const delay = this.startSwing(playerId, club)
+    const delay = this.startSwing(playerId, club, powerShot)
     this.phase = 'flying'
     this.shotForward = aimDirection(aim ?? this.aim)
     this.target.visible = false
@@ -2098,9 +2129,7 @@ export class HoleView {
     model.update(0)
     model.clubVisible = false
     if (path && segment) {
-      this.cinematic = { path, segment, model, started: performance.now() }
-      this.camera.fov = CAMERA_PATH_FOV
-      this.camera.updateProjectionMatrix()
+      this.startCinematic({ path, segment, model, started: performance.now() })
       await sleep(Math.min(duration, CELEBRATION.seconds))
       const ending = reactionEnding(model.motions, name)
       if (ending && this.cinematic) model.play(ending, true, 0.2)
@@ -2163,6 +2192,59 @@ export class HoleView {
     camera.position.copy(at)
     camera.up.copy(pose.up.transformDirection(space.matrixWorld))
     camera.lookAt(target)
+  }
+
+  /** Começa uma câmera animada do jogo (lente do jogo). */
+  private startCinematic(c: {
+    path: CameraPath
+    segment: CameraSegment
+    model: CharacterModel
+    started: number
+  }) {
+    this.cinematic = c
+    this.camera.fov = CAMERA_PATH_FOV
+    this.camera.updateProjectionMatrix()
+  }
+
+  /**
+   * Entrada do personagem no começo do buraco (등장모션), com a câmera animada do jogo, como
+   * no original. Espaço (ou clique na barra) pula. Sem o movimento, nada.
+   */
+  async entrance(playerId: string) {
+    // Sem mira nem tacada desde já (o personagem e a câmera ainda vão carregar).
+    this.entering = true
+    this.panel.setEnabled(false, 'Espaço: pular a entrada')
+    const player = this.players.find((p) => p.id === playerId)
+    const model = player?.character ? await this.characterOf(player) : undefined
+    if (!model || !model.motionNames.includes(ENTRANCE) || !this.entering) {
+      this.entering = false
+      this.panel.setEnabled(this.controllable, '')
+      return
+    }
+    await this.address(model)
+    const path = await this.cameraPathOf(model)
+    const segment = path?.segment(ENTRANCE)
+    if (!this.entering) {
+      this.panel.setEnabled(this.controllable, '')
+      return
+    }
+    model.root.visible = true
+    this.placeCharacter(model)
+    const duration = model.play(ENTRANCE, false, 0.1)
+    if (path && segment) this.startCinematic({ path, segment, model, started: performance.now() })
+    await new Promise<void>((resolve) => {
+      const timer = setTimeout(resolve, duration * 1000)
+      this.skipEntrance = () => {
+        clearTimeout(timer)
+        resolve()
+      }
+    })
+    this.skipEntrance = undefined
+    this.entering = false
+    this.endCinematic()
+    this.idle(model)
+    this.placeCamera(this.ballPosition(), 1)
+    this.panel.setEnabled(this.controllable, '')
   }
 
   /** Fim da comemoração: câmera normal (para cima = +Y, abertura do jogo). */
@@ -2245,7 +2327,10 @@ export class HoleView {
       this.trailPositions.setXYZ(shown, at.x, at.y, at.z)
       this.trailPositions.needsUpdate = true
       this.trailGeometry.setDrawRange(0, shown + 1)
-      if (!this.debugFreeze) this.placeCamera(this.ballPosition(), 0.08)
+      // Câmera animada (2º power shot) até a bola sair; depois, a da tacada.
+      if (this.cinematic && elapsed > SHOT_CAMERA.hold) this.endCinematic()
+      if (this.cinematic) this.placeCinematic()
+      else if (!this.debugFreeze) this.placeCamera(this.ballPosition(), 0.08)
       if (index === count - 1) {
         const { done } = this.flight
         this.flight = undefined
@@ -2261,7 +2346,7 @@ export class HoleView {
       for (const [key, direction] of Object.entries(AIM_KEYS)) {
         if (this.keys.has(key)) turn = direction
       }
-      if (!this.controllable || this.bar.active) turn = 0
+      if (!this.controllable || this.bar.active || this.entering) turn = 0
       const model = this.active && this.ready.get(this.active.id)
       const held = (now - this.turnStart) / 1000 - AIM_TUNING.holdDelay
       if (turn && held > 0) {
@@ -2292,7 +2377,8 @@ export class HoleView {
       this.updateWind()
       this.target.visible = this.controllable
       this.moveAerial(dt, now)
-      this.placeCamera(this.ballPosition(), 0.12)
+      if (this.cinematic) this.placeCinematic()
+      else this.placeCamera(this.ballPosition(), 0.12)
       this.placeTarget() // depois da câmera: na vista aérea usa o giro dela deste quadro
     } else if (this.cinematic) {
       this.placeCinematic()

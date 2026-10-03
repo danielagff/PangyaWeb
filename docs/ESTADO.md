@@ -46,7 +46,8 @@ jogar com amigos, com o **PC do Daniel como servidor**. Não é vendido nem publ
 
 ## Em andamento agora
 
-Última entrega (04/10/2026): **bolas do jogo** — escolha na tela do personagem (lista da
+Última entrega (04/10/2026): **entrada do personagem** no começo do buraco e **2º power
+shot** com as câmeras animadas do jogo. Antes: **bolas do jogo** — escolha na tela do personagem (lista da
 tabela Ball.iff com nomes traduzidos e prévia 3D girando), a bola do jogo desenhada na
 partida (`data/ball/<modelo>.pet`) e no online cada um vê a bola dos outros. Ainda só muda
 o desenho. Antes: **sons originais da tacada** (pasta `data/sound/new`: swing
