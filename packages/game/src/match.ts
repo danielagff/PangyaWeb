@@ -26,6 +26,8 @@ export interface MatchPlayer {
   character?: string
   /** Atributo power escolhido antes da partida (o servidor usa este nas tacadas). */
   power?: number
+  /** Modelo da bola escolhida (data/ball/<modelo>.pet), só para desenhar. */
+  ball?: string
   /** Tacadas e par de cada buraco já terminado. */
   card: { hole: number; strokes: number; par: number }[]
   /** Estado no buraco atual (undefined no lobby). */
@@ -68,9 +70,14 @@ export function joinMatch(
   name: string,
   character?: string,
   power?: number,
+  ball?: string,
 ): MatchState {
   const back = match.players.find((p) => !p.connected && p.name === name)
-  const chosen = { ...(character && { character }), ...(power !== undefined && { power }) }
+  const chosen = {
+    ...(character && { character }),
+    ...(power !== undefined && { power }),
+    ...(ball && { ball }),
+  }
   const players = back
     ? match.players.map((p) => (p === back ? { ...p, ...chosen, id, connected: true } : p))
     : [

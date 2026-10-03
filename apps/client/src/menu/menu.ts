@@ -13,7 +13,9 @@ import {
 import { soundEvent } from '../audio/sound-events.ts'
 import { sound } from '../audio/sounds.ts'
 import { volumePanel } from '../audio/volume-panel.ts'
+import { chosenBall, loadBalls, rememberBall } from '../equipment/balls.ts'
 import { powerInput } from '../settings.ts'
+import { BallPreview } from './ball-preview.ts'
 import { CharacterPreview } from './character-preview.ts'
 import { courseName, describePlan, HOLE_COUNTS, planHoles, soloUrl } from './courses.ts'
 import { readRecord } from './records.ts'
@@ -188,6 +190,9 @@ export function showMenu() {
         <aside class="character-info">
           <h3 class="character-name"></h3>
           <div class="power"></div>
+          <div class="ball-choice">
+            <label>Bola <select name="ball"><option>Carregando…</option></select></label>
+          </div>
           <p class="menu-hint">Arrastar o boneco = girar</p>
         </aside>
       </div>
@@ -199,11 +204,33 @@ export function showMenu() {
     const preview = new CharacterPreview()
     root.querySelector('.character-stage')!.append(preview.element)
     root.querySelector('.power')!.append(powerInput())
+    const ballPreview = new BallPreview()
+    root.querySelector('.ball-choice')!.append(ballPreview.element)
     let alive = true
     leave = () => {
       alive = false
       preview.dispose()
+      ballPreview.dispose()
     }
+    // Bola: as da tabela do jogo com modelo na extração.
+    void Promise.all([loadBalls(), chosenBall()]).then(([balls, current]) => {
+      if (!alive) return
+      const ballSelect = root.querySelector<HTMLSelectElement>('select[name="ball"]')!
+      ballSelect.innerHTML = balls.length
+        ? balls
+            .map((b) => `<option value="${escapeHtml(b.model)}">${escapeHtml(b.label)}</option>`)
+            .join('')
+        : '<option value="">(bola branca)</option>'
+      ballSelect.value = current ?? ''
+      void ballPreview.show(current)
+      ballSelect.addEventListener('change', () => {
+        rememberBall(ballSelect.value)
+        void ballPreview.show(ballSelect.value || undefined)
+        void sound.play('uiMove')
+      })
+      // As setas escolhem o personagem; na lista da bola, ficam para ela.
+      ballSelect.addEventListener('keydown', (e) => e.stopPropagation())
+    })
 
     const back = () => goBack('title')
     const next = () => {

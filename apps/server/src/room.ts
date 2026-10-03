@@ -85,7 +85,11 @@ export class Room {
             typeof message.power === 'number' && Number.isFinite(message.power)
               ? clampPower(message.power)
               : undefined
-          this.match = joinMatch(this.match, id, name, character, power)
+          const ball =
+            typeof message.ball === 'string' && /^[\w.-]{1,40}$/.test(message.ball)
+              ? message.ball
+              : undefined
+          this.match = joinMatch(this.match, id, name, character, power, ball)
           this.publish()
           break
         }

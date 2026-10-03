@@ -1,3 +1,4 @@
+import { chosenBall } from '../equipment/balls.ts'
 import {
   applyShot,
   decodeFrames,
@@ -107,7 +108,14 @@ export function startOnlineMode() {
   $('.power').append(powerInput())
   const hello = async (name: string) => {
     const character = (await characterInput).value
-    server.send({ t: 'hello', name, power: playerPower(), ...(character && { character }) })
+    const ball = await chosenBall()
+    server.send({
+      t: 'hello',
+      name,
+      power: playerPower(),
+      ...(character && { character }),
+      ...(ball && { ball }),
+    })
   }
 
   // ---- chat (sala e jogo) ----
@@ -190,6 +198,7 @@ export function startOnlineMode() {
         state: p.state!,
         character: p.character,
         ...(p.power !== undefined && { power: p.power }),
+        ball: p.ball,
       }))
   }
 

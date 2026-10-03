@@ -34,6 +34,13 @@ curso/modo → partida → resultado.
 
 ## Progresso
 
+- **Bolas** (`equipment/balls.ts`, `menu/ball-preview.ts`): a lista vem do `balls.json`
+  (Ball.iff convertido; 149 bolas, uma por modelo que existe na extração), com os nomes do
+  cliente japonês traduzidos pelas palavras conhecidas ("爆弾アズテック" → "Bomba Aztec") e a
+  prévia do modelo girando. Guardada no navegador (`pangyaweb.bola`); vai na entrada da sala
+  online (`hello.ball`) para os outros verem. Na partida o modelo (`pet-object.ts`) fica no
+  tamanho da bola da física. Os atributos da tabela ainda não mudam a física (os números
+  lidos não batem com os do jogo; conferir o layout do Ball.iff).
 - **Menu** (`apps/client/src/menu/menu.ts`), com endereço por tela (o "voltar" do navegador
   funciona; Esc volta, Enter confirma, setas escolhem):
   - título (`/`): jogar sozinho, jogar com amigos, campo de treino, mapeador, diagnóstico;

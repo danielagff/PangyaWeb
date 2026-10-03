@@ -26,6 +26,7 @@ import {
   AlwaysStencilFunc,
   AmbientLight,
   BackSide,
+  Box3,
   BufferGeometry,
   CanvasTexture,
   CircleGeometry,
@@ -84,6 +85,7 @@ import { buildCourseScene, SKY_RADIUS, type CourseScene } from './course-scene.t
 import { buildGreenGrid } from './green-grid.ts'
 import type { PowerBar } from './power-bar.ts'
 import { PangBurst } from './pang-burst.ts'
+import { loadPetObject } from './pet-object.ts'
 import { createShotHud, type ShotHud } from './shot-hud.ts'
 import { lerpFactor, Smooth } from './smooth.ts'
 import { SURFACE_LABELS } from './surface-colors.ts'
@@ -384,6 +386,8 @@ export interface ViewPlayer {
   character?: string | undefined
   /** Atributo power (força) do jogador. */
   power?: number
+  /** Modelo da bola (data/ball/<modelo>.pet); sem ele, a bola branca. */
+  ball?: string | undefined
 }
 
 /** Etiqueta com o nome acima da bola (multiplayer). */
@@ -909,8 +913,23 @@ export class HoleView {
       this.scene.add(ball)
       entry = { ball, tag }
       this.balls.set(player.id, entry)
+      if (player.ball) void this.dressBall(ball, player.ball)
     }
     return entry
+  }
+
+  /**
+   * A bola do jogo (data/ball/<modelo>.pet) no lugar da esfera: o modelo vira filho dela, no
+   * tamanho da bola da física (o do jogo tem raio ~0,156), e a esfera fica invisível.
+   */
+  private async dressBall(ball: Mesh, model: string) {
+    const object = await loadPetObject(`${model}.pet`, { center: true })
+    if (!object) return
+    const size = new Box3().setFromObject(object).getSize(new Vector3())
+    object.scale.setScalar((BALL_RADIUS * 2) / Math.max(size.x, size.y, size.z, 0.01))
+    object.traverse((o) => (o.renderOrder = ball.renderOrder))
+    ;(ball.material as MeshLambertMaterial).visible = false
+    ball.add(object)
   }
 
   private placeBall(id: string, position: Vector3) {

@@ -1620,3 +1620,19 @@
 .aim-readout b.ok {
   color: #69f0ae;
 }
+
+/* Escolha da bola (tela do personagem): lista e prévia girando. */
+.ball-choice label {
+  display: block;
+}
+.ball-choice select {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  margin-top: 4px;
+}
+.ball-preview canvas {
+  display: block;
+  margin: 4px auto 0;
+}

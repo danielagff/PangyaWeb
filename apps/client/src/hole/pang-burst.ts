@@ -7,10 +7,7 @@
  * moeda desenhada (sprite).
  */
 import {
-  BufferGeometry,
   CanvasTexture,
-  DoubleSide,
-  Float32BufferAttribute,
   Group,
   Mesh,
   MeshLambertMaterial,
@@ -20,9 +17,7 @@ import {
   SpriteMaterial,
   Vector3,
 } from 'three'
-import { petToSubMeshes, readPet } from '@pangya/formats'
-import { findAsset, tryFetchBytes } from './assets.ts'
-import { TextureLibrary } from './textures.ts'
+import { loadPetObject } from './pet-object.ts'
 
 const FPS = 30
 /** coin_pang.spr (valores por quadro do jogo). */
@@ -71,38 +66,7 @@ function drawnCoin() {
 }
 
 /** A moeda do jogo (coin.pet), ou undefined sem o arquivo. */
-async function loadCoin(): Promise<Group | undefined> {
-  const path = await findAsset('coin.pet', '')
-  const bytes = path && (await tryFetchBytes(path))
-  if (!bytes) return undefined
-  const textures = new TextureLibrary('')
-  const group = new Group()
-  for (const sub of petToSubMeshes(readPet(bytes))) {
-    const geometry = new BufferGeometry()
-    // O Pangya tem Z invertido em relação à cena.
-    const positions = sub.positions.slice()
-    for (let i = 2; i < positions.length; i += 3) positions[i] = -positions[i]!
-    geometry.setAttribute('position', new Float32BufferAttribute(positions, 3))
-    geometry.setAttribute('normal', new Float32BufferAttribute(sub.normals, 3))
-    geometry.setAttribute('uv', new Float32BufferAttribute(sub.uvs, 2))
-    // Centro da moeda na origem (o modelo fica em pé, apoiado no chão).
-    geometry.computeBoundingBox()
-    const center = geometry.boundingBox!.getCenter(new Vector3())
-    geometry.translate(-center.x, -center.y, -center.z)
-    const texture = await textures.get(sub.texture)
-    group.add(
-      new Mesh(
-        geometry,
-        new MeshLambertMaterial({
-          ...(texture ? { map: texture } : { color: 0xffcc33 }),
-          side: DoubleSide,
-          transparent: true,
-        }),
-      ),
-    )
-  }
-  return group.children.length ? group : undefined
-}
+const loadCoin = () => loadPetObject('coin.pet', { center: true, color: 0xffcc33 })
 
 interface Coin {
   object: Object3D

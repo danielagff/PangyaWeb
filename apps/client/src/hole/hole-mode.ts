@@ -9,6 +9,7 @@ import {
   type HoleRef,
 } from '@pangya/game'
 import { chosenCharacter } from '../character/character.ts'
+import { chosenBall } from '../equipment/balls.ts'
 import { courseName, describePlan, formatHoles, parseHoles, soloUrl } from '../menu/courses.ts'
 import { saveRecord } from '../menu/records.ts'
 import { cardTotals, scorecardHtml } from '../menu/scorecard.ts'
@@ -63,7 +64,14 @@ export async function startHoleMode(ref: HoleRef) {
   const card = allCard.slice(0, at)
   const character =
     new URLSearchParams(location.search).get('personagem') ?? (await chosenCharacter())
-  const me = { id: 'eu', name: 'Você', color: 0xffffff, character, power: playerPower() }
+  const me = {
+    id: 'eu',
+    name: 'Você',
+    color: 0xffffff,
+    character,
+    power: playerPower(),
+    ball: await chosenBall(),
+  }
   let state = startHole(world.par, world.tee)
   // Vento sorteado no início do buraco (no modo sozinho dá para mudar no painel).
   const wind = randomWind()

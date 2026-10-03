@@ -9,7 +9,7 @@ import type { PowerShot } from '@pangya/physics'
 import type { ShotEvent, ShotRequest } from './world.ts'
 
 export type ClientMessage =
-  | { t: 'hello'; name: string; character?: string; power?: number }
+  | { t: 'hello'; name: string; character?: string; power?: number; ball?: string }
   | { t: 'start'; course: Course }
   | { t: 'shot'; request: ShotRequest }
   | { t: 'chat'; text: string }

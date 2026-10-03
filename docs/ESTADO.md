@@ -46,7 +46,10 @@ jogar com amigos, com o **PC do Daniel como servidor**. Não é vendido nem publ
 
 ## Em andamento agora
 
-Última entrega (04/10/2026): **sons originais da tacada** (pasta `data/sound/new`: swing
+Última entrega (04/10/2026): **bolas do jogo** — escolha na tela do personagem (lista da
+tabela Ball.iff com nomes traduzidos e prévia 3D girando), a bola do jogo desenhada na
+partida (`data/ball/<modelo>.pet`) e no online cada um vê a bola dos outros. Ainda só muda
+o desenho. Antes: **sons originais da tacada** (pasta `data/sound/new`: swing
 por situação e força, timing PANGYA/bom/ruim, moedas saindo e caindo, água, O.B., menus) e
 **moedas 3D do jogo** (`coin.pet` com o movimento do `coin_pang.spr`). Antes:
 **câmeras originais das comemorações** — lidas dos arquivos
