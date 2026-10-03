@@ -516,20 +516,6 @@
 .power-bar.done .track {
   border-color: #ffeb3b;
 }
-.power-bar .pin {
-  position: absolute;
-  z-index: 1;
-  top: -2px;
-  bottom: -2px;
-  width: 3px;
-  margin-left: -1px;
-  background: #e53935;
-  box-shadow: 0 0 4px #e53935;
-}
-.power-bar .scale .pin-tag {
-  color: #ff5252;
-  font-size: 12px;
-}
 .power-bar.cancelled .track {
   border-color: #ef5350;
   opacity: 0.6;

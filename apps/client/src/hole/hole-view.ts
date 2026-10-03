@@ -792,7 +792,7 @@ export class HoleView {
       this.phase = 'idle'
       for (const model of this.ready.values()) model.root.visible = false
       this.panel.setEnabled(false, 'Fim do buraco')
-      this.bar.setPin(undefined)
+      this.bar.setPinDistance(undefined)
       this.target.visible = false
       this.greenGrid.visible = false
       this.updateHud()
@@ -1001,19 +1001,21 @@ export class HoleView {
     )
   }
 
-  /** Escala da barra (alcance do taco a 100%) e a linha do pin, como no HUD do jogo. */
+  /**
+   * Escala da barra (alcance do taco a 100%). A distância do pin vai só para o calibrador
+   * começar nela (na tela ela fica no marcador do pin).
+   */
   private updateBarScale() {
     if (!this.active) return
     const state = this.active.state
     this.bar.setScale(this.world.shotRange(state, this.request()))
-    const rise = unitsToMeters(this.world.cup.y - state.ball.y)
-    const pin = this.world.distanceToPin(state.ball)
-    this.bar.setPin(pin, `${pin.toFixed(0)}y ${rise >= 0 ? '↑' : '↓'}${Math.abs(rise).toFixed(2)}m`)
+    this.bar.setPinDistance(this.world.distanceToPin(state.ball))
   }
 
   /**
    * Liga/desliga a vista aérea, olhando de cima a linha da mira (a bola embaixo, o X em
-   * cima, como no original). M/0: a linha inteira e o pin; Delete+0: já perto do X.
+   * cima, como no original). M/0: a linha inteira e o pin; Delete+0: já perto do X (ou, se o
+   * X passa do buraco, na distância do buraco — ver `followAlong`).
    */
   private toggleAerial(onTarget = false) {
     if (this.aerial && !onTarget) {
@@ -1027,7 +1029,7 @@ export class HoleView {
     this.refreshLanding()
     const reach = this.landingReach()
     if (onTarget) {
-      this.aerial = { along: reach, height: 90, follow: true }
+      this.aerial = { along: this.followAlong(), height: 90, follow: true }
     } else {
       const ball = this.active.state.ball
       const pin = Math.hypot(this.world.cup.x - ball.x, this.world.cup.z - ball.z)
@@ -1066,12 +1068,33 @@ export class HoleView {
     return ball && toScene(ball.x, ball.y, ball.z)
   }
 
-  /** Ponto de queda (`ring`: força atual; `full`: 100%), girado para a mira atual. */
-  private landingPoint(which: 'ring' | 'full'): Vector3 | undefined {
+  /** Ponto de queda (`ring`: força atual; `full`: 100%), girado para a mira `aim`. */
+  private landingPoint(which: 'ring' | 'full', aim = this.aim): Vector3 | undefined {
     const ball = this.restingBall()
     if (!this.landing || !ball) return undefined
     const point = this.landing[which].clone().sub(ball)
-    return point.applyAxisAngle(UP, this.aim - this.landing.aim).add(ball)
+    return point.applyAxisAngle(UP, aim - this.landing.aim).add(ball)
+  }
+
+  /**
+   * Mira desenhada: na vista aérea, o giro suavizado da câmera — a linha, o X e o anel giram
+   * junto com a câmera (sem pular na frente dela a cada toque de mira).
+   */
+  private shownAim() {
+    return this.aerialCam?.yaw.value ?? this.aim
+  }
+
+  /**
+   * Onde o Delete+0 fica (distância na linha da mira): no X; mas se o X passa do buraco, na
+   * linha da mira na distância do buraco (o buraco projetado na linha), como no original.
+   */
+  private followAlong() {
+    const reach = this.landingReach()
+    const ball = this.active?.state.ball
+    if (!ball) return reach
+    const { cup } = this.world
+    const hole = -Math.sin(this.aim) * (cup.x - ball.x) + Math.cos(this.aim) * (cup.z - ball.z)
+    return hole > 0 && reach > hole ? hole : reach
   }
 
   /** Distância (unidades, no plano) da bola até o X (100%). */
@@ -1099,7 +1122,7 @@ export class HoleView {
       shownX.offset.snap(offset)
       shownX.reach.snap(reach)
     }
-    const angle = this.aim + shownX.offset.update(offset, this.frameDt)
+    const angle = this.shownAim() + shownX.offset.update(offset, this.frameDt)
     const point = ball.addScaledVector(
       aimDirection(angle),
       shownX.reach.update(reach, this.frameDt),
@@ -1156,7 +1179,7 @@ export class HoleView {
         Math.max(-yardsToUnits(30), aerial.along + move * aerial.height * speed * dt),
       )
     }
-    if (aerial.follow) aerial.along = this.landingReach()
+    if (aerial.follow) aerial.along = this.followAlong()
   }
 
   /**
@@ -1373,7 +1396,7 @@ export class HoleView {
 
   /** Anel amarelo onde a tacada cai com a força atual (girando junto com a mira). */
   private placeTarget() {
-    const ring = this.landingPoint('ring')
+    const ring = this.landingPoint('ring', this.shownAim())
     if (ring) this.target.position.copy(ring).setY(ring.y + 0.3)
   }
 
@@ -1534,10 +1557,10 @@ export class HoleView {
         this.refreshLanding() // mira girou: recálculo exato (no máximo a cada 0,12 s)
       }
       this.updateWind()
-      this.placeTarget()
       this.target.visible = this.controllable
       this.moveAerial(dt, now)
       this.placeCamera(this.ballPosition(), 0.12)
+      this.placeTarget() // depois da câmera: na vista aérea usa o giro dela deste quadro
     } else if (!this.debugFreeze) {
       this.placeCamera(this.ballPosition(), 0.08)
     }

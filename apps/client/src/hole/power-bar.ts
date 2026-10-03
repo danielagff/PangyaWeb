@@ -3,8 +3,9 @@
  * 1º começa (o marcador corre da esquerda para a direita), 2º fixa a força,
  * 3º acerta o impacto quando o marcador volta à zona da esquerda.
  *
- * Acima da barra, a escala em jardas do taco (meio e máximo); uma linha vermelha marca a
- * distância até o pin. A zona de impacto fica à esquerda, com o ponto da tacada perfeita
+ * Acima da barra, a escala em jardas do taco (meio e máximo); a distância e o desnível do
+ * pin ficam no marcador do pin, na tela. A zona de impacto fica à esquerda, com o ponto da
+ * tacada perfeita
  * ("PANGYA") marcado no meio dela. Se o marcador passa da zona sem o 3º toque, a tacada é
  * cancelada (o jogador desistiu de bater naquela hora) e ele volta a mirar.
  *
@@ -93,7 +94,6 @@ export function createPowerBar(parent: HTMLElement = document.body) {
       <span class="tag pangya-tag">PANGYA</span>
       <span class="tag half"></span>
       <span class="tag max"></span>
-      <span class="tag pin-tag"></span>
     </div>
     <div class="track" title="Calibrador: clique para pôr o ponteiro (botão direito tira); X sobe, Z desce (Shift: 1%)">
       <div class="ticks"></div>
@@ -101,7 +101,6 @@ export function createPowerBar(parent: HTMLElement = document.body) {
       <div class="fill"></div>
       <div class="zone"><div class="pangya"></div></div>
       <div class="power"><span></span></div>
-      <div class="pin"></div>
       <div class="mark" hidden><span></span></div>
       <div class="guide" hidden></div>
       <div class="marker"></div>
@@ -119,8 +118,6 @@ export function createPowerBar(parent: HTMLElement = document.body) {
   const pangya = $<HTMLDivElement>('.pangya')
   const half = $<HTMLSpanElement>('.half')
   const max = $<HTMLSpanElement>('.max')
-  const pin = $<HTMLDivElement>('.pin')
-  const pinTag = $<HTMLSpanElement>('.pin-tag')
   zone.style.left = `${(ZONE - k.zoneHalf) * 100}%`
   zone.style.width = `${k.zoneHalf * 2 * 100}%`
   // Faixa da tacada perfeita, centralizada na zona.
@@ -147,7 +144,7 @@ export function createPowerBar(parent: HTMLElement = document.body) {
   let hover: number | undefined
   /** Ponteiro do calibrador (fração da barra). */
   let calibrator = readCalibrator()
-  /** Linha do pin (fração da barra), para o calibrador começar nela. */
+  /** Distância do pin (fração da barra), para o calibrador começar nela. */
   let pinFraction: number | undefined
   /** O 2º toque usa a força do calibrador (desenvolvimento, só sozinho). */
   let snap = false
@@ -341,15 +338,13 @@ export function createPowerBar(parent: HTMLElement = document.body) {
       autoPangya = on
       root.classList.toggle('auto-pangya', on)
     },
-    /** Linha vermelha da distância até o pin (undefined = esconde). */
-    setPin(yardsToPin: number | undefined, text = '') {
+    /**
+     * Distância até o pin (jardas; undefined = sem pin). Não aparece na barra: serve para o
+     * calibrador começar nela.
+     */
+    setPinDistance(yardsToPin: number | undefined) {
       const fraction = yardsToPin !== undefined && maxYards ? yardsToPin / maxYards : undefined
-      const visible = fraction !== undefined && fraction <= 1.02
-      pinFraction = visible ? Math.min(1, fraction) : undefined
-      pin.hidden = pinTag.hidden = !visible
-      if (!visible) return
-      pin.style.left = pinTag.style.left = `${Math.min(1, fraction) * 100}%`
-      pinTag.textContent = text
+      pinFraction = fraction !== undefined && fraction <= 1.02 ? Math.min(1, fraction) : undefined
     },
     /** Começa a barra; `onDone` recebe a força e o erro de impacto. */
     start(onDone: (result: PowerBarResult) => void, options: PowerBarOptions = {}) {

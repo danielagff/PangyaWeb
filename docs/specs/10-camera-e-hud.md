@@ -64,7 +64,8 @@ Câmeras de jogo e HUD com as informações necessárias para mirar como no orig
   taco (roda do mouse troca), o ponto de impacto na bola (clique/arraste = spin e curva;
   duplo clique centraliza), o power shot (Alt: 1 toque = 1 PS, 2 toques rápidos = 2 PS) e a
   força do personagem; a barra de força sempre visível, com a escala do alcance do taco
-  (`HoleWorld.shotRange`) e a linha vermelha do pin. Sempre 3 toques de espaço.
+  (`HoleWorld.shotRange`). Sempre 3 toques de espaço. A distância e o desnível do pin
+  **não ficam na barra** (pedido do Daniel): estão no marcador do pin, na tela.
 - A **roda do mouse sempre troca o taco** (mirando e na vista aérea).
 - **Vista aérea** com M ou 0, como no original (`hole-view.ts`, `AERIAL_OVERLAY`): de cima,
   com a linha da mira subindo na tela; **linha vermelha da bola até o X** (onde a bola cai a
@@ -72,7 +73,11 @@ Câmeras de jogo e HUD com as informações necessárias para mirar como no orig
   bandeira com o **desnível em m** ("▼ -0.56 m") e a **distância** ("417.11y").
   **↑/↓** andam pela linha (começa devagar e acelera, proporcional à altura), **Shift+↑/↓**
   zoom suave (segurando), A/D giram a mira e a câmera acompanha; a roda troca o taco e o X vai
-  junto. M/0 abre com a linha inteira e o pin; Delete+0 abre perto do X e segue o X até ↑/↓.
+  junto. M/0 abre com a linha inteira e o pin; Delete+0 abre perto do X e segue o X até ↑/↓
+  — mas se o X passa do buraco, abre e segue **na linha da mira na distância do buraco** (o
+  buraco projetado na linha; `followAlong`), como combinado com o Daniel. A linha, o X e o
+  anel são desenhados com o **giro suavizado da câmera** (`shownAim`): ficam presos ao centro
+  da tela e giram junto com ela (antes pulavam na frente a cada toque de mira).
   **Espaço** na vista aérea só volta para a câmera normal; o próximo começa a barra.
   Câmera da vista aérea com **molas** (`hole/smooth.ts`, a conta do SmoothDamp): giro,
   posição na linha, altura e chão aceleram e freiam aos poucos, contando pelo tempo — sem
@@ -89,7 +94,7 @@ Câmeras de jogo e HUD com as informações necessárias para mirar como no orig
 - **Calibrador** (`power-bar.ts`): um ponteiro na barra com a força e as jardas. Mouse em cima
   da barra mostra marcas a cada 1% e a leitura do ponto; **clique** (ou arrastar) põe o
   ponteiro ali, **botão direito** tira; **X sobe e Z desce 0,1%** (Shift: 1%; segurando,
-  continua); sem ponteiro, Z/X começam na linha do pin. Salvo no navegador. No modo sozinho
+  continua); sem ponteiro, Z/X começam na distância do pin. Salvo no navegador. No modo sozinho
   o **2º espaço fixa exatamente a força do calibrador** (▶ no ponteiro); na sala, a barra é
   normal.
 - **Sempre PANGYA** (desenvolvimento, só no modo sozinho — a sala não tem): tecla **P** liga

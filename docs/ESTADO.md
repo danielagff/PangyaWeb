@@ -31,7 +31,7 @@ jogar com amigos, com o **PC do Daniel como servidor**. Não é vendido nem publ
 | Extração dos arquivos   | `.pak` (chave JP), `.iff`, `.pet/.bpet/.apet/.mpet`, `.gbin`, `property.xml`, `.dds`, `.pycb`; índice de nomes e catálogo de personagens.                                                                                                                                                                                                                                                                    |
 | Cursos                  | Buracos reais com texturas, céu, névoa, iluminação assada, objetos; cova e bandeira em escala; grade do green.                                                                                                                                                                                                                                                                                               |
 | Física                  | Voo da bola portado do SuperSS-Dev; quique, rolagem e putt no terreno real; colisão com árvores/objetos pelas caixas `.pycb`; água, O.B., bunker.                                                                                                                                                                                                                                                            |
-| Tacada                  | HUD embaixo como no original: taco na roda do mouse, power shot no Alt (2× = 2 PS), spin/curva clicando na bola do mostrador, força do personagem; barra sempre visível (3 toques, escala do taco, linha do pin, faixa PANGYA; deixar passar cancela); mira A/D precisa (toque = 0,1°).                                                                                                                      |
+| Tacada                  | HUD embaixo como no original: taco na roda do mouse, power shot no Alt (2× = 2 PS), spin/curva clicando na bola do mostrador, força do personagem; barra sempre visível (3 toques, escala do taco, faixa PANGYA; deixar passar cancela; sem o pin); mira A/D precisa (toque = 0,1°).                                                                                                                         |
 | Câmera e cova           | O mouse nunca move a câmera; no voo A/D giram e S mostra de cima até a bola quase cair. Vista aérea (M ou 0) como no original: **linha vermelha até o X** (100% do taco) com a distância, pin com desnível (m) e distância; ↑/↓ andam pela linha, Shift+↑/↓ zoom suave, roda troca o taco, espaço volta à câmera normal; Delete+0 abre no X. Cova de verdade (a bola cai dentro), com a luz que puxa a bola. |
 | Ferramentas de teste    | **Calibrador** na barra de força (um ponteiro: clique põe, X sobe/Z desce 0,1%; no modo sozinho o 2º espaço usa a força dele) e **sempre PANGYA** (tecla P, só sozinho) para testar a física.                                                                                                                                                                                                                |
 | Força do personagem     | Escolhida no menu e na sala antes da partida (mostra quanto o 1W alcança); o servidor usa a força de cada jogador.                                                                                                                                                                                                                                                                                           |
@@ -46,7 +46,13 @@ jogar com amigos, com o **PC do Daniel como servidor**. Não é vendido nem publ
 
 ## Em andamento agora
 
-Última entrega (03/10/2026), ajustes do Daniel (vídeo): **câmera sem trancos** (molas que
+Última entrega (03/10/2026), os 3 ajustes pedidos pelo Daniel: a **linha e o X da vista
+aérea giram junto com a câmera** (presos ao centro, sem pular a cada toque de mira); a
+**barra de força ficou sem a distância, o desnível e a linha do pin** (estão no marcador do
+pin); no **Delete+0, se o X passa do buraco**, a câmera abre e segue na linha da mira na
+distância do buraco.
+
+Antes (versão `c11d1e8`), ajustes do Daniel (vídeo): **câmera sem trancos** (molas que
 aceleram e freiam aos poucos, contando pelo tempo); a **linha até o X não some mais** com o
 zoom (recortada no plano da câmera); **marcador do pin como no original** no topo da **luz da
 cova verde-água** (desnível em m e distância); vista aérea geral sem névoa e com a linha e o
@@ -111,23 +117,6 @@ Regras de nomes de peças já confirmadas pelo Daniel (implementadas em
   (gravado em `assets/converted/data/roupas-padrao.json`).
 
 ## O que falta (em ordem)
-
-### Próximos ajustes pedidos pelo Daniel (03/10/2026, para fazer depois)
-
-- [ ] **Linha da vista aérea pulando em lotes** (vídeo de 03/10): ao girar a mira, a linha
-      vermelha sai do centro e volta aos pulos, em vez de acompanhar o movimento da câmera.
-      Suspeita: a linha e o X usam a mira exata e o recálculo da física a cada 0,12 s
-      (`LANDING_REFRESH`), enquanto a câmera gira com a mola (`aerialCam.yaw`). Desenhar a
-      linha e o X com o mesmo giro suavizado da câmera, e conferir os recálculos.
-- [ ] **Tirar a distância e a altura da barra de força**: o texto do pin em cima da barra
-      ("224y ↓3.7m", `setPin` em `power-bar.ts`), que agora aparece no marcador do pin, e
-      **também a linha vermelha do pin** na barra (confirmado pelo Daniel: sai tudo).
-- [ ] **Delete+0 com força maior que a distância do buraco** (a debater): se o X (100%)
-      passa do buraco, abrir a câmera do Delete+0 na **linha do buraco** em vez de no X.
-      "Na linha do buraco" ainda a definir com o Daniel (ex.: o ponto da linha da mira na
-      distância do pin).
-
-### Antes disso
 
 1. **Personagens**: aplicar as anotações do mapeador (impacto do swing, nomes, roupas),
    conferir a frente do modelo e a posição na bola com os personagens reais.
