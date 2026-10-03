@@ -15,9 +15,16 @@ export type SynthSound = 'hit' | 'pangya' | 'bounce' | 'roll' | 'wood' | 'water'
 
 export type SoundCategory = 'effects' | 'voices' | 'music'
 
-export type SoundGroup = 'Tacada' | 'Bola' | 'Resultado' | 'Música' | 'Menus'
+export type SoundGroup = 'Tacada' | 'Bola' | 'Público' | 'Resultado' | 'Música' | 'Menus'
 
-export const SOUND_GROUPS: SoundGroup[] = ['Tacada', 'Bola', 'Resultado', 'Música', 'Menus']
+export const SOUND_GROUPS: SoundGroup[] = [
+  'Tacada',
+  'Bola',
+  'Público',
+  'Resultado',
+  'Música',
+  'Menus',
+]
 
 export interface SoundEvent {
   id: string
@@ -59,6 +66,7 @@ export const SOUND_EVENTS: SoundEvent[] = [
   event('powerShot', 'Tacada', 'Batida com power shot (junto com a batida)', [
     /^(파워샷|파워|power)/,
   ]),
+  event('niceShot', 'Tacada', '"Nice shot!" (batida boa, sem PANGYA)', [/^나이스샷/, /niceshot/]),
   event('miss', 'Tacada', 'Batida errada', [/^(헛스윙|미스|miss)/], 'miss'),
   event('bar', 'Tacada', 'Barra de força (cada toque)', [/^(파워게이지|게이지|gauge|bar)/]),
   event('bounce', 'Bola', 'Quique (piso sem som no property.xml)', [], 'bounce'),
@@ -72,16 +80,21 @@ export const SOUND_EVENTS: SoundEvent[] = [
     'water',
   ),
   event('outOfBounds', 'Bola', 'Sai do campo (O.B.)', [/^(ob|아웃|out)(?![a-z])/]),
+  // "공_홀인" = a bola entra; "공_컵점프1" e "공_홀맞기" são a bola pulando/batendo na borda.
   event(
     'cup',
     'Bola',
     'Cai na cova',
-    [/^(공_)?(컵|홀컵|cup)/, /^홀인(?!원)/, /^hole_?in(?!_?one)/],
+    [/^공_홀인/, /^(컵|홀컵|cup)/, /^홀인(?!원)/, /^hole_?in(?!_?one)/],
     'cup',
   ),
-  event('applause', 'Bola', 'Aplausos (bola na cova)', [
+  event('applause', 'Público', 'Aplausos (bola na cova)', [
+    /^갤러리_박수/,
     /^(박수|환호|함성|갈채|applause|cheer|clap)/,
   ]),
+  event('galleryWow', 'Público', '"Uau!" (birdie ou melhor)', [/^갤러리_와우/]),
+  event('galleryOh', 'Público', '"Oh…" (parou pertinho da cova)', [/^갤러리_오/, /^갤러리_아/]),
+  event('galleryDisappointed', 'Público', 'Decepção (água, O.B.)', [/^갤러리_실망/]),
   event('holeInOne', 'Resultado', 'Hole in one', [/^(홀인원|hole_?in_?one|hio)/]),
   event('albatross', 'Resultado', 'Albatross', [/^(알바트로스|알바|albatross)/]),
   event('eagle', 'Resultado', 'Eagle', [/^(이글|eagle)/]),
@@ -92,6 +105,7 @@ export const SOUND_EVENTS: SoundEvent[] = [
   event('chipIn', 'Resultado', 'Chip-in (de fora do green)', [/^(칩인|chip_?in)/]),
   {
     ...event('musicMenu', 'Música', 'Música do menu', [
+      /\/lobby\/[^/]+$/, // data/sound/lobby/coffee_time.mp3
       /(^|\/)(로비|lobby)[^/]*$/,
       /(타이틀|title)/,
       /(메인|main)/,
@@ -126,13 +140,23 @@ export const musicEventId = (round: string) => `music:${round}`
 
 export function courseMusicEvent(round: string, prefix: string, name: string): SoundEvent {
   const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  // "round10_spring wind" → "springwind", ["spring", "wind"]; "round19_wizcity" → "wizcity".
+  const folder = round.toLowerCase().replace(/^round\d+_/, '')
+  const joined = folder.replace(/[^a-z]/g, '')
+  const words = folder.split(/[^a-z]+/).filter((w) => w.length >= 4)
   return {
     id: musicEventId(round),
     group: 'Música',
     label: `Música: ${name}`,
     category: 'music',
-    // Na pasta do curso; senão, com o prefixo do curso no nome ("blue…").
-    patterns: [new RegExp(`(^|/)${escape(round.toLowerCase())}/`), new RegExp(escape(prefix))],
+    // Na pasta do curso; na pasta de sons dele (data/sound/bg/wizcity/…); com o nome da
+    // pasta ou uma palavra dele no nome ("spring.mp3" para "spring wind"); com o prefixo.
+    patterns: [
+      new RegExp(`(^|/)${escape(round.toLowerCase())}/`),
+      ...(joined ? [new RegExp(`/bg/${escape(joined)}/`), new RegExp(escape(joined))] : []),
+      ...words.map((w) => new RegExp(`(^|/)[^/]*${escape(w)}[^/]*$`)),
+      new RegExp(escape(prefix.toLowerCase())),
+    ],
   }
 }
 
@@ -249,6 +273,12 @@ export function voiceFiles(files: string[]): Map<string, Map<string, string[]>> 
 export type VoiceFiles = Map<string, Map<string, string[]>>
 
 /**
+ * Pacotes de voz preferidos (os tacos de voz "normais", sem tema de evento); sem eles, o mais
+ * completo do personagem.
+ */
+const PREFERRED_VOICE_PACKS = ['2014_voice_club', 'v2_club']
+
+/**
  * Pacotes de voz de um personagem, do mais completo (mais falas diferentes) ao menos: os que
  * terminam com o número dele ("v2_club_7"). Sem número (personagem de teste), pelo nome da
  * pasta ("h_kaz"), o nome sem a letra ("kaz") ou a letra ("h").
@@ -258,9 +288,16 @@ export function voicePrefixesFor(characterId: string, voices: VoiceFiles): strin
   const number = characterNumber(characterId)
   if (number !== undefined) {
     const mine = new RegExp(`(^|_)${number}$`)
+    const rank = (p: string) => {
+      const i = PREFERRED_VOICE_PACKS.findIndex((pack) => p === `${pack}_${number}`)
+      return i < 0 ? PREFERRED_VOICE_PACKS.length : i
+    }
     return prefixes
       .filter((p) => mine.test(p))
-      .sort((a, b) => voices.get(b)!.size - voices.get(a)!.size || a.localeCompare(b))
+      .sort(
+        (a, b) =>
+          rank(a) - rank(b) || voices.get(b)!.size - voices.get(a)!.size || a.localeCompare(b),
+      )
   }
   const parts = characterId.toLowerCase().split('/')
   const folder = parts.at(-2) ?? ''
@@ -272,6 +309,30 @@ export function voicePrefixesFor(characterId: string, voices: VoiceFiles): strin
 /** Pacote de voz escolhido sozinho para o personagem (o mais completo). */
 export const guessVoicePrefix = (characterId: string, voices: VoiceFiles) =>
   voicePrefixesFor(characterId, voices)[0]
+
+// ---- ambiente ----
+
+/**
+ * Som ambiente de uma caixa de som do curso ("바다" → "바다소리.wav"): os arquivos cujo nome
+ * começa com o nome da caixa, os da pasta "ambient" primeiro.
+ */
+export function ambientFiles(name: string, files: string[]): string[] {
+  const key = name.toLowerCase()
+  const found = files.filter((f) => baseName(f).startsWith(key))
+  const score = (f: string) => (/\/ambient\//.test(f.toLowerCase()) ? 0 : 1)
+  return found.sort((a, b) => score(a) - score(b) || a.localeCompare(b))
+}
+
+/** Sons dos bichos do cenário (gaivota: "갈매기울음.wav"). */
+const NPC_SOUNDS: [RegExp, RegExp][] = [
+  [/seagull/i, /^갈매기/],
+  [/dolphin/i, /^(돌고래|dolphin)/],
+]
+
+export function npcSoundFiles(model: string, files: string[]): string[] {
+  const sound = NPC_SOUNDS.find(([npc]) => npc.test(model))?.[1]
+  return sound ? files.filter((f) => sound.test(baseName(f))).sort() : []
+}
 
 // ---- escolha ----
 

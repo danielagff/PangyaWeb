@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  ambientFiles,
   audioFiles,
   characterNumber,
   courseMusicEvent,
@@ -9,6 +10,7 @@ import {
   scoreSound,
   scoreVoice,
   SOUND_EVENTS,
+  npcSoundFiles,
   voiceFiles,
   voicePrefixesFor,
   type SoundChoices,
@@ -150,5 +152,83 @@ describe('sons: escolha automática pelo nome', () => {
     expect(scoreVoice(1, 3)).toBe('ha')
     expect(scoreVoice(4, 4)).toBe('par')
     expect(scoreVoice(5, 4)).toBe('bo')
+  })
+})
+
+describe('sons: nomes reais do cliente JP (diagnóstico de 03/10/2026)', () => {
+  const REAL = audioFiles([
+    'data/sound/ball/공_홀인.wav',
+    'data/sound/ball/공_컵점프1.wav',
+    'data/sound/ball/공_홀맞기.wav',
+    'data/sound/ball/공_그린.wav',
+    'data/sound/ambient/갤러리_박수.wav',
+    'data/sound/ambient/갤러리_와우.wav',
+    'data/sound/ambient/갤러리_오.wav',
+    'data/sound/ambient/갤러리_실망.wav',
+    'data/sound/ambient/바다소리.wav',
+    'data/sound/ambient/갈매기울음.wav',
+    'data/sound/바다소리2.wav',
+    'data/sound/나이스샷.wav',
+    'data/sound/팡야.wav',
+    'data/sound/ball/gorgeous_pangya.wav',
+    'data/sound/lobby/coffee_time.mp3',
+    'data/sound/bgm/bgm_grandprix_lobby.mp3',
+    'data/sound/bgm/grandprix_lobby.mp3',
+    'data/sound/season2/title_r.mp3',
+    'data/sound/clubset/2013_thanksgiving/08.kaz/2013_thanksgiving_7_pangya0.wav',
+    'data/sound/clubset/2013_thanksgiving/08.kaz/2013_thanksgiving_7_birdie0.wav',
+    'data/sound/clubset/2013_thanksgiving/08.kaz/2013_thanksgiving_7_eagle0.wav',
+    'data/sound/clubset/2014_voice_club/08.kaz/2014_voice_club_7_py1.wav',
+  ])
+
+  it('cova, público, "nice shot", PANGYA e música do menu', () => {
+    const files = (id: string) => resolveEvent(byId(id), none, REAL).files
+    // "공_홀인" (entra), não "공_컵점프1" (pula na borda).
+    expect(files('cup')).toEqual(['data/sound/ball/공_홀인.wav'])
+    expect(files('applause')).toEqual(['data/sound/ambient/갤러리_박수.wav'])
+    expect(files('galleryWow')).toEqual(['data/sound/ambient/갤러리_와우.wav'])
+    expect(files('galleryOh')).toEqual(['data/sound/ambient/갤러리_오.wav'])
+    expect(files('galleryDisappointed')).toEqual(['data/sound/ambient/갤러리_실망.wav'])
+    expect(files('niceShot')).toEqual(['data/sound/나이스샷.wav'])
+    expect(files('pangya')).toEqual(['data/sound/팡야.wav'])
+    expect(files('musicMenu')).toEqual(['data/sound/lobby/coffee_time.mp3'])
+  })
+
+  it('música do curso pelas palavras da pasta dele', () => {
+    const music = audioFiles([
+      'data/sound/bgm/spring.mp3',
+      'data/sound/bgm/navy_blue.mp3',
+      'data/sound/bgm/shiny.mp3',
+      'data/sound/bg/wizcity/adayinthewizcity.mp3',
+      'data/sound/bg/wizcity/secretwish.mp3',
+      'data/sound/bg/wizcity/vento.wav', // efeito da pasta: não é música
+    ])
+    const files = (round: string, prefix: string) =>
+      resolveEvent(courseMusicEvent(round, prefix, round), none, music).files
+    expect(files('round10_spring wind', 'pink')).toEqual(['data/sound/bgm/spring.mp3'])
+    expect(files('round19_wizcity', 'wiz')).toEqual([
+      'data/sound/bg/wizcity/adayinthewizcity.mp3',
+      'data/sound/bg/wizcity/secretwish.mp3',
+    ])
+    expect(files('round02_blue', 'blue')).toEqual(['data/sound/bgm/navy_blue.mp3'])
+    expect(files('round14_green sand', 'green')).toEqual([])
+  })
+
+  it('som ambiente pela caixa de som e gaivotas pelos bichos do curso', () => {
+    expect(ambientFiles('바다', REAL)).toEqual([
+      'data/sound/ambient/바다소리.wav',
+      'data/sound/바다소리2.wav',
+    ])
+    expect(npcSoundFiles('NPC_SeaGull.pet', REAL)).toEqual(['data/sound/ambient/갈매기울음.wav'])
+    expect(npcSoundFiles('NPC_Butterfly.pet', REAL)).toEqual([])
+  })
+
+  it('voz: o taco de voz normal antes dos pacotes de evento', () => {
+    const voices = voiceFiles(REAL)
+    // O de evento tem mais falas aqui, mas o "2014_voice_club" vem primeiro.
+    expect(voicePrefixesFor('data/avatar/h_kaz/h_def', voices)).toEqual([
+      '2014_voice_club_7',
+      '2013_thanksgiving_7',
+    ])
   })
 })

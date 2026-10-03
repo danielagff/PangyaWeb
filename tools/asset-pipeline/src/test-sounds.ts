@@ -51,6 +51,8 @@ const SOUNDS: Record<string, [number[], number]> = {
   'sound/teste/voice/t_bi1.wav': [[700, 800, 900], 0.12],
   'sound/teste/voice/t_par1.wav': [[500, 500], 0.12],
   'sound/teste/voice/t_ps1.wav': [[400, 800], 0.15],
+  'sound/teste/ambient/바다소리.wav': [[110, 98, 110, 123], 0.5],
+  'sound/teste/ambient/갈매기울음.wav': [[1400, 1800, 1400], 0.08],
   'sound/teste/bgm/로비.wav': [[262, 330, 392, 330], 0.4],
   'round02_blue/sound/teste/bgm_blue.wav': [[392, 494, 587, 494], 0.4],
 }

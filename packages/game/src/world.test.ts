@@ -56,6 +56,8 @@ function flatHole(): HoleData {
     fog: undefined,
     obstacles: [],
     obstacleSource: 'pycb',
+    ambient: [],
+    npcs: [],
   }
 }
 

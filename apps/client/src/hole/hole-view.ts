@@ -88,6 +88,8 @@ const BEAM_HEIGHT = 100
 /** Raio da coluna de luz (unidades) e a largura mínima dela na tela (px). */
 const BEAM_RADIUS = 0.9
 const BEAM_MIN_PIXELS = 6
+/** Distância da cova (jardas) em que parar arranca um "oh…" do público. */
+const NEAR_MISS_YARDS = 1.5
 /** Segundos antes de a bola cair em que a câmera livre do voo volta ao normal. */
 const FREE_CAMERA_UNTIL_LANDING = 0.8
 const UP = new Vector3(0, 1, 0)
@@ -459,6 +461,11 @@ export class HoleView {
     const { round, prefix } = world.data.ref
     sound.round = round
     void sound.music(courseMusicEvent(round, prefix, courseName({ round, prefix })))
+    // Som ambiente do buraco (o mar no Blue Lagoon) e os bichos do cenário (gaivotas).
+    void sound.startAmbient(
+      world.data.ambient,
+      world.data.npcs.map((n) => n.model),
+    )
     this.renderer = renderer
     this.camera = camera
     this.scene = scene
@@ -1506,13 +1513,21 @@ export class HoleView {
           break
         case 'water':
           void sounds.play('water')
+          void sounds.play('galleryDisappointed')
           void sounds.voice(character, 'w')
           break
-        case 'stop':
+        case 'stop': {
           if (e.surface === 'bunker') void sounds.voice(character, 'bu')
+          // Parou pertinho da cova: o público faz "oh…".
+          const i = Math.min(e.frame, flight.frames.length / 3 - 1) * 3
+          const cup = this.world.cup
+          const gap = Math.hypot(flight.frames[i]! - cup.x, flight.frames[i + 2]! - cup.z)
+          if (gap < yardsToUnits(NEAR_MISS_YARDS)) void sounds.play('galleryOh')
           break
+        }
         case 'outOfBounds':
           void sounds.play('outOfBounds')
+          void sounds.play('galleryDisappointed')
           void sounds.voice(character, 'ob')
           break
         case 'hole':
@@ -1533,6 +1548,8 @@ export class HoleView {
     const sounds = this.sounds
     const pangya = impact === undefined || isPangya(impact)
     void sounds.play(pangya ? 'pangya' : Math.abs(impact) > 1 ? 'miss' : 'shot')
+    // Boa, mas sem PANGYA: "Nice shot!" (não no putt).
+    if (!pangya && Math.abs(impact) <= 1 && !club?.startsWith('PT')) void sounds.play('niceShot')
     const power = powerShot === 'one' || powerShot === 'two' || powerShot === 'item15'
     if (power) void sounds.play('powerShot')
     // Voz: power shot ("ps" / "dps") ou "Pangya!" (não no putt).
@@ -1546,6 +1563,7 @@ export class HoleView {
   announceScore(playerId: string, strokes: number, par: number, chipIn = false) {
     const character = this.players.find((p) => p.id === playerId)?.character
     void this.sounds.play(chipIn && strokes > 1 ? 'chipIn' : scoreSound(strokes, par))
+    if (strokes - par <= -1) void this.sounds.play('galleryWow')
     void this.sounds.voice(character, scoreVoice(strokes, par))
   }
 
@@ -1793,6 +1811,7 @@ export class HoleView {
   }
 
   dispose() {
+    this.sounds.stopAmbient()
     this.flight?.done()
     this.flight = undefined
     this.renderer.setAnimationLoop(null)

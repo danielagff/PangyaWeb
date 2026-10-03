@@ -49,6 +49,18 @@ Efeitos sonoros e música tocando nos eventos certos.
   `bgm_scoreboard` → fim do buraco e da rodada; `bgm_grandprix_lobby` fica fora do menu);
   vozes de caddie (`1_cien1_tlimit01.wav`…). A página de diagnóstico agora mostra as pastas
   dos sons e o caminho de cada música (para achar a de cada curso).
+- Com os nomes certos (2º diagnóstico): cova = `공_홀인.wav` (não `공_컵점프1`, que é a bola
+  pulando na borda); **público** (`갤러리_박수` aplausos na cova, `갤러리_와우` no birdie ou
+  melhor, `갤러리_오` quando para a menos de 1,5 y da cova, `갤러리_실망` na água/O.B.);
+  `나이스샷.wav` ("Nice shot!") na batida boa sem PANGYA; música do menu da pasta
+  `sound/lobby` (`coffee_time.mp3`); vozes: o taco de voz normal (`2014_voice_club`, depois
+  `v2_club`) antes dos pacotes de evento.
+- **Som ambiente** pelas caixas de som do curso (`바다` → `바다소리.wav` em laço) e os bichos
+  (`NPC_SeaGull` → `갈매기울음.wav` a cada 8–22 s).
+- Música de cada curso: nenhuma tabela liga curso → música (o `Course.iff` não tem); o
+  automático tenta a pasta do curso, a pasta de sons dele (`sound/bg/wizcity/…`) e as
+  palavras do nome da pasta (`spring wind` → `spring.mp3`), senão o prefixo (`blue` →
+  `navy_blue.mp3`, a confirmar). O Daniel confere e troca na tela Sons.
 - **Tela "Sons" no mapeador** (`audio/sound-mapper.ts`; `mapeador.html#sons` ou "Sons do
   jogo" no menu): os momentos com os arquivos que tocam e de onde vieram (escolhido,
   automático, sintetizado, mudo); todos os arquivos de som por pasta, com ▶ e ＋ para usar no

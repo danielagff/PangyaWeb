@@ -9,7 +9,9 @@
  */
 import { assetPaths, findAsset, tryFetchBytes } from '../hole/assets.ts'
 import {
+  ambientFiles,
   audioFiles,
+  npcSoundFiles,
   emptyChoices,
   resolveEvent,
   resolveVoice,
@@ -85,6 +87,10 @@ export class SoundLibrary {
   private voice_: AudioBufferSourceNode | undefined
   private musicNow: { id: string; source: AudioBufferSourceNode; gain: GainNode } | undefined
   private musicWanted: string | undefined
+  /** Sons ambientes tocando (laços) e o relógio dos sons dos bichos. */
+  private ambientNow: AudioBufferSourceNode[] = []
+  private npcTimer: ReturnType<typeof setTimeout> | undefined
+  private ambientToken = 0
 
   constructor() {
     if (typeof window === 'undefined') return
@@ -176,13 +182,14 @@ export class SoundLibrary {
     return resolveEvent(sound, await this.soundChoices(), await this.soundFiles())
   }
 
-  private start(buffer: AudioBuffer, category: SoundCategory, volume: number) {
+  private start(buffer: AudioBuffer, category: SoundCategory, volume: number, loop = false) {
     const context = this.audio()!
     const gain = context.createGain()
     gain.gain.value = volume
     gain.connect(this.gains.get(category)!)
     const source = context.createBufferSource()
     source.buffer = buffer
+    source.loop = loop
     source.connect(gain)
     source.start()
     return source
@@ -234,6 +241,53 @@ export class SoundLibrary {
       // já tinha acabado
     }
     this.voice_ = this.start(buffer, 'voices', 1)
+  }
+
+  /**
+   * Som ambiente do buraco (caixas de som do .gbin: "바다" → mar, em laço) e, de vez em
+   * quando, o som dos bichos do cenário (gaivotas). Troca o que estava tocando.
+   */
+  async startAmbient(names: string[], npcModels: string[]) {
+    this.stopAmbient()
+    const token = ++this.ambientToken
+    const context = this.audio()
+    if (!context) return
+    const files = await this.soundFiles()
+    for (const name of names) {
+      const path = ambientFiles(name, files)[0]
+      const buffer = path && (await this.load(path))
+      if (!buffer || token !== this.ambientToken) continue
+      this.ambientNow.push(this.start(buffer, 'effects', 0.35, true))
+    }
+    const calls = [...new Set(npcModels.flatMap((m) => npcSoundFiles(m, files)))]
+    if (calls.length === 0) return
+    const next = () => {
+      this.npcTimer = setTimeout(
+        () => {
+          if (token !== this.ambientToken) return
+          const path = pick(calls)
+          if (path && !this.muted) {
+            void this.load(path).then((b) => b && this.start(b, 'effects', 0.5))
+          }
+          next()
+        },
+        8000 + Math.random() * 14000,
+      )
+    }
+    next()
+  }
+
+  stopAmbient() {
+    this.ambientToken++
+    clearTimeout(this.npcTimer)
+    for (const source of this.ambientNow) {
+      try {
+        source.stop()
+      } catch {
+        // já tinha parado
+      }
+    }
+    this.ambientNow = []
   }
 
   /** Música em laço (troca com fade); undefined para. */

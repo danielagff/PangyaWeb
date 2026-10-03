@@ -66,6 +66,8 @@ function hole(pinZ: number, drop = 0, obstacles: HoleData['obstacles'] = []): Ho
     fog: undefined,
     obstacles,
     obstacleSource: 'pycb',
+    ambient: [],
+    npcs: [],
   }
   return new HoleWorld(data)
 }

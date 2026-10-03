@@ -11,6 +11,7 @@ import {
   solidBoxes,
   type CollisionBox,
   type GbinElement,
+  type GbinSoundBox,
   type Mat4x3,
   type Pet,
   type PetSubMesh,
@@ -85,6 +86,34 @@ export interface HoleData {
   /** Caixas sólidas dos objetos (do .pycb do buraco ou geradas pelos modelos). */
   obstacles: CollisionBox[]
   obstacleSource: 'pycb' | 'modelos'
+  /** Sons ambientes do buraco (caixas de som do .gbin: "바다" = mar). */
+  ambient: string[]
+  /** Bichos do cenário (caixas "*pet NPC_SeaGull.pet *num 5"), com a área onde ficam. */
+  npcs: HoleNpc[]
+}
+
+export interface HoleNpc {
+  model: string
+  count: number
+  box: { min: [number, number, number]; max: [number, number, number] }
+}
+
+/**
+ * Caixas de som do .gbin: o nome é um som ambiente ("바다") ou um comando que põe bichos
+ * no cenário ("*type 0 *pet NPC_SeaGull.pet *num 5"). "*extra" e vazias ficam de fora.
+ */
+export function readSoundBoxes(boxes: GbinSoundBox[]): { ambient: string[]; npcs: HoleNpc[] } {
+  const ambient = new Set<string>()
+  const npcs: HoleNpc[] = []
+  for (const { name, box } of boxes) {
+    const text = name.trim()
+    const pet = /\*pet\s+(\S+)/i.exec(text)?.[1]
+    if (pet) {
+      const count = Number(/\*num\s+(\d+)/i.exec(text)?.[1] ?? 1)
+      npcs.push({ model: pet, count, box: { min: box.min, max: box.max } })
+    } else if (text && !text.startsWith('*')) ambient.add(text)
+  }
+  return { ambient: [...ambient], npcs }
 }
 
 const transform = (positions: Float32Array, matrix: Mat4x3) => {
@@ -218,5 +247,6 @@ export async function loadHoleData(
     fog: fogBytes && parseFog(new TextDecoder().decode(fogBytes)),
     obstacles: solidBoxes(boxes),
     obstacleSource: pycb ? 'pycb' : 'modelos',
+    ...readSoundBoxes(gbin.soundBoxes),
   }
 }

@@ -46,7 +46,15 @@ jogar com amigos, com o **PC do Daniel como servidor**. Não é vendido nem publ
 
 ## Em andamento agora
 
-Última entrega (03/10/2026): **nomes coreanos dos arquivos corrigidos e vozes de verdade**
+Última entrega (03/10/2026): **sons com os nomes reais** (2º diagnóstico, depois da
+reextração): cova `공_홀인`, **público** (aplausos, "uau" no birdie, "oh…" quando para
+pertinho, decepção na água/O.B.), "Nice shot!", música do menu (`coffee_time.mp3`), **som do
+mar e gaivotas** no Blue Lagoon (pelas caixas de som do curso), vozes do taco de voz normal,
+música do curso pelas palavras da pasta (`spring wind` → `spring.mp3`). Achado para o mapa
+100%: os buracos têm **bichos** (gaivotas, borboletas, toupeira, golfinho, caranguejo) que
+ainda não aparecem.
+
+Antes: **nomes coreanos dos arquivos corrigidos e vozes de verdade**
 (com o diagnóstico do Daniel). A extração lia os nomes coreanos como japonês ("ﾆﾎｾﾟ.wav"
 em vez de "팡야.wav"), então o jogo não achava sons dos pisos nem texturas com nome coreano;
 o **`servidor.cmd` extrai de novo sozinho, uma vez** (alguns minutos) e apaga os arquivos
@@ -176,7 +184,8 @@ Regras de nomes de peças já confirmadas pelo Daniel (implementadas em
    shot, erros, putts, comemorações e decepções de cada resultado, chat), o **quadro exato do
    impacto**, a roupa padrão, a frente do modelo e a posição na bola. Ler o bloco **FRAM**
    (troca de rosto e esconder/mostrar o taco por quadro).
-2. **1 mapa 100%** (qual e o que falta: o Daniel diz).
+2. **1 mapa 100%** (qual e o que falta: o Daniel diz). Já se sabe: faltam os **bichos do
+   cenário** (gaivotas, borboletas, toupeira, golfinho, caranguejo — `HoleData.npcs`, spec 06) e confirmar a música de cada curso.
 3. **Habilidades do power shot** (tomahawk, spike, cobra): comandos ainda a definir pelo
    Daniel (a física já suporta `shot`; o HUD só manda tacada normal).
 4. **Sons**: conferir com os arquivos reais na tela Sons (Daniel); sons ambientes do curso
