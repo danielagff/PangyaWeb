@@ -14,6 +14,8 @@ import { courseName, describePlan, formatHoles, parseHoles, soloUrl } from '../m
 import { saveRecord } from '../menu/records.ts'
 import { cardTotals, scorecardHtml } from '../menu/scorecard.ts'
 import { playerPower } from '../settings.ts'
+import { progress, reveal } from '../app/transition.ts'
+import type { Screen } from '../app/navigation.ts'
 import { HoleView } from './hole-view.ts'
 
 type CardEntry = { strokes: number; par: number }
@@ -52,10 +54,21 @@ function holeUrl(hole: number, plan: number[], card: CardEntry[]) {
 
 const today = () => new Date().toISOString().slice(0, 10)
 
-/** Jogo sozinho: um buraco por página, com o placar seguindo pela URL até o fim do plano. */
-export async function startHoleMode(ref: HoleRef) {
+/**
+ * Jogo sozinho: um buraco por tela, com o placar seguindo pela URL até o fim do plano. Carrega
+ * por baixo da transição (app/transition.ts) e só aparece com tudo pronto.
+ */
+export async function startHoleMode(ref: HoleRef): Promise<Screen> {
   // Sozinho: atalhos de desenvolvimento ligados (P = sempre PANGYA).
-  const view = await HoleView.create(ref, { devTools: true })
+  const view = await HoleView.create(ref, { devTools: true, onProgress: progress })
+  const listeners: (() => void)[] = []
+  const screen: Screen = {
+    dispose() {
+      for (const remove of listeners) remove()
+      view.dispose()
+    },
+    snapshot: () => view.snapshot(),
+  }
   const { world } = view
   const allCard = readCard()
   const plan = readPlan(ref.hole, allCard.length)
@@ -86,8 +99,11 @@ export async function startHoleMode(ref: HoleRef) {
     .filter(Boolean)
     .join(' · ')
   view.setPlayers([{ ...me, state }], me.id, true)
-  // Começo do buraco: a entrada do personagem (como no jogo).
-  if (state.strokes === 0) void view.entrance(me.id)
+  // Só mostra com tudo pronto (personagem, cenário, música); depois, a entrada do personagem.
+  await view.whenReady(me.id, progress)
+  void reveal().then(() => {
+    if (state.strokes === 0) void view.entrance(me.id)
+  })
 
   view.onShoot = async (request) => {
     const played = world.play(state, request, wind)
@@ -115,6 +131,8 @@ export async function startHoleMode(ref: HoleRef) {
     if (state.finished) endHole()
   }
 
+  return screen
+
   function endHole() {
     const nextCard = [...card, { strokes: state.strokes, par: state.par }]
     const strokes = plan.map((_, i) => nextCard[i]?.strokes)
@@ -130,6 +148,7 @@ export async function startHoleMode(ref: HoleRef) {
       box.querySelector<HTMLAnchorElement>('[data-primary]')?.click()
     }
     window.addEventListener('keydown', onKey)
+    listeners.push(() => window.removeEventListener('keydown', onKey))
   }
 
   /** Quadro do fim de um buraco, com o cartão até aqui. */

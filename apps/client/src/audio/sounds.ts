@@ -100,6 +100,32 @@ export class SoundLibrary {
     window.addEventListener('pointerdown', unlock)
   }
 
+  /** O navegador já liberou o som (houve um toque ou tecla nesta página)? */
+  get unlocked() {
+    return this.audio()?.state === 'running'
+  }
+
+  /** Libera o som (chamar dentro de um toque/tecla do usuário). */
+  resume() {
+    return this.audio()?.resume() ?? Promise.resolve()
+  }
+
+  /** Espera o primeiro toque/tecla liberar o som. */
+  whenUnlocked(): Promise<void> {
+    if (this.unlocked) return Promise.resolve()
+    return new Promise((resolve) => {
+      const done = () => {
+        window.removeEventListener('keydown', done, true)
+        window.removeEventListener('pointerdown', done, true)
+        void this.audio()
+          ?.resume()
+          .then(() => resolve())
+      }
+      window.addEventListener('keydown', done, true)
+      window.addEventListener('pointerdown', done, true)
+    })
+  }
+
   /** Lê de novo a escolha do mapeador (depois de mudar na tela "Sons"). */
   reloadChoices(choices?: SoundChoices) {
     this.choices = Promise.resolve(choices ?? loadSoundChoices())
@@ -303,17 +329,25 @@ export class SoundLibrary {
   }
 
   /** Música em laço (troca com fade); undefined para. */
+  /**
+   * Troca a música. A anterior continua tocando até a nova estar carregada (nunca fica sem
+   * música na troca de tela); a promessa termina quando a nova começa (ou não há arquivo).
+   */
   async music(sound: SoundEvent | undefined) {
     this.musicWanted = sound?.id
     if (this.musicNow?.id === sound?.id) return
     const context = this.audio()
     if (!context) return
-    this.stopMusic()
-    if (!sound) return
+    if (!sound) {
+      this.stopMusic()
+      return
+    }
     const { files } = await this.filesFor(sound)
     const path = pick(files)
     const buffer = path && (await this.load(path))
-    if (!buffer || this.musicWanted !== sound.id) return
+    if (this.musicWanted !== sound.id) return
+    this.stopMusic()
+    if (!buffer) return
     const gain = context.createGain()
     gain.gain.setValueAtTime(0.0001, context.currentTime)
     gain.gain.exponentialRampToValueAtTime(1, context.currentTime + MUSIC_FADE)

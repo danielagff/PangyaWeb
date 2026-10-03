@@ -653,7 +653,8 @@ export class HoleView {
     this.sounds = sound
     const { round, prefix } = world.data.ref
     sound.round = round
-    void sound.music(courseMusicEvent(round, prefix, courseName({ round, prefix })))
+    // A do curso: a tela anterior (menu, buraco anterior) continua tocando até ela carregar.
+    this.musicStarted = sound.music(courseMusicEvent(round, prefix, courseName({ round, prefix })))
     // Som ambiente do buraco (o mar no Blue Lagoon) e os bichos do cenário (gaivotas).
     void sound.startAmbient(
       world.data.ambient,
@@ -941,8 +942,14 @@ export class HoleView {
    */
   static async create(
     ref: HoleRef,
-    options: { lockWind?: boolean; devTools?: boolean } = {},
+    options: {
+      lockWind?: boolean
+      devTools?: boolean
+      /** Progresso do carregamento (0..1) e o que está carregando (para a transição). */
+      onProgress?: (fraction: number, text: string) => void
+    } = {},
   ): Promise<HoleView> {
+    const report = options.onProgress ?? (() => {})
     // Tacos da mão já pedidos agora: depois, ficariam na fila atrás dos arquivos do curso.
     for (const category of ['wood', 'iron', 'wedge', 'putter'] as const) void clubModelFor(category)
     const status = document.createElement('div')
@@ -960,12 +967,15 @@ export class HoleView {
         1,
         SKY_RADIUS * 2.4,
       )
+      report(0.05, 'Buraco…')
       const data = await loadHoleData(browserFiles, ref)
+      report(0.15, 'Texturas…')
       const world = new HoleWorld(data)
       const scene = new Scene()
       const textures = new TextureLibrary(ref.round, renderer.capabilities.getMaxAnisotropy())
       const course = await buildCourseScene(data, scene, textures, (done, total) => {
         status.textContent = `Carregando texturas… ${done}/${total}`
+        report(0.15 + 0.35 * (total ? done / total : 1), `Texturas… ${done}/${total}`)
       })
       const view = new HoleView(world, renderer, camera, scene, course, status, {
         lockWind: options.lockWind ?? false,
@@ -2513,6 +2523,45 @@ export class HoleView {
 
   /** Objetos animados e bichos do buraco (carregam sem travar o começo). */
   private sceneLife: SceneLife | undefined
+  private sceneLifeLoaded: Promise<void> = Promise.resolve()
+  /** A música do curso já começou (a transição espera por ela). */
+  private musicStarted: Promise<void> = Promise.resolve()
+
+  /**
+   * Espera tudo do começo do buraco ficar pronto, para a tela só aparecer completa: o
+   * personagem com o taco na mão e as câmeras dele, os bichos e objetos animados, a música
+   * do curso. `step` recebe o progresso (0..1) e o que está carregando. Cada parte tem um
+   * limite de tempo (um arquivo que não vem não trava o jogo).
+   */
+  async whenReady(playerId: string, step: (fraction: number, text: string) => void = () => {}) {
+    const limit = <T>(promise: Promise<T>, seconds: number) =>
+      Promise.race([promise, new Promise<undefined>((r) => setTimeout(r, seconds * 1000))])
+    const player = this.players.find((p) => p.id === playerId)
+    step(0.55, 'Personagem…')
+    const model = player?.character ? await limit(this.characterOf(player), 25) : undefined
+    if (model) {
+      await limit(this.address(model), 10)
+      step(0.7, 'Câmeras…')
+      await limit(this.cameraPathOf(model), 8)
+    }
+    step(0.8, 'Cenário…')
+    await limit(this.sceneLifeLoaded, 10)
+    step(0.9, 'Música…')
+    await limit(this.musicStarted, 12)
+    // Compila os materiais agora (sem engasgo no primeiro quadro).
+    this.renderer.compile(this.scene, this.camera)
+    step(1, '')
+  }
+
+  /** Imagem da tela agora (a transição dissolve dela para a próxima tela). */
+  snapshot(): string | undefined {
+    try {
+      this.renderer.render(this.scene, this.camera)
+      return this.renderer.domElement.toDataURL('image/jpeg', 0.85)
+    } catch {
+      return undefined
+    }
+  }
 
   startSceneLife(textures: TextureLibrary) {
     const life = new SceneLife(
@@ -2523,7 +2572,9 @@ export class HoleView {
     )
     this.sceneLife = life
     this.cleanups.push(() => life.dispose())
-    life.load().catch((err: unknown) => console.warn('vida do cenário:', err))
+    this.sceneLifeLoaded = life
+      .load()
+      .catch((err: unknown) => console.warn('vida do cenário:', err))
   }
 
   /** Põe o sol e o receptor da sombra sob o personagem visível (ou esconde). */
@@ -2690,6 +2741,8 @@ export class HoleView {
     this.flight = undefined
     this.renderer.setAnimationLoop(null)
     this.renderer.dispose()
+    // Troca de buraco sem recarregar a página: devolve o contexto WebGL (o navegador limita).
+    this.renderer.forceContextLoss()
     for (const cleanup of this.cleanups) cleanup()
     for (const el of this.elements) el.remove()
   }

@@ -21,6 +21,12 @@ Efeitos sonoros e música tocando nos eventos certos.
 
 ## Progresso
 
+- **Música sem buracos** (04/10/2026): `sound.music` deixa a música anterior tocando até
+  a nova estar carregada e só então troca (antes parava a anterior e ficava em silêncio
+  enquanto o arquivo baixava). Com a troca de tela sem recarregar a página, a música do menu
+  (ou a do fim do buraco) toca durante o carregamento e a do curso entra quando está
+  pronta; a tela só aparece depois disso.
+
 - **Barra e batida como no jogo** (mapeado pelo Daniel): 2º toque = `shot_good_timing` (na
   força máxima do taco, `shot_best_timing`); 3º toque na hora do toque: PANGYA =
   `shot_best_timing`, normal = `shot_normal_timing`, errado = `shot_bad_timing`. Madeira:

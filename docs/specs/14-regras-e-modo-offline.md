@@ -35,6 +35,11 @@ function reduce(state: MatchState, event: MatchEvent): MatchState   // puro, det
 
 ## Progresso
 
+- **Água e fora do mapa = O.B.** (04/10/2026, pedido do Daniel): +1 de penalidade e a bola
+  volta ao **último ponto válido da trajetória** (o último ponto sobre chão seco e dentro do
+  mapa, recuado ~1 jarda da borda; `HoleWorld.lastValidPoint`). Antes o O.B. voltava para
+  onde a tacada saiu. O estado guarda `dropAt`/`dropSurface`/`liePower` também no O.B.
+
 - `packages/game` (`hole.ts`): estado de um buraco em Stroke Play, puro e serializável —
   `startHole`, `applyShot`, `scoreName`, `scoreToPar`, `isChipIn`, com testes.
 - Penalidades implementadas (a confirmar no original): água +1 com a bola no último ponto

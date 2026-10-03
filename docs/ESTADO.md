@@ -52,7 +52,13 @@ um, copia o código já descriptografado da memória com o PE-sieve e manda para
 repositório privado `pangyaweb-dump`). Falta o Daniel rodar; depois analisar a cópia e achar
 as funções da câmera. Riscos: o jogo fechar rápido demais, GameGuard, código virtualizado.
 
-Última entrega (04/10/2026): **personagens piscando e com expressões, sombra e cenário vivo**
+Última entrega (04/10/2026): **transições, música sempre tocando e ajustes do vídeo do
+Daniel** — menu → buraco e buraco → buraco sem recarregar a página, com a cortina de
+carregamento (nome do curso e progresso; do buraco anterior, a imagem dele se dissolvendo) e
+a tela só aparece com tudo pronto, música incluída (a anterior toca até a nova carregar);
+água e fora do mapa = O.B. voltando ao último ponto válido; espaço na tacada acelera 2× (não
+pula); cova sem pressa (bola em ritmo constante, moedas caindo devagar, comemoração inteira
+antes do placar). Antes: **personagens piscando e com expressões, sombra e cenário vivo**
 — o rosto troca pelo evento `*ptex` das animações do jogo (todos os personagens piscam na
 preparação e fazem as caras das poses); sombra do personagem e do taco no chão; o navio e
 as lâmpadas animados; gaivotas, borboletas, toupeiras, golfinhos e caranguejos de cada

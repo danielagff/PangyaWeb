@@ -229,6 +229,12 @@ Câmeras de jogo e HUD com as informações necessárias para mirar como no orig
   cabeça já ajustada. E quando o taco termina de carregar depois do personagem posicionado
   (ou com a barra andando), ele é reposicionado (antes o taco ficava flutuando).
 
+- **Cova sem pressa, como no vídeo do Daniel** (04/10/2026): a bola que entra vai em ritmo
+  constante (sem a câmera lenta perto da cova) e a câmera da chegada fica parada olhando a
+  cova (não segue a bola). As moedas da cova saem baixas, abertas e devagar
+  (`CUP_COINS`), caem e somem; a comemoração só corta para o personagem quando elas acabam
+  (2,5–7 s) e a pose final fica 1,5 s antes do placar.
+
 ## Problemas conhecidos
 
 ### Tela inteira azul (céu/névoa) depois de algumas tacadas — Pink Wind buraco 1

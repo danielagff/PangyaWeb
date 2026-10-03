@@ -25,6 +25,7 @@ import {
 import { powerInput } from '../settings.ts'
 import { BallPreview } from './ball-preview.ts'
 import { CharacterPreview } from './character-preview.ts'
+import { goTo, type Screen as AppScreen } from '../app/navigation.ts'
 import { courseName, describePlan, HOLE_COUNTS, planHoles, soloUrl } from './courses.ts'
 import { readRecord } from './records.ts'
 
@@ -89,7 +90,7 @@ const typing = (e: KeyboardEvent) =>
   e.target instanceof HTMLSelectElement ||
   e.target instanceof HTMLTextAreaElement
 
-export function showMenu() {
+export function showMenu(): AppScreen {
   const root = document.createElement('div')
   root.className = 'menu'
   document.body.appendChild(root)
@@ -132,7 +133,7 @@ export function showMenu() {
   }
 
   window.addEventListener('popstate', render)
-  window.addEventListener('keydown', (e) => {
+  const onKey = (e: KeyboardEvent) => {
     if (typing(e)) {
       if (e.key === 'Escape') (e.target as HTMLElement).blur()
       return
@@ -142,7 +143,8 @@ export function showMenu() {
     else if (e.key === 'Enter') void sound.play('uiConfirm')
     else if (e.key === 'Escape') void sound.play('uiBack')
     keys(e)
-  })
+  }
+  window.addEventListener('keydown', onKey)
   root.addEventListener('click', (e) => {
     if ((e.target as HTMLElement).closest('a, button')) void sound.play('uiConfirm')
   })
@@ -447,7 +449,8 @@ export function showMenu() {
     }
     const start = () => {
       const holes = plan()
-      if (holes.length) location.href = soloUrl(course(), holes)
+      // Sem recarregar a página: a música do menu toca até a do curso carregar.
+      if (holes.length) goTo(soloUrl(course(), holes))
     }
     const back = () => goBack('solo')
 
@@ -489,4 +492,12 @@ export function showMenu() {
   }
 
   render()
+  return {
+    dispose() {
+      leave()
+      window.removeEventListener('popstate', render)
+      window.removeEventListener('keydown', onKey)
+      root.remove()
+    },
+  }
 }

@@ -34,6 +34,18 @@ curso/modo → partida → resultado.
 
 ## Progresso
 
+- **Transições e sem recarregar a página** (04/10/2026, `app/navigation.ts`,
+  `app/transition.ts`): menu → buraco e buraco → próximo buraco trocam de tela na mesma
+  página (o endereço muda pelo history; voltar/avançar funcionam). Enquanto a próxima tela
+  carrega, uma cortina fica por cima: do menu, o fundo azul com o nome do curso, o buraco e
+  a barra de progresso (buraco, texturas, personagem, câmeras, cenário, música); do buraco
+  anterior, a **última imagem dele se dissolvendo** no novo, como no original. A tela só
+  aparece com tudo pronto (`HoleView.whenReady`) e a entrada do personagem começa depois.
+  Durante o carregamento as teclas não chegam ao jogo. Abrindo a página direto num buraco
+  (sem toque ainda), a cortina pede "Clique ou aperte uma tecla para começar" — o navegador
+  só libera o som depois de um toque, e assim o jogo nunca começa sem música.
+- **Espaço durante a tacada acelera (2×)** em vez de pular para o fim, como no original.
+
 - **Tacos** (`equipment/clubsets.ts`): os conjuntos do `clubSets.json` (ClubSet.iff; 121 com
   os 4 tacos achados na extração pelo `clubs.json`), com o ícone da loja
   (`ui/shop_myroom/clubs/<ícone>.tga`, lido por `readTga`) e os atributos. Na tela do
