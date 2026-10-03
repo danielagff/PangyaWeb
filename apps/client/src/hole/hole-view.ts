@@ -374,30 +374,41 @@ function cupHole(normal: Vector3, at: Vector3) {
 }
 
 /** Rosa dos ventos: mostrador redondo, seta azul (girada pelo vento) e selo com os metros. */
+/**
+ * Rosa dos ventos como no original: aro prateado com 4 parafusos, miolo verde translúcido
+ * (o chão aparece por baixo), seta azul com degradê (escura na cauda, clara na ponta) e o
+ * selo preto com a força em metros. Fica embaixo à direita, ao lado da barra.
+ */
 const WIND_DIAL = `
   <svg viewBox="0 0 100 100" aria-hidden="true">
     <defs>
-      <linearGradient id="wind-ring" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stop-color="#f4f6f8" /><stop offset="0.5" stop-color="#9aa4ae" />
-        <stop offset="1" stop-color="#e3e7ea" />
+      <linearGradient id="wind-ring" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#ffffff" /><stop offset="0.35" stop-color="#d9dee3" />
+        <stop offset="0.55" stop-color="#8e979f" /><stop offset="0.8" stop-color="#e9ecef" />
+        <stop offset="1" stop-color="#aab2ba" />
       </linearGradient>
-      <radialGradient id="wind-face" cx="0.5" cy="0.4" r="0.6">
-        <stop offset="0" stop-color="#2e7d5b" /><stop offset="1" stop-color="#0f3d2a" />
+      <radialGradient id="wind-face" cx="0.45" cy="0.35" r="0.75">
+        <stop offset="0" stop-color="#1f6b4a" stop-opacity="0.55" />
+        <stop offset="1" stop-color="#06301f" stop-opacity="0.8" />
       </radialGradient>
     </defs>
-    <circle cx="50" cy="50" r="48" fill="#26323a" />
-    <circle cx="50" cy="50" r="44" fill="url(#wind-ring)" />
-    <circle cx="50" cy="50" r="35" fill="url(#wind-face)" stroke="#0b1f16" stroke-width="2" />
+    <circle cx="50" cy="50" r="48.5" fill="url(#wind-ring)" stroke="#3b4248" stroke-width="1.5" />
+    <circle cx="50" cy="50" r="40" fill="url(#wind-face)" stroke="#4a535b" stroke-width="2" />
+    <path d="M18 34 A36 36 0 0 1 66 16" fill="none" stroke="#fff" stroke-width="2.5" opacity="0.25" stroke-linecap="round" />
+    <g fill="#3a4148">
+      <circle cx="50" cy="5.5" r="1.8" /><circle cx="94.5" cy="50" r="1.8" />
+      <circle cx="50" cy="94.5" r="1.8" /><circle cx="5.5" cy="50" r="1.8" />
+    </g>
   </svg>
   <svg class="arrow" viewBox="0 0 100 100" aria-hidden="true">
     <defs>
-      <linearGradient id="wind-arrow" x1="0" y1="0" x2="1" y2="0">
-        <stop offset="0" stop-color="#7fd4ff" /><stop offset="0.5" stop-color="#2f8fe0" />
-        <stop offset="1" stop-color="#1257a8" />
+      <linearGradient id="wind-arrow" x1="0" y1="1" x2="0" y2="0">
+        <stop offset="0" stop-color="#0b3f9e" /><stop offset="0.55" stop-color="#1d8be6" />
+        <stop offset="1" stop-color="#3fd0ff" />
       </linearGradient>
     </defs>
-    <path d="M50 20 L72 48 L59 48 L59 78 L41 78 L41 48 L28 48 Z"
-      fill="url(#wind-arrow)" stroke="#0b3566" stroke-width="2.5" stroke-linejoin="round" />
+    <path d="M50 17 L74 45 L61 45 L61 80 L39 80 L39 45 L26 45 Z"
+      fill="url(#wind-arrow)" stroke="#06306b" stroke-width="1.2" stroke-linejoin="round" />
   </svg>
   <div class="speed">0m</div>`
 
@@ -723,7 +734,8 @@ export class HoleView {
       this.bar.setSnapToMark(true)
     }
     this.windBox.innerHTML = WIND_DIAL
-    document.body.appendChild(this.windBox)
+    // Embaixo à direita, ao lado da barra (dentro do HUD da tacada).
+    this.panel.windSlot.appendChild(this.windBox)
     this.elements.push(this.windBox)
     this.panel.onChange(() => {
       this.targetDirty = true

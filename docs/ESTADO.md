@@ -52,7 +52,9 @@ um, copia o código já descriptografado da memória com o PE-sieve e manda para
 repositório privado `pangyaweb-dump`). Falta o Daniel rodar; depois analisar a cópia e achar
 as funções da câmera. Riscos: o jogo fechar rápido demais, GameGuard, código virtualizado.
 
-Última entrega (04/10/2026): **HUD = a PowerBar do Daniel, idêntica** — os componentes
+Última entrega (04/10/2026): **rosa dos ventos embaixo à direita, ao lado da barra**, no
+visual do original (aro prateado com parafusos, miolo verde translúcido, selo "7m"). Antes:
+**HUD = a PowerBar do Daniel, idêntica** — os componentes
 dele (`docs/referencias/powerbar/`) portados como estão, conferidos lado a lado com o
 `rosa.html`; a bola de vidro do mostrador virou **a bola escolhida pelo jogador**; o cursor
 da barra volta para a zona de impacto do desenho (faixa branca à esquerda do 0).

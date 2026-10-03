@@ -303,41 +303,47 @@
   padding: 0;
 }
 
-/* Rosa dos ventos: mostrador redondo com a seta azul e a força em metros. */
+/* Rosa dos ventos (embaixo à direita, ao lado da barra; tamanho em .shot-hud). */
 .wind {
-  position: fixed;
-  top: 14px;
-  right: 14px;
-  width: 92px;
-  height: 92px;
+  position: relative;
+  width: 100%;
+  height: 100%;
 }
 .wind svg {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.45));
 }
 .wind .arrow {
+  inset: 8%;
+  width: 84%;
+  height: 84%;
   transform-origin: 50% 50%;
   transition: transform 0.3s;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.4));
 }
+/* Selo da força: círculo preto com aro branco, embaixo à direita. */
 .wind .speed {
   position: absolute;
-  right: -4px;
-  bottom: -4px;
-  min-width: 30px;
-  height: 30px;
-  padding: 0 4px;
+  right: -6%;
+  bottom: -1%;
+  width: 40%;
+  height: 40%;
   box-sizing: border-box;
-  border: 2px solid #fff;
-  border-radius: 15px;
-  background: #111;
+  display: grid;
+  place-items: center;
+  border: max(3px, 0.035em) solid #fff;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 30%, #3a3f45, #050505 70%);
+  box-shadow: 0 0 0 1.5px #1d2126;
   color: #fff;
   font:
-    700 13px/26px system-ui,
+    900 1em/1 Nunito,
+    'Arial Rounded MT Bold',
     sans-serif;
-  text-align: center;
+  letter-spacing: -0.02em;
 }
 .panel label.check {
   display: flex;
@@ -888,11 +894,28 @@ power-bar {
   min-height: 1.3em;
 }
 /* Largura: a tela, até 1620 px, e no máximo 30% da altura (1620 × 380). */
+/* Barra (até 1620 px e 30% da altura) e, à direita, a rosa dos ventos. */
+.shot-hud {
+  --wind-size: min(17vh, 200px, 16vw);
+}
+.shot-hud .row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 12px;
+  padding: 0 12px 10px;
+}
 .shot-hud .stage {
   position: relative;
-  width: min(100vw, 1620px, calc(30vh * 1620 / 380));
-  margin: 0 auto;
+  flex: none;
+  width: min(100vw - var(--wind-size) - 48px, 1620px, calc(30vh * 1620 / 380));
   container-type: inline-size;
+}
+.shot-hud .wind-slot {
+  flex: none;
+  width: var(--wind-size);
+  height: var(--wind-size);
+  font-size: calc(var(--wind-size) * 0.17);
 }
 .shot-hud.waiting pb-gauge,
 .shot-hud.waiting pb-tab {
@@ -1321,7 +1344,7 @@ power-bar {
    calculadora (G). */
 .aim-readout {
   position: fixed;
-  top: 116px;
+  top: 14px;
   right: 14px;
   display: grid;
   justify-items: end;

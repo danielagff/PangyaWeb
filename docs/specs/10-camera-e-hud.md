@@ -133,7 +133,10 @@ Câmeras de jogo e HUD com as informações necessárias para mirar como no orig
 - Barra de força no estilo do original: escala de jardas (meio e máximo do taco), zona de
   impacto amarela com a faixa PANGYA (rosa, `IMPACT_TUNING.pangyaZone`) e linha central;
   deixar o marcador passar da zona cancela a tacada (o jogador desistiu) e volta a mirar.
-- Rosa dos ventos redonda com seta azul e selo com os metros.
+- Rosa dos ventos redonda com seta azul e selo com os metros. **Agora embaixo à direita, ao
+  lado da barra** (04/10/2026, como no original): aro prateado com 4 parafusos, miolo verde
+  translúcido, seta azul com degradê e selo preto redondo com a força ("7m"); o tamanho
+  acompanha o HUD. O mostrador da mira ("Mira no pin") subiu para o canto de cima.
 - HUD da tacada embaixo, no lugar do painel lateral (`hole/shot-hud.ts`): mostrador com o
   taco (roda do mouse troca), o ponto de impacto na bola (clique/arraste = spin e curva;
   duplo clique centraliza), o power shot (Alt: 1 toque = 1 PS, 2 toques rápidos = 2 PS) e a

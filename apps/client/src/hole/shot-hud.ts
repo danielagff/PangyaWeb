@@ -72,6 +72,7 @@ export function createShotHud(onShoot: () => void) {
   root.innerHTML = `
     <p class="result" aria-live="polite"></p>
     <p class="bar-label"></p>
+    <div class="row">
     <div class="stage">
       <div class="counters" hidden>
         <div class="traveled"></div>
@@ -90,6 +91,8 @@ export function createShotHud(onShoot: () => void) {
         <pb-socket class="club" cx="71" cy="94" r="61" inner="44" thick label="1W" title="Taco (roda do mouse)"></pb-socket>
         <pb-socket class="spin" cx="250" cy="330" r="40" inner="30" label="−" label-color="#2196f3" title="Spin: clique centraliza o ponto de impacto"></pb-socket>
       </power-bar>
+    </div>
+    <div class="wind-slot"></div>
     </div>`
   document.body.appendChild(root)
   const $ = <T extends Element>(selector: string) => root.querySelector(selector) as T
@@ -203,6 +206,8 @@ export function createShotHud(onShoot: () => void) {
 
   return {
     bar,
+    /** Lugar da rosa dos ventos: embaixo à direita, ao lado da barra. */
+    windSlot: $<HTMLDivElement>('.wind-slot'),
     showResult(text: string) {
       result.textContent = text
     },
