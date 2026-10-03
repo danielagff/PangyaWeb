@@ -7,6 +7,7 @@ import {
   type ShotEvent,
   type HoleRef,
   type HoleState,
+  type Point,
   type ShotRequest,
 } from '@pangya/game'
 import type { SurfaceKind } from '@pangya/formats'
@@ -395,6 +396,11 @@ export class HoleView {
   /** Quando ↑/↓ começaram a ser segurados (acelera andando pela linha). */
   private aerialMoveStart = 0
   private readonly drawings: HTMLDivElement
+  /** Mostrador da mira (graus em relação ao pin), embaixo da rosa dos ventos. */
+  private readonly aimBox: HTMLDivElement
+  private aimText = ''
+  /** Mira que a calculadora (G) achou, para este lugar da bola. */
+  private calcAim: { aim: number; ball: Point } | undefined
   /** Ferramentas de desenvolvimento (tecla P: sempre PANGYA) — só no modo sozinho. */
   private readonly devTools: boolean
   private autoPangya = false
@@ -524,6 +530,11 @@ export class HoleView {
     this.hud.dataset.title = options.title
     this.windBox = document.createElement('div')
     this.windBox.className = 'wind'
+    this.aimBox = document.createElement('div')
+    this.aimBox.className = 'aim-readout'
+    this.aimBox.hidden = true
+    document.body.appendChild(this.aimBox)
+    this.elements.push(this.aimBox)
     this.drawings = document.createElement('div')
     this.drawings.className = 'course-overlay-box'
     this.drawings.innerHTML = COURSE_OVERLAY
@@ -1302,6 +1313,8 @@ export class HoleView {
     this.bar.setCalibratorValue(result.percent)
     const pinAim = this.world.aimAtPin(state.ball)
     this.aim = result.aim
+    this.calcAim = { aim: result.aim, ball: { ...state.ball } }
+    this.aimText = '' // redesenha o mostrador com o alvo
     this.targetDirty = true
     const model = this.ready.get(this.active.id)
     if (model?.root.visible) void this.address(model)
@@ -1318,6 +1331,53 @@ export class HoleView {
         (result.holed ? ' · entra de dunk' : ` · cai a ${result.miss.toFixed(2)}y do pin`) +
         (this.autoPangya ? '' : ' · acerte o PANGYA (ou P)'),
     )
+  }
+
+  /**
+   * Mostrador da mira: quantos graus a mira está do pin (e para que lado), quanto isso dá de
+   * lado na distância do pin e, se a calculadora (G) achou uma mira daqui, o alvo e quanto
+   * falta (✓ quando bate). Cada toque de A/D gira 0,1° (0,05° no green).
+   */
+  private updateAimReadout() {
+    const show = this.phase === 'aim' && this.controllable && !!this.active
+    this.aimBox.hidden = !show
+    if (!show) return
+    const ball = this.active!.state.ball
+    const pinAim = this.world.aimAtPin(ball)
+    const pin = this.world.distanceToPin(ball)
+    const describe = (aim: number) => {
+      const deg = Math.atan2(Math.sin(aim - pinAim), Math.cos(aim - pinAim)) / DEG
+      const value = Math.abs(deg).toFixed(2).replace('.', ',')
+      if (Math.abs(deg) < 0.005) return { deg: 0, text: 'no pin' }
+      return { deg, text: `${value}° ${deg > 0 ? '◀ esquerda' : 'direita ▶'}` }
+    }
+    const now = describe(this.aim)
+    const lateral = (pin * Math.tan(Math.abs(now.deg) * DEG)).toFixed(1).replace('.', ',')
+    const target =
+      this.calcAim &&
+      this.calcAim.ball.x === ball.x &&
+      this.calcAim.ball.z === ball.z &&
+      describe(this.calcAim.aim)
+    let calc = ''
+    if (target) {
+      const diff = Math.atan2(
+        Math.sin(this.calcAim!.aim - this.aim),
+        Math.cos(this.calcAim!.aim - this.aim),
+      )
+      const off = Math.abs(diff / DEG)
+      calc =
+        `<small>🧮 alvo: ${target.text}</small>` +
+        (off < 0.005
+          ? '<b class="ok">✓ mira certa</b>'
+          : `<b>falta ${off.toFixed(2).replace('.', ',')}° ${diff > 0 ? '◀' : '▶'}</b>`)
+    }
+    const html =
+      `<span>Mira</span><strong>${now.text}</strong>` +
+      (now.deg ? `<small>${lateral}y do pin, de lado</small>` : '') +
+      calc
+    if (html === this.aimText) return
+    this.aimText = html
+    this.aimBox.innerHTML = html
   }
 
   /** Tecla P (só sozinho): impacto sempre PANGYA, para testar a física. */
@@ -1628,6 +1688,7 @@ export class HoleView {
     }
     for (const model of this.ready.values()) if (model.root.visible) model.update(dt)
     this.updateOverlay()
+    this.updateAimReadout()
     this.beamMaterial.opacity = 0.4 + 0.08 * Math.sin(now / 300)
     this.fitBeam()
     this.course.update(this.camera)

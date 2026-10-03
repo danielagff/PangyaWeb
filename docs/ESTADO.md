@@ -46,7 +46,11 @@ jogar com amigos, com o **PC do Daniel como servidor**. Não é vendido nem publ
 
 ## Em andamento agora
 
-Última entrega (03/10/2026): **calculadora (tecla G, só no modo sozinho)** — mira e força
+Última entrega (03/10/2026): **mostrador da mira** embaixo da rosa dos ventos — graus em
+relação ao pin, o lado e as jardas de lado na distância do pin; depois do G, o alvo da
+calculadora e quanto falta (✓ quando bate).
+
+Antes: **calculadora (tecla G, só no modo sozinho)** — mira e força
 para a bola cair direto na cova, com vento, desnível e terreno; já deixa mira, taco e
 calibrador prontos (com o P, são só os 2 toques). No Blue Lagoon, toda tacada que ela achou
 entrou (320 de 320 casos; o resto era obstáculo no caminho ou fora de alcance). Para dar

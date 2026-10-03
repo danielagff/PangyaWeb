@@ -53,6 +53,10 @@ Câmeras de jogo e HUD com as informações necessárias para mirar como no orig
   por quadro é limitado (1/30 s), então o PC engasgar não dá pulo. Enquanto a mira gira, o
   anel e o X giram junto em volta da bola; o cálculo exato (física) é refeito a cada 0,12 s
   (`LANDING_REFRESH`) e quando a mira para.
+- **Mostrador da mira** (embaixo da rosa dos ventos, `updateAimReadout`): quantos graus a mira
+  está do pin e para que lado ("0,30° direita ▶"), quanto isso dá de lado na distância do pin
+  ("1,2y do pin, de lado") e, depois da calculadora (G), o alvo dela e quanto falta ("falta
+  0,10° ▶") ou "✓ mira certa".
 - Desnível do pin em **metros**, como no original (`unitsToMeters`), no HUD e na barra.
 - Câmera do voo: A/D giram em volta da bola, S alterna a vista de cima; 0,8 s antes de a bola
   tocar o chão (`FREE_CAMERA_UNTIL_LANDING`) volta sozinha à câmera padrão.
