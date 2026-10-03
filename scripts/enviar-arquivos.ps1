@@ -110,14 +110,21 @@ foreach ($r in $repos) {
   $lista = Join-Path $envio "$($r.Nome).txt"
   $relativos = $r.Arquivos | ForEach-Object { $_.FullName.Substring($origem.Length + 1).Replace('\', '/') }
   [System.IO.File]::WriteAllLines($lista, [string[]]$relativos, $utf8)
+  Write-Host '   Preparando os arquivos (pode levar alguns minutos sem mostrar nada)…'
   git @git add --pathspec-from-file=$lista
   if ($LASTEXITCODE -ne 0) { throw "git add falhou em $($r.Nome)" }
   git @git diff --cached --quiet
-  if ($LASTEXITCODE -eq 0) { Write-Host '   Nada mudou desde o último envio.'; continue }
-  git @git commit --quiet -m "Arquivos do jogo ($($r.Nome))"
-  git @git branch -M main
-  Write-Host '   Enviando (pode demorar; na primeira vez o Windows pode pedir para entrar no GitHub)…'
-  git @git -c http.postBuffer=524288000 push --quiet -u origin main
+  if ($LASTEXITCODE -ne 0) {
+    git @git commit --quiet -m "Arquivos do jogo ($($r.Nome))"
+    git @git branch -M main
+  }
+  # Já está no GitHub? (um envio interrompido deixa o pacote pronto aqui, sem ter subido)
+  $local = git @git rev-parse --verify --quiet HEAD
+  if (-not $local) { Write-Host '   Nenhum arquivo.'; continue }
+  $remota = (git ls-remote $url refs/heads/main) -split '\s+' | Select-Object -First 1
+  if ($remota -eq $local) { Write-Host '   Já está no GitHub (nada mudou).'; continue }
+  Write-Host '   Enviando (a porcentagem aparece abaixo; na primeira vez o Windows pode pedir para entrar no GitHub)…'
+  git @git -c http.postBuffer=524288000 push --progress -u origin main
   if ($LASTEXITCODE -ne 0) { throw "O envio de $($r.Nome) falhou (veja a mensagem acima). Rode de novo: ele continua de onde parou." }
 }
 
