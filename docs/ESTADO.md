@@ -46,8 +46,9 @@ jogar com amigos, com o **PC do Daniel como servidor**. Não é vendido nem publ
 
 ## Em andamento agora
 
-Em andamento: **câmera da tacada do jogo original** — `dump-jogo.cmd` (abre o
-`ProjectG.exe`, copia o código já descriptografado da memória com o PE-sieve e manda para o
+Em andamento: **câmera da tacada do jogo original** — `dump-jogo.cmd` (usa o
+`ProjectG.exe` que já estiver aberto — pedindo administrador se o jogo roda assim — ou abre
+um, copia o código já descriptografado da memória com o PE-sieve e manda para o
 repositório privado `pangyaweb-dump`). Falta o Daniel rodar; depois analisar a cópia e achar
 as funções da câmera. Riscos: o jogo fechar rápido demais, GameGuard, código virtualizado.
 

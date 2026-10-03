@@ -1,5 +1,5 @@
 @echo off
-rem Clique duas vezes: abre o ProjectG.exe, copia o codigo dele ja descriptografado da
+rem Clique duas vezes: usa o ProjectG.exe aberto (ou abre um), copia o codigo dele ja descriptografado da
 rem memoria e manda para o repositorio PRIVADO pangyaweb-dump (detalhes em
 rem scripts\dump-jogo.ps1). Serve para o Claude achar a camera da tacada.
 cd /d "%~dp0"

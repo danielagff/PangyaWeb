@@ -2,8 +2,10 @@
 # só se abre quando roda) e manda para o repositório PRIVADO pangyaweb-dump, para o Claude
 # procurar a câmera da tacada no código. Uso: clique duas vezes em dump-jogo.cmd.
 #
-# Como: abre o ProjectG.exe da pasta do cliente (sem servidor ele pode mostrar um erro ou
-# a tela de login — tanto faz, o código já está aberto na memória) e usa o PE-sieve
+# Como: se o ProjectG já estiver aberto (por exemplo, jogando num servidor), liga-se a ele
+# e não fecha no fim. Senão, abre o ProjectG.exe da pasta do cliente (sem servidor ele pode
+# mostrar um erro ou a tela de login — tanto faz, o código já está aberto na memória) e
+# fecha depois. Nos dois casos usa o PE-sieve
 # (github.com/hasherezade/pe-sieve, livre) para salvar o módulo da memória. Nada disso
 # entra no repositório do PangyaWeb (fica em assets/dump, que o git ignora).
 Set-Location (Split-Path $PSScriptRoot -Parent)
@@ -18,10 +20,23 @@ if (Test-Path '.env') {
 }
 if (-not $cliente) { $cliente = Join-Path (Split-Path (Get-Location) -Parent) 'cliente-jp' }
 
+# Jogo já aberto? (Win32_Process dá o caminho mesmo de um processo 32 bits.)
+$jaAberto = Get-CimInstance Win32_Process -Filter "Name LIKE 'ProjectG%.exe'" -ErrorAction SilentlyContinue |
+  Select-Object -First 1
+# Sem caminho = o jogo roda como administrador; a cópia também precisa ser (o Windows pede).
+$admin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole('Administrators')
+if ($jaAberto -and -not $jaAberto.ExecutablePath -and -not $admin) {
+  Passo 'O jogo aberto roda como administrador: abrindo outra janela como administrador'
+  Start-Process cmd -Verb RunAs -Wait -ArgumentList "/c `"powershell -NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`" & pause`""
+  exit 0
+}
+
 $guardado = 'assets/dump/caminho.txt'
 $exe = $null
-if (Test-Path $guardado) { $exe = (Get-Content $guardado -Raw).Trim() }
-if (-not $exe -or -not (Test-Path $exe)) {
+if ($jaAberto -and $jaAberto.ExecutablePath) { $exe = $jaAberto.ExecutablePath }
+if (-not $exe -and (Test-Path $guardado)) { $exe = (Get-Content $guardado -Raw).Trim() }
+if (-not $exe -and $jaAberto) { $exe = $jaAberto.Name }
+if (-not $exe -or ((-not $jaAberto) -and -not (Test-Path $exe))) {
   $exe = Get-ChildItem -LiteralPath $cliente -Filter 'ProjectG*.exe' -Recurse -Depth 2 -ErrorAction SilentlyContinue |
     Select-Object -First 1 -ExpandProperty FullName
 }
@@ -38,7 +53,7 @@ New-Item -ItemType Directory -Force -Path 'assets/dump' | Out-Null
 Set-Content -Path $guardado -Value $exe -Encoding UTF8
 Write-Host "   Jogo: $exe"
 $pasta = Split-Path $exe -Parent
-if (Test-Path (Join-Path $pasta 'GameGuard')) {
+if ($pasta -and (Test-Path (Join-Path $pasta 'GameGuard'))) {
   Write-Host '   Este cliente tem GameGuard: ele pode bloquear a cópia. Tentando mesmo assim.' -ForegroundColor Yellow
 }
 
@@ -62,29 +77,46 @@ $copias = Join-Path $saida 'copias'
 Remove-Item -Recurse -Force $copias -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path $copias | Out-Null
 
-Passo 'Abrindo o jogo (não feche; se aparecer um erro ou o login, deixe na tela)'
 $nome = [System.IO.Path]::GetFileNameWithoutExtension($exe)
-Start-Process -FilePath $exe -WorkingDirectory $pasta | Out-Null
 $ids = @()
-# Copia algumas vezes (o código abre aos poucos): 3 s, 8 s e 15 s depois de abrir.
-foreach ($espera in 3, 8, 15) {
-  $alvo = Get-Process -Name $nome -ErrorAction SilentlyContinue | Select-Object -First 1
+if ($jaAberto) {
+  $nome = [System.IO.Path]::GetFileNameWithoutExtension($jaAberto.Name)
+  Passo "Usando o jogo que já está aberto (processo $($jaAberto.ProcessId)); não feche até terminar"
+  # Já está rodando há tempo: uma cópia basta.
+  $esperas = @(0)
+} else {
+  Passo 'Abrindo o jogo (não feche; se aparecer um erro ou o login, deixe na tela)'
+  Start-Process -FilePath $exe -WorkingDirectory $pasta | Out-Null
+  # Copia algumas vezes (o código abre aos poucos): 3 s, 8 s e 15 s depois de abrir.
+  $esperas = 3, 8, 15
+}
+foreach ($espera in $esperas) {
+  if ($jaAberto) { $alvo = Get-Process -Id $jaAberto.ProcessId -ErrorAction SilentlyContinue }
+  else { $alvo = Get-Process -Name $nome -ErrorAction SilentlyContinue | Select-Object -First 1 }
   for ($i = 0; -not $alvo -and $i -lt 10; $i++) {
     Start-Sleep -Milliseconds 500
     $alvo = Get-Process -Name $nome -ErrorAction SilentlyContinue | Select-Object -First 1
   }
   if (-not $alvo) { break }
   $ids += $alvo.Id
-  $desde = ((Get-Date) - $alvo.StartTime).TotalSeconds
-  if ($espera -gt $desde) { Start-Sleep -Seconds ($espera - $desde) }
+  if (-not $jaAberto) {
+    $desde = ((Get-Date) - $alvo.StartTime).TotalSeconds
+    if ($espera -gt $desde) { Start-Sleep -Seconds ($espera - $desde) }
+  }
   if ($alvo.HasExited) { break }
-  Write-Host "   Copiando da memória (aos $espera s)…"
-  $dir = Join-Path $copias "aos-${espera}s"
+  if ($jaAberto) {
+    Write-Host '   Copiando da memória…'
+    $dir = Join-Path $copias 'aberto'
+  } else {
+    Write-Host "   Copiando da memória (aos $espera s)…"
+    $dir = Join-Path $copias "aos-${espera}s"
+  }
   # Duas formas: como está na memória (V) e realinhada com as importações refeitas (R).
   & $pesieve /pid $alvo.Id /dmode V /data 3 /dir (Join-Path $dir 'memoria') /quiet | Out-Null
   & $pesieve /pid $alvo.Id /dmode R /imp A /data 3 /dir (Join-Path $dir 'realinhado') /quiet | Out-Null
 }
-$aberto = Get-Process -Name $nome -ErrorAction SilentlyContinue
+$aberto = $null
+if (-not $jaAberto) { $aberto = Get-Process -Name $nome -ErrorAction SilentlyContinue }
 if ($aberto) {
   Write-Host '   Fechando o jogo.'
   $aberto | Stop-Process -Force -ErrorAction SilentlyContinue
@@ -109,6 +141,7 @@ Get-ChildItem -LiteralPath $copias -Recurse -File | Where-Object { $_.Length -gt
 @(
   "jogo: $exe"
   "processos: $($ids -join ', ')"
+  "ja estava aberto: $([bool]$jaAberto)"
   "data: $(Get-Date -Format 's')"
   "windows: $([System.Environment]::OSVersion.VersionString)"
 ) | Set-Content -Path (Join-Path $copias 'info.txt') -Encoding UTF8
