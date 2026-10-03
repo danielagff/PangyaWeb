@@ -8,7 +8,9 @@ que falta, decisões e projetos de referência. Mantenha esse arquivo atualizado
 - **Arquivos extraídos do jogo na nuvem**: o Daniel envia `assets/original` para repositórios
   **privados** separados, um por tipo (`pangyaweb-dados`, `-sons`, `-modelos`, `-imagens`;
   os grandes viram `-a`, `-b`…), com `enviar-arquivos.cmd`. Para ler, ligue o repositório à
-  sessão (`add_repo`) e clone fora do projeto. Nada disso entra neste repositório.
+  sessão (`add_repo`) e clone fora do projeto. Nada disso entra neste repositório. O `dump-jogo.cmd` manda para o privado
+  `pangyaweb-dump` a cópia do `ProjectG.exe` já descriptografado da memória (para achar a
+  lógica da câmera da tacada).
 - **Nunca** coloque arquivos do jogo no git: `assets/` é local (gitignored). Testes usam dados
   sintéticos. Na nuvem (sem os arquivos do jogo), prepare o ambiente com
   `pnpm assets:exemplo` (curso Blue Lagoon) e `pnpm assets:teste` (personagem de teste com

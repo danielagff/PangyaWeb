@@ -46,6 +46,11 @@ jogar com amigos, com o **PC do Daniel como servidor**. Não é vendido nem publ
 
 ## Em andamento agora
 
+Em andamento: **câmera da tacada do jogo original** — `dump-jogo.cmd` (abre o
+`ProjectG.exe`, copia o código já descriptografado da memória com o PE-sieve e manda para o
+repositório privado `pangyaweb-dump`). Falta o Daniel rodar; depois analisar a cópia e achar
+as funções da câmera. Riscos: o jogo fechar rápido demais, GameGuard, código virtualizado.
+
 Última entrega (04/10/2026): **ajustes do Daniel** — moedas só quando a bola cai na cova
 (mais moedas quanto melhor: hole in one 40 … bogey 6; double bogey nenhuma); o personagem
 lê os **eventos dos quadros (FRAM)** das animações: sons e passos dos movimentos, efeitos
