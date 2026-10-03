@@ -5,6 +5,10 @@ que falta, decisões e projetos de referência. Mantenha esse arquivo atualizado
 
 - Converse em **português**. O usuário (Daniel) usa Windows e não gosta de passos manuais:
   entregue tudo por `servidor.cmd` / `mapeador.cmd` / `jogar.cmd` (scripts em `scripts/`).
+- **Arquivos extraídos do jogo na nuvem**: o Daniel envia `assets/original` para repositórios
+  **privados** separados, um por tipo (`pangyaweb-dados`, `-sons`, `-modelos`, `-imagens`;
+  os grandes viram `-a`, `-b`…), com `enviar-arquivos.cmd`. Para ler, ligue o repositório à
+  sessão (`add_repo`) e clone fora do projeto. Nada disso entra neste repositório.
 - **Nunca** coloque arquivos do jogo no git: `assets/` é local (gitignored). Testes usam dados
   sintéticos. Na nuvem (sem os arquivos do jogo), prepare o ambiente com
   `pnpm assets:exemplo` (curso Blue Lagoon) e `pnpm assets:teste` (personagem de teste com

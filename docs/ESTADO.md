@@ -46,7 +46,16 @@ jogar com amigos, com o **PC do Daniel como servidor**. Não é vendido nem publ
 
 ## Em andamento agora
 
-Última entrega (04/10/2026): **câmeras da tacada sorteadas, como no vídeo do Daniel**
+Última entrega (04/10/2026): **`enviar-arquivos.cmd`**: manda `assets/original` para
+repositórios **privados** do GitHub, um por tipo (dados, sons, modelos, imagens; os que
+passam de 900 MB viram parte A, B…), para o Claude ler os arquivos do jogo na nuvem. Testado
+com repositórios locais. Também: a **câmera do jogo é animada** (`.apet` com um osso
+`Camera01`, que o nosso leitor já abre): `data/camera_path/<letra>_def_cam.apet` por
+personagem, `camera_list_f/m.txt`, `grandprix_cam.apet` (7 câmeras), `memorial_cam.apet`;
+`improve_ingame_play.lua` tem `slow_camerawork_index`. Próximo: ler essas câmeras e tocá-las
+no jogo.
+
+Antes (04/10/2026): **câmeras da tacada sorteadas, como no vídeo do Daniel**
 (perseguindo colada na bola, do chão olhando o céu, do alto vendo o curso, parada de lado),
 **corte para uma câmera parada na queda**, sem o zoom no fim (a câmera fica parada quando a
 bola para) e **comemoração pelo resultado** (do hole in one ao double bogey: corta para o
