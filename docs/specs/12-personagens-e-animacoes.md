@@ -36,7 +36,7 @@ e mascotes.
   `character/motion-events.ts`): cada evento é `quadro + texto` (EUC-KR) com comandos
   `*snd("nome")`, `*stepsnd()`, `*fx("@pose" "arq.spr" "osso"…)`, `*shot`, `*swing`,
   `*tail`, `*hideclub`/`*showclub`, `*ptex(...)`, `*hidebone`, `*ball_dist 5.4 *grip_pos
-  -0.02` (fim do 준비). Na partida: sons do personagem (ex. `f-점프`, `발자국_green`,
+-0.02` (fim do 준비). Na partida: sons do personagem (ex. `f-점프`, `발자국_green`,
   `i_whoosh2`), passos pelo piso, efeitos nos ossos (os que dependem de item, `&id`/`#…`,
   ficam de fora), taco escondido/mostrado, e o **quadro exato do impacto** (`*shot`) no swing
   e no 2º power shot. Falta: `*ptex` (rosto), `*hidebone`, `*tail`, `*ball_dist`.
