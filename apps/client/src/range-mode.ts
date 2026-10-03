@@ -121,11 +121,16 @@ export function startRangeMode() {
     if (!flight) return
     const { result } = flight
     const count = result.frames.length / 3
-    const index = Math.min(Math.floor((now - flight.start) / 1000 / STEP_TIME), count - 1)
+    // Entre dois pontos da física (50 por segundo), pelo tempo exato do quadro: sem trancos.
+    const exact = Math.max(0, (now - flight.start) / 1000 / STEP_TIME)
+    const index = Math.min(Math.floor(exact), count - 1)
+    const at = toScene(result.frames, index)
+    if (index < count - 1) at.lerp(toScene(result.frames, index + 1), exact - index)
 
-    ball.position.copy(toScene(result.frames, index))
+    ball.position.copy(at)
     const points: number[] = []
     for (let i = 0; i <= index; i++) points.push(...toScene(result.frames, i).toArray())
+    points.push(...at.toArray())
     trail.geometry.setAttribute('position', new Float32BufferAttribute(points, 3))
 
     if (index === count - 1) {

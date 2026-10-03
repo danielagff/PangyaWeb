@@ -46,7 +46,11 @@ jogar com amigos, com o **PC do Daniel como servidor**. Não é vendido nem publ
 
 ## Em andamento agora
 
-Última entrega (03/10/2026): **mostrador da mira** embaixo da rosa dos ventos — graus em
+Última entrega (03/10/2026): **voo da bola suave** — a bola é desenhada entre os pontos da
+física (50 por segundo) pelo tempo exato de cada quadro da tela; antes andava aos trancos e a
+câmera tremia junto.
+
+Antes: **mostrador da mira** embaixo da rosa dos ventos — graus em
 relação ao pin, o lado e as jardas de lado na distância do pin; depois do G, o alvo da
 calculadora e quanto falta (✓ quando bate).
 

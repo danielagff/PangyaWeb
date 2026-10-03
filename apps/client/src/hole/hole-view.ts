@@ -1614,7 +1614,12 @@ export class HoleView {
       const count = frames.length / 3
       const skipped = this.flight.start === -Infinity
       const elapsed = (now - this.flight.start) / 1000
-      const index = Math.max(0, Math.min(Math.floor(elapsed / STEP_TIME), count - 1))
+      // A física tem um ponto a cada 0,02 s (50 por segundo) e a tela é 60 Hz ou mais:
+      // a bola é desenhada entre dois pontos, pelo tempo exato do quadro — sem isso ela anda
+      // aos trancos (uns quadros repetem a posição, outros pulam) e a câmera treme junto.
+      const exact = Math.max(0, elapsed / STEP_TIME)
+      const index = Math.min(Math.floor(exact), count - 1)
+      const between = index < count - 1 ? exact - index : 0
       if (elapsed >= 0) this.playEvents(index, skipped)
       this.flight.index = index
       // Câmera livre do voo: A/D giram em volta da bola; perto de cair, volta ao normal.
@@ -1624,17 +1629,21 @@ export class HoleView {
           (this.keys.has('KeyD') || this.keys.has('ArrowRight') ? 1 : 0)
         this.flightYaw += spin * dt * 1.6
       } else {
-        this.flightYaw *= 0.9
+        this.flightYaw *= Math.pow(0.9, dt * 60)
         this.flightTop = false
       }
-      this.placeBall(playerId, this.frameAt(frames, index))
-      const shown = Math.min(index + 1, MAX_TRAIL)
+      const at = this.frameAt(frames, index)
+      if (between > 0) at.lerp(this.frameAt(frames, index + 1), between)
+      this.placeBall(playerId, at)
+      // Rastro até o último ponto e, na ponta, a bola (que está entre dois pontos).
+      const shown = Math.min(index + 1, MAX_TRAIL - 1)
       for (let i = 0; i < shown; i++) {
         const p = this.frameAt(frames, i)
         this.trailPositions.setXYZ(i, p.x, p.y, p.z)
       }
+      this.trailPositions.setXYZ(shown, at.x, at.y, at.z)
       this.trailPositions.needsUpdate = true
-      this.trailGeometry.setDrawRange(0, shown)
+      this.trailGeometry.setDrawRange(0, shown + 1)
       if (!this.debugFreeze) this.placeCamera(this.ballPosition(), 0.08)
       if (index === count - 1) {
         const { done } = this.flight

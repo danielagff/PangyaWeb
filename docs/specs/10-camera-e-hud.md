@@ -95,6 +95,11 @@ Câmeras de jogo e HUD com as informações necessárias para mirar como no orig
   com no mínimo 6 px de largura na tela (engrossa de longe); some na vista aérea.
 - Câmera normal: suavização contando pelo tempo (`lerpFactor`), igual em qualquer taxa de
   quadros.
+- **Voo da bola sem trancos**: a física tem um ponto a cada 0,02 s (50/s) e a tela é 60 Hz ou
+  mais; a bola (e a ponta do rastro) é desenhada entre dois pontos pelo tempo exato do quadro
+  — antes ela pulava de ponto em ponto (quadros repetidos e saltos alternados) e a câmera
+  tremia junto. Medido: 0 mudanças bruscas de velocidade em 108 quadros do meio do voo.
+  Também no campo de treino.
 - **Calibrador** (`power-bar.ts`): um ponteiro na barra com a força e as jardas. Mouse em cima
   da barra mostra marcas a cada 1% e a leitura do ponto; **clique** (ou arrastar) põe o
   ponteiro ali, **botão direito** tira; **X sobe e Z desce 0,1%** (Shift: 1%; segurando,
