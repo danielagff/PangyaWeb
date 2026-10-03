@@ -120,8 +120,8 @@ Regras de nomes de peças já confirmadas pelo Daniel (implementadas em
       (`LANDING_REFRESH`), enquanto a câmera gira com a mola (`aerialCam.yaw`). Desenhar a
       linha e o X com o mesmo giro suavizado da câmera, e conferir os recálculos.
 - [ ] **Tirar a distância e a altura da barra de força**: o texto do pin em cima da barra
-      ("224y ↓3.7m", `setPin` em `power-bar.ts`), que agora aparece no marcador do pin.
-      Confirmar com o Daniel se a linha vermelha do pin na barra fica.
+      ("224y ↓3.7m", `setPin` em `power-bar.ts`), que agora aparece no marcador do pin, e
+      **também a linha vermelha do pin** na barra (confirmado pelo Daniel: sai tudo).
 - [ ] **Delete+0 com força maior que a distância do buraco** (a debater): se o X (100%)
       passa do buraco, abrir a câmera do Delete+0 na **linha do buraco** em vez de no X.
       "Na linha do buraco" ainda a definir com o Daniel (ex.: o ponto da linha da mira na
