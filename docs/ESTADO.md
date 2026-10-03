@@ -46,7 +46,17 @@ jogar com amigos, com o **PC do Daniel como servidor**. Não é vendido nem publ
 
 ## Em andamento agora
 
-Última entrega (03/10/2026): **sons com os nomes reais** (2º diagnóstico, depois da
+Última entrega (04/10/2026, trabalhando sozinho à noite): **câmera da tacada no estilo do
+Pangya** (fica parada atrás do jogador vendo a bola sair, persegue a bola, freia atrás do
+ponto de queda e vê a bola descer, segue a bola rolando no sentido em que ela anda e, quando
+a bola vai entrar ou parar pertinho, desce ao lado da cova); **pangs** (moedas douradas
+saindo da bola no PANGYA/power shot e da cova quando a bola entra) com o **som das moedas**
+(`아이템획득(팡).wav`); **música de cada curso pela trilha oficial** (pangya.wiki: Blue
+Lagoon = `daydream.mp3`/`frog.mp3`, Pink Wind = `spring.mp3`, Wiz City = `secretwish`/
+`adayinthewizcity`…). A barra não mostra mais "Espaço: começar" durante o voo. Ainda não
+visto pelo Daniel.
+
+Antes: **sons com os nomes reais** (2º diagnóstico, depois da
 reextração): cova `공_홀인`, **público** (aplausos, "uau" no birdie, "oh…" quando para
 pertinho, decepção na água/O.B.), "Nice shot!", música do menu (`coffee_time.mp3`), **som do
 mar e gaivotas** no Blue Lagoon (pelas caixas de som do curso), vozes do taco de voz normal,
@@ -149,10 +159,11 @@ lugar da bandeira, vista aérea com zoom (M/0, Delete+0), câmera livre e mira A
   (ajuste em `fitClub`, limites `CLUB_FIT`).
 - **Mapeador**: a lista "Copiar lista" com as anotações das animações (quadro do impacto do
   swing de cada taco) e das peças.
-- **Sons**: depois da reextração, abrir o `mapeador.cmd` → 🔊 Sons, ouvir e conferir o que
-  foi achado sozinho (e trocar o que estiver errado), principalmente a **música de cada
-  curso** (as `.mp3` têm nomes como "crystal lake", "shiny", "spring"). Mandar de novo a
-  parte "== PASTAS DE SOM" e "== MÚSICAS" do diagnóstico ajuda a acertar sozinho.
+- **Sons**: abrir o `mapeador.cmd` → 🔊 Sons, ouvir e conferir o que foi achado sozinho (e
+  trocar o que estiver errado). A música de cada curso agora vem da trilha oficial.
+- **Câmera da tacada e pangs**: se a câmera está parecida com a do jogo (tempos e distâncias
+  em `SHOT_CAMERA`, `hole-view.ts`) e quando os pangs devem sair (hoje: PANGYA, power shot e
+  bola na cova; sem valor em pangs, porque não sabemos as regras de quanto o jogo dá).
 - **Nomes dos cursos no menu**: só Blue Lagoon (`blue`) e Pink Wind (`pink`) têm o nome do
   jogo; os outros aparecem pelo nome da pasta (ex.: "Spring Wind"). Quais estão errados? (a
   pasta aparece embaixo do nome na tela do curso; tabela em `apps/client/src/menu/courses.ts`).
@@ -185,11 +196,10 @@ Regras de nomes de peças já confirmadas pelo Daniel (implementadas em
    impacto**, a roupa padrão, a frente do modelo e a posição na bola. Ler o bloco **FRAM**
    (troca de rosto e esconder/mostrar o taco por quadro).
 2. **1 mapa 100%** (qual e o que falta: o Daniel diz). Já se sabe: faltam os **bichos do
-   cenário** (gaivotas, borboletas, toupeira, golfinho, caranguejo — `HoleData.npcs`, spec 06) e confirmar a música de cada curso.
+   cenário** (gaivotas, borboletas, toupeira, golfinho, caranguejo — `HoleData.npcs`, spec 06).
 3. **Habilidades do power shot** (tomahawk, spike, cobra): comandos ainda a definir pelo
    Daniel (a física já suporta `shot`; o HUD só manda tacada normal).
-4. **Sons**: conferir com os arquivos reais na tela Sons (Daniel); sons ambientes do curso
-   (ondas, pássaros — `soundbox` do .gbin); vozes dos caddies.
+4. **Sons**: conferir com os arquivos reais na tela Sons (Daniel); vozes dos caddies.
 5. **Interface e menus** (spec 15): feito o menu, o fluxo de buracos e o resultado final.
    Falta: telas/sprites originais do cliente (achar os arquivos de UI na extração),
    equipamento (tacos/bolas do `.iff`) mudando a física, configurações (gráficos, volume).

@@ -70,6 +70,7 @@ import { aimDirection, toScene } from './coords.ts'
 import { buildCourseScene, SKY_RADIUS, type CourseScene } from './course-scene.ts'
 import { buildGreenGrid } from './green-grid.ts'
 import type { PowerBar } from './power-bar.ts'
+import { PangBurst } from './pang-burst.ts'
 import { createShotHud, type ShotHud } from './shot-hud.ts'
 import { lerpFactor, Smooth } from './smooth.ts'
 import { SURFACE_LABELS } from './surface-colors.ts'
@@ -92,6 +93,28 @@ const BEAM_MIN_PIXELS = 6
 const NEAR_MISS_YARDS = 1.5
 /** Segundos antes de a bola cair em que a câmera livre do voo volta ao normal. */
 const FREE_CAMERA_UNTIL_LANDING = 0.8
+/**
+ * Câmera da tacada, como no Pangya (distâncias em unidades, tempos em segundos de tela):
+ * - `aim`/`putt`: atrás do jogador mirando (e no green);
+ * - `hold`: depois da batida a câmera fica parada atrás do jogador vendo a bola sair;
+ * - `chase`: depois persegue a bola por trás, afastando aos poucos (`blend` s);
+ * - `landing`: `lead` s antes de cair ela freia atrás do ponto de queda e vê a bola descer;
+ * - `roll`: depois de cair, segue a bola rolando, mais perto (`putt` no putt);
+ * - `cup`: quando a bola vai parar na cova ou pertinho (`stopYards`), ao chegar a `yards`
+ *   dela a câmera desce ao lado da cova e vê a bola chegando.
+ */
+const SHOT_CAMERA = {
+  aim: { back: 22, up: 8, look: 40 },
+  putt: { back: 18, up: 9, look: 25 },
+  hold: 0.5,
+  chase: { back: 34, up: 12, look: 25, blend: 1.2, lerp: 0.2 },
+  landing: { lead: 1, back: 26, up: 10, lerp: 0.06 },
+  roll: { back: 16, up: 6, look: 8, lerp: 0.08 },
+  puttRoll: { back: 11, up: 4.5, look: 6, lerp: 0.1 },
+  cup: { yards: 4, stopYards: 2, beyond: 2.5, side: 3, up: 1.4, lerp: 0.12 },
+}
+/** Moedas (pangs) que saem da bola no PANGYA e da cova quando a bola entra. */
+const PANG_COINS = { pangya: 12, powerShot: 18, hole: 24 }
 const UP = new Vector3(0, 1, 0)
 /** Altura da vista aérea (unidades): perto da cova até o buraco inteiro. */
 const AERIAL = { minHeight: 12, maxHeight: 3000 }
@@ -356,6 +379,7 @@ export class HoleView {
   private readonly trailPositions: Float32BufferAttribute
   private readonly trailGeometry = new BufferGeometry()
   private readonly ray = new Raycaster()
+  private readonly pangs = new PangBurst()
   private readonly keys = new Set<string>()
   private readonly cleanups: (() => void)[] = []
   private readonly bar: PowerBar
@@ -429,6 +453,13 @@ export class HoleView {
         landing: number
         /** Quadro mostrado agora. */
         index: number
+        /** Putt (câmera baixa e perto, sem câmera de queda). */
+        putt: boolean
+        /** Onde a bola estava (cena) e o ponto da primeira queda. */
+        from: Vector3
+        landingAt: Vector3
+        /** Quadro em que a câmera vai para o lado da cova (Infinity: não vai). */
+        cupFrame: number
       }
     | undefined
   readonly sounds: SoundLibrary
@@ -527,6 +558,7 @@ export class HoleView {
     const trail = new Line(this.trailGeometry, new LineBasicMaterial({ color: 0xffeb3b }))
     trail.frustumCulled = false
     scene.add(trail)
+    scene.add(this.pangs.root)
 
     // Anel onde a tacada cai (força, spin e curva atuais, sem vento), como no jogo.
     this.target = new Mesh(
@@ -654,14 +686,18 @@ export class HoleView {
       camera.lookAt(at.clone().add(new Vector3(0, near ? -0.2 : 4, 0)))
       this.debugFreeze = true
     }
-    // Depuração: bola caindo na cova (vista de perto), para conferir o buraco.
-    ;(window as unknown as { __debugDrop: () => void }).__debugDrop = () => {
+    // Depuração: bola rolando `yards` jardas até cair na cova (padrão 1: vista de perto).
+    ;(window as unknown as { __debugDrop: (yards?: number) => void }).__debugDrop = (yards = 1) => {
       if (!this.active) return
       const cup = world.cup
-      const from = { x: cup.x + 3, y: cup.y, z: cup.z + 1 }
-      const roll = Array.from({ length: 30 }, (_, i) => {
-        const f = i / 30
-        return [from.x + (cup.x + 0.3 - from.x) * f, cup.y, from.z + (cup.z + 0.1 - from.z) * f]
+      const k = yardsToUnits(yards) / Math.hypot(3, 1)
+      const from = { x: cup.x + 3 * k, y: cup.y, z: cup.z + 1 * k }
+      const length = Math.max(30, Math.round(yards * 12))
+      const roll = Array.from({ length }, (_, i) => {
+        const f = i / length
+        const x = from.x + (cup.x + 0.3 - from.x) * f
+        const z = from.z + (cup.z + 0.1 - from.z) * f
+        return [x, world.grid.groundAt(x, z)?.y ?? cup.y, z]
       }).flat()
       const frames = Float32Array.from([
         ...roll,
@@ -1289,7 +1325,9 @@ export class HoleView {
    * some de tão fina). Na vista aérea some: lá o pin é o marcador desenhado.
    */
   private fitBeam() {
-    this.beam.visible = !this.aerial
+    // Some na vista aérea e na câmera da cova (ficaria na frente da bola chegando).
+    const f = this.flight
+    this.beam.visible = !this.aerial && !(f && f.index >= f.cupFrame)
     if (!this.beam.visible) return
     const at = this.beam.position
     const distance = Math.hypot(this.camera.position.x - at.x, this.camera.position.z - at.z)
@@ -1444,6 +1482,8 @@ export class HoleView {
     if (player) this.ballOf(player, this.players.length > 1)
     this.flightYaw = 0
     this.flightTop = false
+    const landing = this.landingIndex(frames)
+    const putt = club?.startsWith('PT') ?? false
     return new Promise((resolve) => {
       this.flight = {
         playerId,
@@ -1455,8 +1495,12 @@ export class HoleView {
         impact,
         club,
         powerShot,
-        landing: this.landingIndex(frames),
+        landing,
         index: 0,
+        putt,
+        from: this.frameAt(frames, 0),
+        landingAt: this.frameAt(frames, landing),
+        cupFrame: this.cupCameraFrame(frames, events, putt ? 0 : landing),
       }
     })
   }
@@ -1471,6 +1515,24 @@ export class HoleView {
       if (ground !== undefined && frames[i * 3 + 1]! - ground <= 0.5) return i
     }
     return count - 1
+  }
+
+  /**
+   * Quadro em que a câmera da cova entra: só se a bola entra ou para pertinho dela, quando a
+   * bola chega a SHOT_CAMERA.cup.yards da cova rolando (depois de `from`, a queda; não se ela
+   * já cai perto).
+   */
+  private cupCameraFrame(frames: Float32Array, events: ShotEvent[], from: number) {
+    const count = frames.length / 3
+    const cup = this.world.cup
+    const gap = (i: number) => Math.hypot(frames[i * 3]! - cup.x, frames[i * 3 + 2]! - cup.z)
+    const near = yardsToUnits(SHOT_CAMERA.cup.yards)
+    const holed = events.some((e) => e.type === 'hole')
+    if (!holed && gap(count - 1) > yardsToUnits(SHOT_CAMERA.cup.stopYards)) return Infinity
+    // Já cai perto da cova (dunk, putt curto): a câmera da queda/rolagem já mostra.
+    if (gap(from) < near * 1.5) return Infinity
+    for (let i = from; i < count; i++) if (gap(i) < near) return i
+    return Infinity
   }
 
   /** A câmera livre do voo vale até pouco antes de a bola cair. */
@@ -1501,6 +1563,7 @@ export class HoleView {
       switch (e.type) {
         case 'hit':
           this.playHit(flight.impact, flight.club, flight.powerShot, character)
+          this.hitPangs(flight)
           break
         case 'bounce':
           void sounds.playNamed(this.surfaceSound(e.surface, 'boundSound'), 'bounce')
@@ -1530,12 +1593,28 @@ export class HoleView {
           void sounds.play('galleryDisappointed')
           void sounds.voice(character, 'ob')
           break
-        case 'hole':
+        case 'hole': {
           void sounds.play('cup')
           void sounds.play('applause')
+          const cup = toScene(this.world.cup.x, this.world.cup.y, this.world.cup.z)
+          this.pangs.burst(cup.add(new Vector3(0, 0.5, 0)), PANG_COINS.hole)
+          setTimeout(() => void sounds.play('pang'), 250)
           break
+        }
       }
     }
+  }
+
+  /** PANGYA (fora do putt) ou power shot: pangs saindo da bola, com o som das moedas. */
+  private hitPangs(flight: NonNullable<HoleView['flight']>) {
+    const power = flight.powerShot !== undefined && flight.powerShot !== 'none'
+    const pangya = flight.impact === undefined || isPangya(flight.impact)
+    if (flight.putt || !(pangya || power)) return
+    this.pangs.burst(
+      flight.from.clone().add(new Vector3(0, 0.6, 0)),
+      power ? PANG_COINS.powerShot : PANG_COINS.pangya,
+    )
+    setTimeout(() => void this.sounds.play('pang'), 150)
   }
 
   /** Som da batida: PANGYA, normal ou errada; power shot por cima; e a voz. */
@@ -1666,23 +1745,89 @@ export class HoleView {
       camera.lookAt(focus)
       return
     }
-    // Mirando: perto, atrás do jogador; voando: mais longe para acompanhar a bola.
-    const flying = this.phase === 'flying'
-    const back = putting ? 18 : flying ? 55 : 22
-    const up = putting ? 9 : flying ? 20 : 8
-    const desired = focus
+    if (this.phase === 'flying' && this.flight) {
+      this.flightCamera(focus, forward, free)
+      return
+    }
+    // Mirando: perto, atrás do jogador (no green, um pouco mais alto).
+    const view = putting ? SHOT_CAMERA.putt : SHOT_CAMERA.aim
+    this.moveCamera(focus, this.behind(focus, forward, view.back, view.up), lerp)
+    camera.lookAt(focus.clone().addScaledVector(forward, view.look))
+  }
+
+  private behind(focus: Vector3, forward: Vector3, back: number, up: number) {
+    return focus
       .clone()
       .addScaledVector(forward, -back)
       .add(new Vector3(0, up, 0))
-    this.moveCamera(focus, desired, lerp)
-    camera.lookAt(focus.clone().addScaledVector(forward, putting ? 25 : flying ? 60 : 40))
+  }
+
+  /** Câmera da tacada em andamento (SHOT_CAMERA): parada, perseguindo, queda, rolagem, cova. */
+  private flightCamera(focus: Vector3, forward: Vector3, free: boolean) {
+    const f = this.flight!
+    const { camera } = this
+    const elapsed = (performance.now() - f.start) / 1000
+    const start = f.putt ? SHOT_CAMERA.putt : SHOT_CAMERA.aim
+    // O swing e a bola saindo: parada atrás do jogador.
+    if (elapsed < SHOT_CAMERA.hold) {
+      this.moveCamera(f.from, this.behind(f.from, forward, start.back, start.up), 0.12)
+      camera.lookAt(f.from.clone().addScaledVector(forward, start.look))
+      return
+    }
+    // Chegando na cova: ao lado dela, baixa, vendo a bola chegar.
+    if (f.index >= f.cupFrame) {
+      const c = SHOT_CAMERA.cup
+      const cup = toScene(this.world.cup.x, this.world.cup.y, this.world.cup.z)
+      const approach = cup.clone().sub(this.frameAt(f.frames, f.cupFrame)).setY(0)
+      if (approach.lengthSq() < 1e-6) approach.copy(forward)
+      approach.normalize()
+      const side = new Vector3().crossVectors(UP, approach)
+      const desired = cup
+        .clone()
+        .addScaledVector(approach, c.beyond)
+        .addScaledVector(side, c.side)
+        .add(new Vector3(0, c.up, 0))
+      this.moveCamera(cup, desired, c.lerp, 0.8)
+      camera.lookAt(focus.clone().lerp(cup, 0.5))
+      return
+    }
+    // Depois de cair (ou no putt): segue a bola rolando, mais perto.
+    if (f.putt || f.index >= f.landing) {
+      const r = f.putt ? SHOT_CAMERA.puttRoll : SHOT_CAMERA.roll
+      // Atrás da bola no sentido em que ela anda (quebra do green, quique de lado).
+      const travel = focus
+        .clone()
+        .sub(this.frameAt(f.frames, Math.max(f.putt ? 0 : f.landing, f.index - 25)))
+        .setY(0)
+      const along = travel.lengthSq() > 1 ? travel.normalize() : forward
+      this.moveCamera(focus, this.behind(focus, along, r.back, r.up), r.lerp)
+      camera.lookAt(focus.clone().addScaledVector(along, r.look))
+      return
+    }
+    // Pouco antes de cair: freia atrás do ponto de queda e vê a bola descer.
+    const l = SHOT_CAMERA.landing
+    const lead = (l.lead * BALL_PLAYBACK_SPEED) / STEP_TIME
+    if (!free && f.index >= f.landing - lead) {
+      const anchor = this.behind(f.landingAt, forward, l.back, l.up)
+      this.moveCamera(f.landingAt, anchor, l.lerp)
+      camera.lookAt(focus)
+      return
+    }
+    // No ar: persegue a bola por trás, afastando aos poucos de onde estava.
+    const c = SHOT_CAMERA.chase
+    const t = Math.min(1, (elapsed - SHOT_CAMERA.hold) / c.blend)
+    const k = t * t * (3 - 2 * t)
+    const back = start.back + (c.back - start.back) * k
+    const up = start.up + (c.up - start.up) * k
+    this.moveCamera(focus, this.behind(focus, forward, back, up), c.lerp)
+    camera.lookAt(focus.clone().addScaledVector(forward, c.look))
   }
 
   /**
    * Desliza a câmera até `desired`. As proteções valem para a posição real de cada quadro
    * (deslizando, a câmera poderia atravessar paredes do terreno).
    */
-  private moveCamera(focus: Vector3, desired: Vector3, lerp: number) {
+  private moveCamera(focus: Vector3, desired: Vector3, lerp: number, minHeight = 6) {
     // `lerp` é por quadro a 60 quadros/s; convertido para o tempo do quadro de verdade.
     const next = this.camera.position.clone().lerp(desired, lerpFactor(lerp, this.frameDt))
     const toCamera = next.clone().sub(focus)
@@ -1694,7 +1839,7 @@ export class HoleView {
       if (hit) next.copy(focus).addScaledVector(toCamera, Math.max(4, hit.distance - 4))
     }
     const below = this.world.grid.groundAt(next.x, -next.z)
-    if (below && next.y < below.y + 6) next.y = below.y + 6
+    if (below && next.y < below.y + minHeight) next.y = below.y + minHeight
     this.camera.position.copy(next)
   }
 
@@ -1792,6 +1937,7 @@ export class HoleView {
       this.placeCamera(this.ballPosition(), 0.08)
     }
     for (const model of this.ready.values()) if (model.root.visible) model.update(dt)
+    this.pangs.update(dt)
     this.updateOverlay()
     this.updateAimReadout()
     this.beamMaterial.opacity = 0.4 + 0.08 * Math.sin(now / 300)

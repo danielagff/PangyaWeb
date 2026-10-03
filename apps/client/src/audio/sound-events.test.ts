@@ -214,6 +214,31 @@ describe('sons: nomes reais do cliente JP (diagnóstico de 03/10/2026)', () => {
     expect(files('round14_green sand', 'green')).toEqual([])
   })
 
+  it('música do curso pela trilha oficial (Blue Lagoon = Daydream e Frog)', () => {
+    const music = audioFiles([
+      'data/sound/bgm/navy_blue.mp3',
+      'data/sound/bgm/daydream.mp3',
+      'data/sound/bgm/frog.mp3',
+      'data/sound/bgm/crystal lake.mp3',
+      'data/sound/bgm/crystal lake - 273k mix -.mp3',
+      'data/sound/bgm/crystal_jp_miku.mp3',
+      'data/sound/bg/wizcity/adayinthewizcity.mp3',
+    ])
+    const files = (round: string, prefix: string, name: string) =>
+      resolveEvent(courseMusicEvent(round, prefix, name), none, music).files
+    expect(files('round02_blue', 'blue', 'Blue Lagoon')).toEqual([
+      'data/sound/bgm/daydream.mp3',
+      'data/sound/bgm/frog.mp3',
+    ])
+    expect(files('round05_silvia', 'silvia', 'Silvia Cannon')).toEqual([
+      'data/sound/bgm/navy_blue.mp3',
+    ])
+    expect(files('round09_icespa', 'spa', 'Ice Spa')).toEqual(['data/sound/bgm/crystal lake.mp3'])
+    expect(files('round19_wizcity', 'wiz', 'Wizcity')).toEqual([
+      'data/sound/bg/wizcity/adayinthewizcity.mp3',
+    ])
+  })
+
   it('som ambiente pela caixa de som e gaivotas pelos bichos do curso', () => {
     expect(ambientFiles('바다', REAL)).toEqual([
       'data/sound/ambient/바다소리.wav',

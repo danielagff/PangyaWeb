@@ -136,6 +136,8 @@ export function createPowerBar(parent: HTMLElement = document.body) {
   let shown = 0
   let raf = 0
   let resetTimer = 0
+  /** Texto do repouso pedido por fora (batendo, vez de outro…); vazio = IDLE_LABEL. */
+  let idleText = ''
   let finish: ((result: PowerBarResult) => void) | undefined
   let cancelled: (() => void) | undefined
   /** Impacto sempre perfeito (desenvolvimento: testar a física). */
@@ -287,7 +289,7 @@ export function createPowerBar(parent: HTMLElement = document.body) {
       fill.style.width = '0'
       marker.style.left = '0'
       powerMark.hidden = true
-      label.textContent = IDLE_LABEL
+      label.textContent = idleText || IDLE_LABEL
     }, 1200)
   }
 
@@ -384,10 +386,11 @@ export function createPowerBar(parent: HTMLElement = document.body) {
       fill.style.width = '0'
       marker.style.left = '0'
       powerMark.hidden = true
-      label.textContent = IDLE_LABEL
+      label.textContent = idleText || IDLE_LABEL
     },
     /** Texto embaixo da barra (vez de outro jogador, batendo…). */
     setLabel(text: string) {
+      idleText = text
       if (stage === 'idle') label.textContent = text || IDLE_LABEL
     },
     dispose() {

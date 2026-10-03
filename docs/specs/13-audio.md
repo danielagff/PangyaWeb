@@ -57,10 +57,20 @@ Efeitos sonoros e música tocando nos eventos certos.
   `v2_club`) antes dos pacotes de evento.
 - **Som ambiente** pelas caixas de som do curso (`바다` → `바다소리.wav` em laço) e os bichos
   (`NPC_SeaGull` → `갈매기울음.wav` a cada 8–22 s).
-- Música de cada curso: nenhuma tabela liga curso → música (o `Course.iff` não tem); o
-  automático tenta a pasta do curso, a pasta de sons dele (`sound/bg/wizcity/…`) e as
-  palavras do nome da pasta (`spring wind` → `spring.mp3`), senão o prefixo (`blue` →
-  `navy_blue.mp3`, a confirmar). O Daniel confere e troca na tela Sons.
+- Música de cada curso: o cliente não tem tabela curso → música (o `Course.iff` não tem);
+  usamos a da **trilha oficial** (pangya.wiki, "Pangya Online Original Soundtrack";
+  `COURSE_TRACKS`): Blue Lagoon/Blue Water/Blue Moon = Daydream e Frog, Pink Wind/Wind
+  Hill/Sepia Wind = Breeze e Spring, Wiz Wiz/West Wiz = Bunny e Shiny, White Wiz =
+  Snowscape e Winter Ride, Silvia Cannon = Navy Blue e Rising Sun, Shining Sand = Somewhere
+  e Nowhere, Ice Cannon = Crystal Waver e Happy Flight, Deep Inferno = Volcano e Vermilion,
+  Ice Spa = Crystal Lake e Fade Into White, Lost Seaway, Eastern Valley (e River), Wiz City
+  (Secret Wish, A Day in the WizCity), Ice Inferno (Orbit of Darkness, Cyan Sunset), Grand
+  Zodiac (Grand Skyscraper), Abbot Mine (Beautiful Ruins, Skyrider), Mystic Ruins (Dear
+  Memory, Oracle). Toca uma delas, sorteada. Sem a música na tabela, o automático tenta a
+  pasta do curso, a pasta de sons dele e as palavras do nome da pasta. O Daniel confere e
+  troca na tela Sons.
+- **Pangs**: som das moedas `아이템획득(팡).wav` (momento "pang") quando as moedas saem da
+  bola no PANGYA/power shot e da cova quando a bola entra (sintetizado sem o arquivo).
 - **Tela "Sons" no mapeador** (`audio/sound-mapper.ts`; `mapeador.html#sons` ou "Sons do
   jogo" no menu): os momentos com os arquivos que tocam e de onde vieram (escolhido,
   automático, sintetizado, mudo); todos os arquivos de som por pasta, com ▶ e ＋ para usar no
@@ -75,8 +85,7 @@ Efeitos sonoros e música tocando nos eventos certos.
 - Teste na nuvem: `pnpm assets:teste` gera bipes com nomes no padrão (`data/sound/teste/`).
   Conferido no navegador: música do curso em laço, PANGYA + "Pangya!" na batida, cova +
   aplausos no Hole in One.
-- Ainda não: sons ambientes do curso (ondas, pássaros — `soundbox` do .gbin), vozes dos
-  caddies, conferir os nomes com a extração completa.
+- Ainda não: vozes dos caddies, conferir no PC com os arquivos reais.
 
 ## Critérios de aceite
 

@@ -11,7 +11,8 @@
  * abaixo procuram nos dois. Conferido com o diagnóstico do cliente JP (6933 sons).
  */
 
-export type SynthSound = 'hit' | 'pangya' | 'bounce' | 'roll' | 'wood' | 'water' | 'cup' | 'miss'
+export type SynthSound =
+  'hit' | 'pangya' | 'bounce' | 'roll' | 'wood' | 'water' | 'cup' | 'miss' | 'coins'
 
 export type SoundCategory = 'effects' | 'voices' | 'music'
 
@@ -67,6 +68,14 @@ export const SOUND_EVENTS: SoundEvent[] = [
     /^(파워샷|파워|power)/,
   ]),
   event('niceShot', 'Tacada', '"Nice shot!" (batida boa, sem PANGYA)', [/^나이스샷/, /niceshot/]),
+  // "아이템획득(팡)" = item ganho (pang): o tilintar das moedas.
+  event(
+    'pang',
+    'Tacada',
+    'Pangs ganhos (moedas saindo na boa tacada)',
+    [/^아이템획득\(팡\)/, /^팡_/, /coin/],
+    'coins',
+  ),
   event('miss', 'Tacada', 'Batida errada', [/^(헛스윙|미스|miss)/], 'miss'),
   event('bar', 'Tacada', 'Barra de força (cada toque)', [/^(파워게이지|게이지|gauge|bar)/]),
   event('bounce', 'Bola', 'Quique (piso sem som no property.xml)', [], 'bounce'),
@@ -138,8 +147,50 @@ export function scoreSound(strokes: number, par: number): string {
 /** Música de cada curso: um evento por pasta do curso. */
 export const musicEventId = (round: string) => `music:${round}`
 
+/**
+ * Músicas de cada curso na trilha oficial (pangya.wiki, "Pangya Online Original Soundtrack"),
+ * pelo nome do arquivo em data/sound/bgm. Chave: nome do curso só com letras.
+ */
+const COURSE_TRACKS: Record<string, string[]> = {
+  bluelagoon: ['daydream', 'frog'],
+  bluewater: ['daydream', 'frog'],
+  bluemoon: ['daydream', 'frog'],
+  pinkwind: ['breeze', 'spring'],
+  springwind: ['breeze', 'spring'],
+  windhill: ['breeze', 'spring'],
+  sepiawind: ['breeze', 'spring'],
+  wizwiz: ['bunny', 'shiny'],
+  westwiz: ['bunny', 'shiny'],
+  whitewiz: ['snowscape', 'winter ride'],
+  silviacannon: ['navy blue', 'rising sun'],
+  shiningsand: ['somewhere', 'nowhere'],
+  icecannon: ['crystal waver', 'happy flight'],
+  deepinferno: ['volcano', 'vermilion'],
+  icespa: ['crystal lake', 'fade into white'],
+  lostseaway: ['the mystery of the lost seaway', 'voyage the sky'],
+  easternvalley: ['eastern valley', 'river'],
+  wizcity: ['secret wish', 'a day in the wizcity'],
+  iceinferno: ['orbit of darkness', 'cyan sunset'],
+  grandzodiac: ['grand skyscraper'],
+  abbotmine: ['beautiful ruins', 'skyrider'],
+  mysticruins: ['dear memory', 'oracle'],
+}
+
+/** Músicas da trilha oficial do curso (pelo nome ou pela pasta), ou []. */
+export function courseTracks(round: string, name: string): string[] {
+  const key = (text: string) =>
+    text
+      .toLowerCase()
+      .replace(/^round\d+_/, '')
+      .replace(/[^a-z]/g, '')
+  return COURSE_TRACKS[key(name)] ?? COURSE_TRACKS[key(round)] ?? []
+}
+
 export function courseMusicEvent(round: string, prefix: string, name: string): SoundEvent {
   const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  // "a day in the wizcity" → acha "adayinthewizcity.mp3", "a_day_in….mp3", "a day in….mp3".
+  const track = (title: string) => title.split(' ').map(escape).join('[ _]?')
+  const tracks = courseTracks(round, name)
   // "round10_spring wind" → "springwind", ["spring", "wind"]; "round19_wizcity" → "wizcity".
   const folder = round.toLowerCase().replace(/^round\d+_/, '')
   const joined = folder.replace(/[^a-z]/g, '')
@@ -149,9 +200,10 @@ export function courseMusicEvent(round: string, prefix: string, name: string): S
     group: 'Música',
     label: `Música: ${name}`,
     category: 'music',
-    // Na pasta do curso; na pasta de sons dele (data/sound/bg/wizcity/…); com o nome da
+    // As da trilha oficial; na pasta do curso; na pasta de sons dele (data/sound/bg/wizcity/…); com o nome da
     // pasta ou uma palavra dele no nome ("spring.mp3" para "spring wind"); com o prefixo.
     patterns: [
+      ...(tracks.length ? [new RegExp(`(^|/)(${tracks.map(track).join('|')})\\.[a-z0-9]+$`)] : []),
       new RegExp(`(^|/)${escape(round.toLowerCase())}/`),
       ...(joined ? [new RegExp(`/bg/${escape(joined)}/`), new RegExp(escape(joined))] : []),
       ...words.map((w) => new RegExp(`(^|/)[^/]*${escape(w)}[^/]*$`)),

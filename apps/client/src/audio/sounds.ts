@@ -423,6 +423,12 @@ function synth(context: AudioContext, destination: GainNode, sound: SynthSound, 
     case 'water':
       noise(0.5, 1200, 0.6, 0.3)
       break
+    case 'coins':
+      for (let i = 0; i < 5; i++) {
+        tone(1975 + (i % 2) * 660, i * 0.06, 0.18, 'triangle', 0.18)
+        tone(3950, i * 0.06 + 0.01, 0.08, 'sine', 0.08)
+      }
+      break
     case 'cup':
       tone(1046, 0, 0.25, 'sine', 0.4)
       tone(784, 0.12, 0.25, 'sine', 0.35)

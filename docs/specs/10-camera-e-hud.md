@@ -60,6 +60,13 @@ Câmeras de jogo e HUD com as informações necessárias para mirar como no orig
 - Desnível do pin em **metros**, como no original (`unitsToMeters`), no HUD e na barra.
 - Câmera do voo: A/D giram em volta da bola, S alterna a vista de cima; 0,8 s antes de a bola
   tocar o chão (`FREE_CAMERA_UNTIL_LANDING`) volta sozinha à câmera padrão.
+- **Câmera da tacada no estilo do Pangya** (`SHOT_CAMERA`, `flightCamera`): parada atrás do
+  jogador no swing e 0,5 s depois da batida (a bola saindo e os pangs); depois persegue a
+  bola por trás, afastando aos poucos; 1 s antes da queda freia atrás do ponto de queda e vê
+  a bola descer; depois segue a bola rolando por trás **no sentido em que ela anda**; se a
+  bola entra ou para a menos de 2 y da cova, ao chegar a 4 y dela a câmera desce ao lado da
+  cova (sem a luz da cova, que ficaria na frente) e vê a bola chegando. No putt, sem câmera
+  de queda: atrás da bola, baixa. `__debugDrop(jardas)` rola a bola até a cova (testes).
 - Barra de força no estilo do original: escala de jardas (meio e máximo do taco), zona de
   impacto amarela com a faixa PANGYA (rosa, `IMPACT_TUNING.pangyaZone`) e linha central;
   deixar o marcador passar da zona cancela a tacada (o jogador desistiu) e volta a mirar.
