@@ -1,14 +1,20 @@
 /**
- * HUD da tacada no estilo do Pangya (embaixo da tela), no lugar do painel lateral:
- * - mostrador redondo com o taco (roda do mouse troca), o ponto de impacto na bola
- *   (clique/arraste: spin e curva; duplo clique centraliza), o power shot (Alt: 1 toque =
- *   1 PS, 2 toques rápidos = 2 PS, de novo = desliga) e a força do personagem;
- * - a barra de força sempre visível (3 toques de espaço), com a escala de jardas e o pin.
+ * HUD da tacada no visual do Pangya original (embaixo da tela). Tudo é desenhado numa caixa
+ * de 1620×380 unidades de design (como o HTML de base do Daniel), escalada para a tela:
+ * - mostrador redondo: a bola (clique/arraste: spin e curva; duplo clique centraliza), a % de
+ *   força e, depois da batida, "PangYa" com o nº de PANGYAs seguidos; o taco num círculo no
+ *   canto de cima (roda do mouse troca); um arco do lado com os ícones (itens, chat); um
+ *   círculo pequeno embaixo com a força do personagem; o power shot (Alt: 1 toque = 1 PS,
+ *   2 toques rápidos = 2 PS, de novo = desliga);
+ * - a aba do passo embaixo-à-direita do mostrador ("Start", "Power", "Impact");
+ * - a barra de força (power-bar.ts) com o calibrador;
+ * - durante o voo, os contadores no centro de baixo (distância percorrida em branco e até o
+ *   pin em vermelho); quando a bola para, o piso, "Distance" e a distância até o pin.
  * Habilidades do power shot (tomahawk, spike, cobra) ficam para depois: a tacada é normal.
  */
-import { PUTT_RANGE } from '@pangya/game'
+import { isPangya, PUTT_RANGE } from '@pangya/game'
 import { CLUB_IDS, type ClubId, type PowerShot, type SpecialShot } from '@pangya/physics'
-import { createPowerBar } from './power-bar.ts'
+import { createPowerBar, yardsText, type PowerBarStage } from './power-bar.ts'
 
 export { PUTT_RANGE }
 
@@ -31,23 +37,68 @@ export interface ShotHudInput {
 
 const clubLabel = (club: ClubId) => (club === 'PT1' ? 'PT' : club)
 
+/** Tamanho da caixa do HUD, em unidades de design. */
+export const HUD_DESIGN = { width: 1620, height: 380 }
+/** Altura máxima do HUD (fração da altura da tela). */
+const HUD_MAX_HEIGHT = 0.3
+
+/** Escala da caixa de design para a tela (cabe na largura e em HUD_MAX_HEIGHT da altura). */
+export const hudScale = (width: number, height: number) =>
+  Math.min(1, width / HUD_DESIGN.width, (height * HUD_MAX_HEIGHT) / HUD_DESIGN.height)
+
+/** Texto da aba do passo da barra. */
+const STEP_LABELS: Record<PowerBarStage, string> = {
+  idle: 'Start',
+  rising: 'Power',
+  returning: 'Impact',
+}
+
+/** Onde a bola parou, para o quadro do fim da tacada. */
+export interface ShotStop {
+  /** Piso ("Fairway", "Green"…). */
+  surface: string
+  /** Distância da tacada (jardas). */
+  distance: number
+  /** Distância até o pin (jardas); undefined = embocou. */
+  toPin: number | undefined
+}
+
 export function createShotHud(onShoot: () => void) {
   const root = document.createElement('div')
   root.className = 'shot-hud'
   root.innerHTML = `
     <p class="result" aria-live="polite"></p>
-    <div class="row">
-      <div class="dial">
-        <div class="club" title="Taco (roda do mouse)">1W</div>
-        <div class="impact" title="Ponto de impacto: clique ou arraste (spin e curva); duplo clique centraliza">
-          <div class="cross"></div><div class="dot"></div>
+    <div class="frame">
+      <div class="box">
+        <div class="dial">
+          <div class="face">
+            <div class="streak" hidden>PangYa <b></b></div>
+            <div class="impact" title="Ponto de impacto: clique ou arraste (spin e curva); duplo clique centraliza">
+              <div class="cross"></div><div class="dot"></div>
+            </div>
+            <div class="percent">0%</div>
+            <div class="ps" title="Power shot (Alt: 1 toque = 1 PS, 2 toques rápidos = 2 PS)">
+              <span></span><span></span>
+            </div>
+          </div>
+          <div class="arc">
+            <span class="icon" title="Itens (em breve)">🎒</span>
+            <span class="icon" title="Chat">💬</span>
+          </div>
+          <div class="club" title="Taco (roda do mouse)">1W</div>
+          <div class="stat" title="Força do personagem">15</div>
         </div>
-        <div class="ps" title="Power shot (Alt: 1 toque = 1 PS, 2 toques rápidos = 2 PS)">
-          <span></span><span></span>
+        <div class="step"><span>Start</span><i></i></div>
+        <div class="counters" hidden>
+          <div class="traveled"></div>
+          <div class="to-pin"></div>
         </div>
-        <div class="stat" title="Força do personagem">15</div>
+        <div class="stop" hidden>
+          <div class="surface"></div>
+          <div class="distance"></div>
+          <div class="to-pin"></div>
+        </div>
       </div>
-      <div class="bar-slot"></div>
     </div>`
   document.body.appendChild(root)
   const $ = <T extends HTMLElement>(selector: string) => root.querySelector(selector) as T
@@ -57,7 +108,47 @@ export function createShotHud(onShoot: () => void) {
   const dot = $<HTMLDivElement>('.dot')
   const pips = [...root.querySelectorAll<HTMLSpanElement>('.ps span')]
   const stat = $<HTMLDivElement>('.stat')
-  const bar = createPowerBar($<HTMLDivElement>('.bar-slot'))
+  const frame = $<HTMLDivElement>('.frame')
+  const box = $<HTMLDivElement>('.box')
+  const percentBox = $<HTMLDivElement>('.percent')
+  const streakBox = $<HTMLDivElement>('.streak')
+  const step = $<HTMLSpanElement>('.step span')
+  const counters = $<HTMLDivElement>('.counters')
+  const stop = $<HTMLDivElement>('.stop')
+  const bar = createPowerBar(box)
+
+  // A caixa de design (1620×380) escalada para caber embaixo da tela.
+  const fit = () => {
+    const scale = hudScale(window.innerWidth, window.innerHeight)
+    frame.style.width = `${HUD_DESIGN.width * scale}px`
+    frame.style.height = `${HUD_DESIGN.height * scale}px`
+    box.style.transform = `scale(${scale})`
+  }
+  window.addEventListener('resize', fit)
+  fit()
+
+  /** PANGYAs seguidos (nas tacadas deste jogador). */
+  let streak = 0
+  const showInfo = (which: 'counters' | 'stop' | undefined) => {
+    counters.hidden = which !== 'counters'
+    stop.hidden = which !== 'stop'
+  }
+  bar.onUpdate(({ stage, position, power }) => {
+    step.textContent = STEP_LABELS[stage]
+    root.dataset['stage'] = stage
+    const shown = stage === 'rising' ? position : power
+    percentBox.textContent = `${Math.round(shown * 100)}%`
+    if (stage === 'rising' && position === 0) {
+      // Nova tacada: some o "PangYa" e o quadro da tacada anterior.
+      streakBox.hidden = true
+      showInfo(undefined)
+    }
+  })
+  bar.onFinish(({ impact }) => {
+    streak = isPangya(impact) ? streak + 1 : 0
+    streakBox.hidden = streak === 0
+    streakBox.querySelector('b')!.textContent = streak > 1 ? `×${streak}` : ''
+  })
 
   const input: ShotHudInput = {
     club: '1W',
@@ -172,6 +263,24 @@ export function createShotHud(onShoot: () => void) {
     setPower(power: number) {
       stat.textContent = String(power)
     },
+    /** Contadores do voo: distância percorrida (branco) e até o pin (vermelho), em jardas. */
+    showFlight(traveled: number, toPin: number) {
+      showInfo('counters')
+      counters.querySelector('.traveled')!.textContent = yardsText(traveled, 2)
+      counters.querySelector('.to-pin')!.textContent = yardsText(toPin, 2)
+    },
+    /** A bola parou: piso, distância da tacada e até o pin. */
+    showStop({ surface, distance, toPin }: ShotStop) {
+      showInfo('stop')
+      stop.querySelector('.surface')!.textContent = surface
+      stop.querySelector('.distance')!.textContent = `Distance: ${yardsText(distance, 2)}`
+      stop.querySelector('.to-pin')!.textContent =
+        toPin === undefined ? '' : `Pin: ${yardsText(toPin, 2)}`
+    },
+    /** Esconde os contadores do voo e o quadro do fim da tacada. */
+    hideShotInfo() {
+      showInfo(undefined)
+    },
     /** Liga/desliga os controles (vez de outro jogador). */
     setEnabled(on: boolean, label = '') {
       enabled = on
@@ -183,6 +292,7 @@ export function createShotHud(onShoot: () => void) {
     dispose() {
       window.removeEventListener('keydown', onKey)
       window.removeEventListener('keyup', onKeyUp)
+      window.removeEventListener('resize', fit)
       bar.dispose()
       root.remove()
     },

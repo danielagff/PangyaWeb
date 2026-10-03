@@ -122,6 +122,15 @@ medições de referência passam a servir para validar.
       Conferido no Blue Lagoon: 1W a 25/50/75/100% no plano = 57,5/115/172,5/230 y; no
       buraco 1 o fairway fica ~4 m abaixo do tee e a bola vai mais longe (desnível); nos
       buracos 2 e 6 (par 3), a força certa já contando o desnível dá Hole in One sem vento.
+- [x] **Barra = voo + rolagem, pelo vídeo do tutorial** (04/10/2026): 1W de 230y, PANGYA,
+      sem vento: ~219y de voo em ~6,4 s e ~14,5y de rolagem em ~3,5 s, total 233,57y. Agora
+      x% da barra **voa** x% de `BAR_CARRY_SHARE` (219/230) do alcance e a rolagem leva
+      perto do número da barra. Rolagem de tacada calibrada em `GROUND_TUNING`
+      (`shotRollFriction` 0,8, `impactFriction` 1,18 limitado por `impactGrip` 3 — a bola
+      rasante quase não perde velocidade no quique —, `bounceRestitution` 0,85); o putt
+      continua com `rollFriction` 0,5. No fairway plano: 1W 219 + 14,6 = 233,6y (2,7 s de
+      rolagem na física = 3,4 s na tela), 3W 181 + 13 = 194y, 7I 124 + 10 = 134y, SW 76 + 6 =
+      82y. A calculadora (G) começa pela conta do voo (distância ÷ 219/230 do alcance).
 - [ ] Com a bola saindo mais rápida, a **curva** abre mais: 1W a 100% com curva máxima cai
       ~12 y ao lado da mira (no SuperSS ~1 y; a 50–75% já caía 15–25 y ao lado nos dois).
       Ajustar junto com as **tacadas especiais** (tomahawk, spike, cobra), que também ainda

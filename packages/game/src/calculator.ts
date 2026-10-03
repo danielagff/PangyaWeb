@@ -9,6 +9,7 @@
  * Usa o taco escolhido; se ele não alcança, o primeiro taco mais longo que alcança.
  */
 import {
+  BAR_CARRY_SHARE,
   CLUB_IDS,
   CLUBS,
   unitsToYards,
@@ -101,7 +102,9 @@ function solveClub(
   }
   const range = world.shotRange(state, request(0, 1))
   let aim = world.aimAtPin(state.ball)
-  let percent = Math.min(1, Math.max(0.02, world.distanceToPin(state.ball) / range))
+  // Começa pela conta do plano: a barra voa BAR_CARRY_SHARE do número dela.
+  const carry = range * BAR_CARRY_SHARE
+  let percent = Math.min(1, Math.max(0.02, world.distanceToPin(state.ball) / carry))
   let r = residual(aim, percent)
   for (let i = 0; i < 30 && Math.hypot(r[0], r[1]) > TOLERANCE; i++) {
     const da = 2e-4

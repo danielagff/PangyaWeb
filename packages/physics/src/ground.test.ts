@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_PLAYER, FlightSimulator, type ShotInput } from './flight.ts'
+import { DEFAULT_PLAYER, FlightSimulator, STEP_TIME, type ShotInput } from './flight.ts'
 import { puttSpeed, simulateGround, type GroundAt, type GroundSurface } from './ground.ts'
 import { CUP_DEPTH } from './cup.ts'
 import { unitsToYards } from './units.ts'
@@ -35,13 +35,23 @@ function shot(club: ShotInput['club'], surface: GroundSurface, spin = 0) {
 }
 
 describe('simulateGround', () => {
-  it('a bola cai no número da barra e depois rola um pouco além (fairway)', () => {
-    for (const club of ['1W', '7I', 'SW'] as const) {
+  it('voo + rolagem param perto do número da barra (fairway)', () => {
+    for (const club of ['1W', '3W', '7I', 'SW'] as const) {
       const { total, flight } = shot(club, SURFACES.fairway)
-      expect(flight.carry).toBeCloseTo(flight.range, 1)
-      expect(total).toBeGreaterThan(flight.carry)
-      expect(total).toBeLessThan(flight.carry * 1.3)
+      expect(total).toBeGreaterThan(flight.range * 0.98)
+      expect(total).toBeLessThan(flight.range * 1.04)
     }
+  })
+
+  it('1W como no vídeo do tutorial: 219y de voo, ~14,5y rolando em ~2,8 s, total ~233,6y', () => {
+    const { flight, run, total, ground } = shot('1W', SURFACES.fairway)
+    expect(flight.carry).toBeCloseTo(219, 1)
+    expect(run).toBeGreaterThan(13.5)
+    expect(run).toBeLessThan(15.5)
+    expect(total).toBeCloseTo(233.6, 0)
+    const seconds = (ground.frames.length / 3) * STEP_TIME
+    expect(seconds).toBeGreaterThan(2.4)
+    expect(seconds).toBeLessThan(3.2)
   })
 
   it('a bola rola mais em pisos rápidos', () => {

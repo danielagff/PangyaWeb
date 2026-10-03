@@ -524,12 +524,19 @@ export function beamCapture(a: Vec3, b: Vec3, cup: Vec3): Vec3 | undefined {
   return above <= CUP_BEAM.height && above >= -0.5 ? p : undefined
 }
 
-/** Atalho: simula o voo de uma tacada até o chão na altura `landingY` (unidades). */
+/**
+ * Parte do número da barra que é voo; o resto é a rolagem. Medido no vídeo do tutorial do
+ * Daniel (1W de 230y, PANGYA, sem vento, fairway plano): 219y de voo em ~6,4 s e ~14,5y de
+ * rolagem em ~3,5 s, total 233,57y. A rolagem vem de GROUND_TUNING.shotRollFriction.
+ */
+export const BAR_CARRY_SHARE = 219 / 230
+
 /**
  * A barra de força é a distância de verdade (decisão do Daniel, 03/10/2026): no chão plano,
  * sem vento, com a bola acertada no centro (sem spin nem curva) e piso 100%, a x% da barra
- * a bola cai a x% do alcance do taco — o número da barra. Ex.: pin a 115y com o 1W de 230y
- * → 50% cai no pin. Vento, desnível, spin, curva, piso e tacadas especiais mudam a partir
+ * a bola cai a x% de BAR_CARRY_SHARE do alcance do taco e rola o resto, parando perto do
+ * número da barra (como no original: 1W 230y → 219y de voo + 14,5y rolando). Ex.: pin a
+ * 115y com o 1W de 230y → 50% para perto do pin. Vento, desnível, spin, curva, piso e tacadas especiais mudam a partir
  * daí, pela física do voo (que é a do SuperSS; só a velocidade de saída é recalculada).
  *
  * A velocidade que dá essa distância é achada por busca (regula falsi, erro < 0,002 y) e
@@ -558,7 +565,8 @@ export function barLaunchScale(input: ShotInput): number {
 
   const carry = (scale: number) =>
     new FlightSimulator(neutral, undefined, { launchScale: scale }).flyTo(0).carry
-  const target = percent * new FlightSimulator(neutral, undefined, { launchScale: 1 }).range
+  const target =
+    percent * BAR_CARRY_SHARE * new FlightSimulator(neutral, undefined, { launchScale: 1 }).range
   // Intervalo [lo, hi] que contém a resposta; depois regula falsi (Illinois).
   let lo = 0
   let loErr = -target
@@ -594,6 +602,7 @@ export function barLaunchScale(input: ShotInput): number {
 }
 const launchScales = new Map<string, number>()
 
+/** Atalho: simula o voo de uma tacada até o chão na altura `landingY` (unidades). */
 export function simulateFlight(input: ShotInput, landingY = 0): FlightResult {
   return new FlightSimulator(input).flyTo(landingY)
 }

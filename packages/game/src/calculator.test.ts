@@ -77,11 +77,11 @@ const solve = (world: HoleWorld, wind = calm, club: 'PT1' | '1W' | '5I' = '1W') 
   solveShot(world, startHole(world.par, world.tee), wind, { club, powerShot: 'none', power: 15 })
 
 describe('calculadora (G)', () => {
-  it('no plano e sem vento: a força é a distância ÷ alcance e entra de dunk', () => {
-    const world = hole(640) // pin a 200 y; 1W de 230 y
+  it('no plano e sem vento: a força é a distância ÷ voo do taco e entra de dunk', () => {
+    const world = hole(640) // pin a 200 y; 1W de 230 y (219 y de voo)
     const result = solve(world) as ShotSolution
     expect(result.holed).toBe(true)
-    expect(result.percent).toBeCloseTo(200 / 230, 3)
+    expect(result.percent).toBeCloseTo(200 / 219, 3)
     expect(result.aim).toBeCloseTo(0, 4)
   })
 
@@ -91,7 +91,7 @@ describe('calculadora (G)', () => {
       { speed: 7, degree: 200 },
       { speed: 3, degree: 330 },
     ]) {
-      const world = hole(700, -12)
+      const world = hole(670, -12)
       const result = solve(world, wind) as ShotSolution
       expect(result.holed).toBe(true)
       expect(result.miss).toBeLessThan(0.05)

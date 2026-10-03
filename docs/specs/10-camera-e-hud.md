@@ -196,6 +196,29 @@ Câmeras de jogo e HUD com as informações necessárias para mirar como no orig
   areia, com vento sorteado): toda tacada que ela achou entrou na cova (320/320); o resto
   era obstáculo no caminho (69) ou fora de alcance (3). Leva até ~50 ms.
 
+- **HUD da tacada no visual do original** (04/10/2026, `shot-hud.ts`, `power-bar.ts`, CSS
+  `.shot-hud`/`.power-bar`): tudo numa caixa de design de **1620×380** escalada para a tela
+  (`hudScale`: cabe na largura e em 30% da altura, centralizada embaixo).
+  - Mostrador: bola (spin/curva), **% de força** (ao vivo subindo; a fixada depois),
+    **"PangYa ×N"** depois da batida com os PANGYAs seguidos; o **taco** num círculo no
+    canto de cima; **arco do lado** com os ícones (itens, chat — ainda só enfeite); círculo
+    pequeno embaixo com a força do personagem; os 2 indicadores de power shot ao lado da bola.
+  - **Aba do passo** embaixo-à-direita do mostrador: "Start" → "Power" → "Impact", com
+    setinha (cor muda por passo).
+  - Barra: moldura branca arredondada, trilho escuro, **preenchimento azul com divisões**
+    (10%, o meio mais forte), **zona PANGYA rosa** à esquerda, **faixa vermelha** na ponta,
+    **marcador cinza** (polegar), **jardas do meio e do máximo embaixo**, **"Max"** em cima
+    da ponta. Na volta, **"Click" laranja com seta** em cima da zona de impacto.
+  - **Calibrador**: triângulo verde em cima da barra com as jardas ("249.6y"); embaixo,
+    "Callipers" com as teclas **Z** e **X**.
+  - Durante o voo, **contadores no centro de baixo**: distância percorrida (branco) e até o
+    pin (vermelho), "54.71y". Quando a bola para: o **piso** ("Fairway", "Rough", "O.B.",
+    "Água"), **"Distance: 233.57y"** e **"Pin: …y"** (sem o pin quando emboca); some no
+    próximo começo da barra.
+  - Conferido na nuvem (Blue Lagoon de exemplo, 1600×900): passos, Click, calibrador,
+    contadores, parada e "PangYa ×2". Falta conferir com as imagens/vídeo do Daniel (cores e
+    tamanhos exatos) e trocar os ícones por imagens do jogo.
+
 ## Problemas conhecidos
 
 ### Tela inteira azul (céu/névoa) depois de algumas tacadas — Pink Wind buraco 1

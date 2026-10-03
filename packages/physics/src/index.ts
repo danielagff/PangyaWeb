@@ -4,6 +4,7 @@ export * from './units.ts'
 export * from './clubs.ts'
 export * from './power.ts'
 export {
+  BAR_CARRY_SHARE,
   beamCapture,
   CUP_BEAM,
   DEFAULT_PLAYER,

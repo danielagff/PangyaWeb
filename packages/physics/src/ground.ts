@@ -3,10 +3,10 @@
  *
  * Modelo próprio (o jogo não publica essa parte), usando os coeficientes reais de cada piso
  * do <curso>_property.xml: `bound` = quanto da velocidade normal sobra no quique,
- * `roll` = atrito de rolagem. Constantes de ajuste em GROUND_TUNING, calibradas para que
- * voo + rolagem no fairway (bound 0.4, roll 0.2) a 100% dê o alcance do HUD de cada taco
- * (1W 228/230, 7I 131/130, SW 77/80) — a confirmar contra o jogo original. O atrito de
- * rolagem é baixo para a bola sentir as inclinações (essencial no green).
+ * `roll` = atrito de rolagem. Constantes de ajuste em GROUND_TUNING, calibradas pelo vídeo
+ * do tutorial: no fairway (bound 0.4, roll 0.2) o 1W a 100% voa 219y e rola ~14,5y
+ * (total ~233,6y para a barra de 230y; 3W ~194/190, 7I ~134/130, SW ~82/80). O atrito do
+ * putt é mais baixo para a bola sentir as inclinações (essencial no green).
  */
 
 import { cupBottom, dropIntoCup } from './cup.ts'
@@ -57,8 +57,18 @@ export const GROUND_TUNING = {
   gravity: 34.295295715332,
   /** Desaceleração de rolagem = roll × gravidade × este fator. */
   rollFriction: 0.5,
-  /** Fração da velocidade tangencial perdida em cada quique (atrito do impacto). */
-  impactFriction: 0.75,
+  /**
+   * Desaceleração da rolagem depois de uma tacada (não putt): roll × gravidade × este fator.
+   * Com impactFriction e bounceRestitution, calibrado pelo vídeo do tutorial (1W, PANGYA,
+   * fairway plano): ~14,5y de rolagem em ~2,8 s de física (3,5 s na tela, a 80%).
+   */
+  shotRollFriction: 0.8,
+  /** Fração da velocidade de lado perdida em cada quique (× (1 − bound) do piso). */
+  impactFriction: 1.18,
+  /** Limite dessa perda pela batida: no máximo este × velocidade normal ÷ velocidade de lado. */
+  impactGrip: 3,
+  /** Quanto do `bound` do piso vira velocidade de quique (1 = o valor do property.xml). */
+  bounceRestitution: 0.85,
   /** Efeito do spin no primeiro quique: backspin (> 0) freia, topspin (< 0) acelera. */
   spinOnBounce: 0.6,
   /** Abaixo desta velocidade normal (unidades/s) o quique vira rolagem. */
@@ -139,6 +149,7 @@ export function simulateGround(
     return true
   }
   // Tacada normal: o primeiro contato é tratado como impacto (quique). Putt: já rola.
+  const rollFriction = input.rolling ? k.rollFriction : k.shotRollFriction
   airborne = !input.rolling
 
   for (let step = 0; step < k.maxSteps; step++) {
@@ -181,11 +192,16 @@ export function simulateGround(
       const vn = dot(v, n)
       if (vn >= 0) continue
       const surface = below.surface
-      let tangentScale = 1 - k.impactFriction * (1 - surface.bound)
+      const vt = { x: v.x - vn * n[0], y: v.y - vn * n[1], z: v.z - vn * n[2] }
+      // Atrito do impacto: perde uma fração da velocidade de lado, limitada pela força da
+      // batida no chão (como o atrito de Coulomb) — a bola que chega rasante quase não perde.
+      const vtLength = len(vt)
+      const grip = vtLength > 0 ? (k.impactGrip * -vn) / vtLength : 1
+      const loss = Math.min(k.impactFriction, grip) * (1 - surface.bound)
+      let tangentScale = Math.max(0, 1 - loss)
       if (firstBounce) tangentScale *= 1 - k.spinOnBounce * (input.spin ?? 0)
       firstBounce = false
-      const vt = { x: v.x - vn * n[0], y: v.y - vn * n[1], z: v.z - vn * n[2] }
-      const out = -vn * surface.bound
+      const out = -vn * surface.bound * k.bounceRestitution
       v = {
         x: vt.x * tangentScale + out * n[0],
         y: vt.y * tangentScale + out * n[1],
@@ -210,7 +226,7 @@ export function simulateGround(
     const gn = dot(g, n)
     const slope = { x: g.x - gn * n[0], y: g.y - gn * n[1], z: g.z - gn * n[2] }
     const speed = len(v)
-    const friction = ground.surface.roll * k.gravity * k.rollFriction
+    const friction = ground.surface.roll * k.gravity * rollFriction
     if (speed < k.stopSpeed && len(slope) <= friction) {
       return finish({ type: 'stop', surface: ground.surface.kind, at: p })
     }

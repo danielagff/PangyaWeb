@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { CLUB_IDS } from './clubs.ts'
 import {
+  BAR_CARRY_SHARE,
   beamCapture,
   CUP_BEAM,
   DEFAULT_PLAYER,
@@ -51,17 +52,17 @@ describe('simulateFlight', () => {
     `)
   })
 
-  it('a barra é a distância de verdade: x% da barra cai a x% do alcance do taco', () => {
+  it('a barra é a distância de verdade: x% da barra voa x% do voo do taco (o resto rola)', () => {
     for (const club of ['1W', '3W', '5I', '9I', 'PW', 'SW'] as const) {
       for (const percent of [0.1, 0.373, 0.5, 0.75, 1]) {
         const result = simulateFlight(shot({ club, percent }))
-        expect(result.carry).toBeCloseTo(percent * result.range, 2)
+        expect(result.carry).toBeCloseTo(percent * BAR_CARRY_SHARE * result.range, 2)
       }
     }
-    // Ex. do Daniel: pin a 115y, 1W de 230y, 50% → cai a 115y.
-    const half = simulateFlight(shot({ percent: 0.5 }))
-    expect(half.range).toBe(230)
-    expect(half.carry).toBeCloseTo(115, 2)
+    // Vídeo do tutorial: 1W de 230y a 100% voa 219y.
+    const full = simulateFlight(shot())
+    expect(full.range).toBe(230)
+    expect(full.carry).toBeCloseTo(219, 2)
   })
 
   it('vale com mais força, power shot e faixa curta das wedges', () => {
@@ -72,7 +73,7 @@ describe('simulateFlight', () => {
       { club: 'SW' as const, targetDistance: 40 },
     ]) {
       const result = simulateFlight(shot({ ...extra, percent: 0.62 }))
-      expect(result.carry).toBeCloseTo(0.62 * result.range, 2)
+      expect(result.carry).toBeCloseTo(0.62 * BAR_CARRY_SHARE * result.range, 2)
     }
   })
 

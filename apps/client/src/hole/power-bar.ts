@@ -1,21 +1,22 @@
 /**
- * Barra de força no estilo do Pangya, sempre visível, com três toques de espaço:
+ * Barra de força no visual do Pangya original, sempre visível, com três toques de espaço:
  * 1º começa (o marcador corre da esquerda para a direita), 2º fixa a força,
  * 3º acerta o impacto quando o marcador volta à zona da esquerda.
  *
- * Acima da barra, a escala em jardas do taco (meio e máximo); a distância e o desnível do
- * pin ficam no marcador do pin, na tela. A zona de impacto fica à esquerda, com o ponto da
- * tacada perfeita
- * ("PANGYA") marcado no meio dela. Se o marcador passa da zona sem o 3º toque, a tacada é
- * cancelada (o jogador desistiu de bater naquela hora) e ele volta a mirar.
+ * Desenho (como a barra 3W de referência do Daniel): moldura branca arredondada, trilho
+ * escuro, preenchimento azul com divisões, zona PANGYA rosa à esquerda, faixa vermelha na
+ * ponta, marcador cinza (polegar), jardas do meio e do máximo embaixo e "Max" em cima da
+ * ponta. Na volta, um "Click" laranja com a seta aponta onde apertar. Se o marcador passa da
+ * zona sem o 3º toque, a tacada é cancelada (o jogador desistiu de bater naquela hora) e ele
+ * volta a mirar.
  *
- * Calibrador (para acertar uma força exata): um ponteiro na barra com a força e as jardas.
- * Com o mouse em cima da barra aparecem marcas a cada 1% e a leitura do ponto; clicar (ou
- * arrastar) põe o ponteiro ali, botão direito tira. Sem mouse: X sobe e Z desce 0,1%
- * (Shift: 1%); segurando, continua. Com `setSnapToMark` (desenvolvimento, só sozinho), o 2º
- * toque de espaço fixa exatamente a força do ponteiro.
- * "Sempre PANGYA" (desenvolvimento): o impacto sai sempre perfeito — sozinho, no ponto
- * PANGYA, ou no 3º toque.
+ * Calibrador (para acertar uma força exata): um triângulo verde em cima da barra com as
+ * jardas; embaixo, "Callipers" com as teclas Z e X. Com o mouse em cima da barra aparecem
+ * marcas a cada 1% e a leitura do ponto; clicar (ou arrastar) põe o triângulo ali, botão
+ * direito tira. Sem mouse: X sobe e Z desce 0,1% (Shift: 1%); segurando, continua. Com
+ * `setSnapToMark` (desenvolvimento, só sozinho), o 2º toque de espaço fixa exatamente a força
+ * do calibrador. "Sempre PANGYA" (desenvolvimento): o impacto sai sempre perfeito — sozinho,
+ * no ponto PANGYA, ou no 3º toque.
  *
  * Velocidade e largura da zona são estimativas (a comparar com o original).
  */
@@ -82,6 +83,21 @@ export const CALIBRATOR_STEP = { fine: 0.001, coarse: 0.01 }
 export const stepCalibrator = (value: number, steps: number, step = CALIBRATOR_STEP.fine) =>
   Math.min(1, Math.max(0, Math.round((value + steps * step) * 1000) / 1000))
 
+/** Jardas como no HUD do jogo: "249.6y" (ponto, `digits` casas). */
+export const yardsText = (yards: number, digits = 1) => `${yards.toFixed(digits)}y`
+
+/** Passo da barra: esperando o 1º toque, subindo (força) ou voltando (impacto). */
+export type PowerBarStage = 'idle' | 'rising' | 'returning'
+
+/** Estado da barra a cada quadro (para o mostrador: passo e % de força). */
+export interface PowerBarUpdate {
+  stage: PowerBarStage
+  /** Posição do marcador (fração da barra). */
+  position: number
+  /** Força fixada (fração), 0 antes do 2º toque. */
+  power: number
+}
+
 /** "73,5%" (uma casa, vírgula como no Brasil). */
 export const percentText = (fraction: number) =>
   `${(Math.round(fraction * 1000) / 10).toFixed(1).replace('.', ',')}%`
@@ -90,23 +106,27 @@ export function createPowerBar(parent: HTMLElement = document.body) {
   const k = POWER_BAR_TUNING
   const root = document.createElement('div')
   root.className = 'power-bar'
+  root.dataset['stage'] = 'idle'
   root.innerHTML = `
     <div class="readout" hidden></div>
-    <div class="scale">
-      <span class="tag pangya-tag">PANGYA</span>
-      <span class="tag half"></span>
-      <span class="tag max"></span>
-    </div>
-    <div class="track" title="Calibrador: clique para pôr o ponteiro (botão direito tira); X sobe, Z desce (Shift: 1%)">
+    <div class="max-tag">Max</div>
+    <div class="click" hidden>Click<i></i></div>
+    <div class="mark" hidden><span></span><i></i></div>
+    <div class="track" title="Calibrador: clique para pôr o triângulo (botão direito tira); X sobe, Z desce (Shift: 1%)">
+      <div class="fill"></div>
       <div class="ticks"></div>
       <div class="ruler"></div>
-      <div class="fill"></div>
       <div class="zone"><div class="pangya"></div></div>
+      <div class="end"></div>
       <div class="power"><span></span></div>
-      <div class="mark" hidden><span></span></div>
       <div class="guide" hidden></div>
       <div class="marker"></div>
     </div>
+    <div class="scale">
+      <span class="tag half"></span>
+      <span class="tag max"></span>
+    </div>
+    <div class="callipers">Callipers <kbd>Z</kbd><kbd>X</kbd></div>
     <div class="label">${IDLE_LABEL}</div>`
   parent.appendChild(root)
   const $ = <T extends HTMLElement>(selector: string) => root.querySelector(selector) as T
@@ -120,17 +140,18 @@ export function createPowerBar(parent: HTMLElement = document.body) {
   const pangya = $<HTMLDivElement>('.pangya')
   const half = $<HTMLSpanElement>('.half')
   const max = $<HTMLSpanElement>('.max')
+  const click = $<HTMLDivElement>('.click')
   zone.style.left = `${(ZONE - k.zoneHalf) * 100}%`
   zone.style.width = `${k.zoneHalf * 2 * 100}%`
   // Faixa da tacada perfeita, centralizada na zona.
   pangya.style.left = `${50 - PANGYA_WINDOW * 50}%`
   pangya.style.width = `${PANGYA_WINDOW * 100}%`
-  $<HTMLSpanElement>('.pangya-tag').style.left = `${ZONE * 100}%`
+  click.style.left = `${ZONE * 100}%`
   powerMark.hidden = true
   const guide = $<HTMLDivElement>('.guide')
   const readout = $<HTMLDivElement>('.readout')
 
-  let stage: 'idle' | 'rising' | 'returning' = 'idle'
+  let stage: PowerBarStage = 'idle'
   let started = 0
   let power = 0
   let maxYards = 0
@@ -154,6 +175,14 @@ export function createPowerBar(parent: HTMLElement = document.body) {
   /** O 2º toque usa a força do calibrador (desenvolvimento, só sozinho). */
   let snap = false
   const snapTarget = () => (snap ? calibrator : undefined)
+  const updates: ((update: PowerBarUpdate) => void)[] = []
+  const finishes: ((result: PowerBarResult) => void)[] = []
+  /** Avisa o mostrador (passo e força) e mostra o "Click" na volta. */
+  const notify = (position = shown) => {
+    click.hidden = stage !== 'returning' || autoPangya
+    root.dataset['stage'] = stage
+    for (const listener of updates) listener({ stage, position, power })
+  }
 
   /** Posição atual do marcador (fração da barra). */
   const position = (now: number) => {
@@ -164,12 +193,12 @@ export function createPowerBar(parent: HTMLElement = document.body) {
     return power - t * speed
   }
 
-  const yards = (fraction: number) => (maxYards ? `${Math.round(maxYards * fraction)}y` : '')
-  /** Jardas com uma casa (régua). */
+  const yards = (fraction: number) => (maxYards ? yardsText(maxYards * fraction, 0) : '')
+  /** Jardas com uma casa (calibrador e régua); sem escala, a %. */
   const fineYards = (fraction: number) =>
-    maxYards ? `${(maxYards * fraction).toFixed(1).replace('.', ',')}y` : ''
+    maxYards ? yardsText(maxYards * fraction) : percentText(fraction)
   const rulerText = (fraction: number) =>
-    [percentText(fraction), fineYards(fraction)].filter(Boolean).join(' · ')
+    maxYards ? `${percentText(fraction)} · ${fineYards(fraction)}` : percentText(fraction)
 
   /** Desenha a linha do mouse (com a leitura) e o ponteiro do calibrador. */
   const drawRuler = () => {
@@ -183,9 +212,8 @@ export function createPowerBar(parent: HTMLElement = document.body) {
     line.hidden = calibrator === undefined
     if (calibrator === undefined) return
     line.style.left = `${calibrator * 100}%`
-    // Perto do fim da barra, o texto fica do lado esquerdo da linha.
-    line.classList.toggle('flip', calibrator > 0.85)
-    line.querySelector('span')!.textContent = rulerText(calibrator)
+    line.querySelector('span')!.textContent = fineYards(calibrator)
+    line.title = rulerText(calibrator)
   }
   const setCalibrator = (value: number | undefined) => {
     calibrator = value
@@ -244,6 +272,7 @@ export function createPowerBar(parent: HTMLElement = document.body) {
     const p = position(now)
     shown = p
     marker.style.left = `${Math.max(0, p) * 100}%`
+    notify(p)
     if (stage === 'rising') {
       fill.style.width = `${p * 100}%`
       const target = snapTarget()
@@ -278,6 +307,7 @@ export function createPowerBar(parent: HTMLElement = document.body) {
     powerMark.hidden = false
     stage = 'returning'
     started = now
+    notify(power)
     powered?.(power)
     label.textContent = autoPangya
       ? `${percentText(power)} ${yards(power)} · sempre PANGYA: o impacto sai sozinho`
@@ -308,7 +338,9 @@ export function createPowerBar(parent: HTMLElement = document.body) {
         : Math.abs(impact) <= 1
           ? 'Boa!'
           : 'Errou a zona'
+    notify()
     resetSoon()
+    for (const listener of finishes) listener({ percent: power, impact })
     finish?.({ percent: power, impact })
   }
 
@@ -319,6 +351,8 @@ export function createPowerBar(parent: HTMLElement = document.body) {
     root.classList.remove('near')
     root.classList.add('cancelled')
     label.textContent = 'Tacada cancelada — espaço para tentar de novo'
+    power = 0
+    notify(0)
     resetSoon()
     cancelled?.()
   }
@@ -351,6 +385,7 @@ export function createPowerBar(parent: HTMLElement = document.body) {
     setAutoPangya(on: boolean) {
       autoPangya = on
       root.classList.toggle('auto-pangya', on)
+      click.hidden = stage !== 'returning' || on
     },
     /**
      * Distância até o pin (jardas; undefined = sem pin). Não aparece na barra: serve para o
@@ -375,6 +410,7 @@ export function createPowerBar(parent: HTMLElement = document.body) {
       fill.style.width = '0'
       marker.style.left = '0'
       label.textContent = options.label ?? 'Espaço: fixar a força'
+      notify(0)
       raf = requestAnimationFrame(draw)
     },
     /** Toque de espaço com a barra ativa. */
@@ -392,8 +428,18 @@ export function createPowerBar(parent: HTMLElement = document.body) {
       marker.style.left = '0'
       powerMark.hidden = true
       label.textContent = idleText || IDLE_LABEL
+      power = 0
+      notify(0)
     },
-    /** Texto embaixo da barra (vez de outro jogador, batendo…). */
+    /** A cada quadro e troca de passo: passo, posição do marcador e força fixada. */
+    onUpdate(listener: (update: PowerBarUpdate) => void) {
+      updates.push(listener)
+    },
+    /** Fim do 3º toque (força e erro de impacto), além do `onDone` de `start`. */
+    onFinish(listener: (result: PowerBarResult) => void) {
+      finishes.push(listener)
+    },
+    /** Texto da barra (vez de outro jogador, batendo…). */
     setLabel(text: string) {
       idleText = text
       if (stage === 'idle') label.textContent = text || IDLE_LABEL

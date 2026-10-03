@@ -1742,6 +1742,40 @@ export class HoleView {
     })
   }
 
+  /**
+   * Contadores do HUD: durante o voo, a distância percorrida e até o pin; quando a bola
+   * para, o piso, a distância da tacada e até o pin (como no original).
+   */
+  private showShotProgress(f: NonNullable<HoleView['flight']>, exact: number, stopped: boolean) {
+    const { frames } = f
+    const i = Math.floor(exact) * 3
+    const t = exact - Math.floor(exact)
+    const next = Math.min(i + 3, frames.length - 3)
+    const point = {
+      x: frames[i]! + (frames[next]! - frames[i]!) * t,
+      y: 0,
+      z: frames[i + 2]! + (frames[next + 2]! - frames[i + 2]!) * t,
+    }
+    const traveled = unitsToYards(Math.hypot(point.x - frames[0]!, point.z - frames[2]!))
+    const toPin = this.world.distanceToPin(point)
+    if (!stopped) {
+      this.panel.showFlight(traveled, toPin)
+      return
+    }
+    const end = (type: ShotEvent['type']) => f.events.some((e) => e.type === type)
+    const kind = this.world.surfaceAt(point.x, point.z)?.kind
+    const label = end('outOfBounds')
+      ? 'O.B.'
+      : end('water')
+        ? 'água'
+        : (SURFACE_LABELS[kind as SurfaceKind] ?? kind ?? '')
+    this.panel.showStop({
+      surface: label.charAt(0).toUpperCase() + label.slice(1),
+      distance: traveled,
+      toPin: f.holed ? undefined : toPin,
+    })
+  }
+
   /** Primeiro quadro, depois do ponto mais alto, em que a bola chega ao chão. */
   private landingIndex(frames: Float32Array) {
     const count = frames.length / 3
@@ -2431,6 +2465,7 @@ export class HoleView {
       const at = this.frameAt(frames, index)
       if (between > 0) at.lerp(this.frameAt(frames, index + 1), between)
       this.placeBall(playerId, at)
+      if (elapsed >= 0 || skipped) this.showShotProgress(f, exact, index === count - 1)
       // Rastro até o último ponto e, na ponta, a bola (que está entre dois pontos).
       const shown = Math.min(index + 1, MAX_TRAIL - 1)
       for (let i = 0; i < shown; i++) {
