@@ -1,4 +1,4 @@
-import { readDds } from '@pangya/formats'
+import { readDds, readTga } from '@pangya/formats'
 import {
   DataTexture,
   LinearFilter,
@@ -49,7 +49,10 @@ async function decodeImage(bytes: Uint8Array, size?: { width: number; height: nu
 }
 
 async function decode(path: string, bytes: Uint8Array): Promise<Rgba> {
-  return path.toLowerCase().endsWith('.dds') ? readDds(bytes) : decodeImage(bytes)
+  const lower = path.toLowerCase()
+  if (lower.endsWith('.dds')) return readDds(bytes)
+  if (lower.endsWith('.tga')) return readTga(bytes)
+  return decodeImage(bytes)
 }
 
 /** Texturas do curso, carregadas sob demanda e guardadas por nome. */

@@ -864,6 +864,8 @@ export class HoleView {
     ref: HoleRef,
     options: { lockWind?: boolean; devTools?: boolean } = {},
   ): Promise<HoleView> {
+    // Tacos da mão já pedidos agora: depois, ficariam na fila atrás dos arquivos do curso.
+    for (const category of ['wood', 'iron', 'wedge', 'putter'] as const) void clubModelFor(category)
     const status = document.createElement('div')
     status.className = 'hole-status'
     status.textContent = 'Carregando buraco…'
@@ -1046,8 +1048,10 @@ export class HoleView {
         .then((entry: CharacterEntry | undefined) =>
           entry ? CharacterModel.load(entry) : undefined,
         )
-        .then((m) => {
+        .then(async (m) => {
           if (m) {
+            // Já com o taco na mão: senão ele aparece de mãos vazias até o taco baixar.
+            await this.equipClub(m).catch(() => undefined)
             this.ready.set(player.id, m)
             m.root.visible = false
             this.scene.add(m.root)

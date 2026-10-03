@@ -14,6 +14,14 @@ import { soundEvent } from '../audio/sound-events.ts'
 import { sound } from '../audio/sounds.ts'
 import { volumePanel } from '../audio/volume-panel.ts'
 import { chosenBall, loadBalls, rememberBall } from '../equipment/balls.ts'
+import {
+  characterBaseStats,
+  chosenClubSet,
+  clubSetIcon,
+  loadClubSets,
+  rememberClubSet,
+  type ClubSetEntry,
+} from '../equipment/clubsets.ts'
 import { powerInput } from '../settings.ts'
 import { BallPreview } from './ball-preview.ts'
 import { CharacterPreview } from './character-preview.ts'
@@ -190,6 +198,11 @@ export function showMenu() {
         <aside class="character-info">
           <h3 class="character-name"></h3>
           <div class="power"></div>
+          <div class="clubset-choice">
+            <p>Tacos: <strong class="clubset-name">…</strong></p>
+            <div class="clubset-list"></div>
+            <p class="clubset-stats"></p>
+          </div>
           <div class="ball-choice">
             <label>Bola <select name="ball"><option>Carregando…</option></select></label>
           </div>
@@ -212,6 +225,56 @@ export function showMenu() {
       preview.dispose()
       ballPreview.dispose()
     }
+    // Tacos: os conjuntos do jogo (ícone da loja); a força total = personagem + tacos.
+    let clubSet: ClubSetEntry | undefined
+    let skeleton: string | undefined
+    const updatePower = async () => {
+      const base = skeleton ? await characterBaseStats(skeleton) : undefined
+      const stats = root.querySelector('.clubset-stats')!
+      if (!clubSet) return
+      const s = clubSet.stats
+      stats.textContent =
+        `Força ${s.power} · Controle ${s.control} · Precisão ${s.accuracy} · ` +
+        `Spin ${s.spin} · Curva ${s.curve}` +
+        (base ? ` — força total: ${base.power} + ${s.power} = ${base.power + s.power}` : '')
+      if (!base) return
+      const input = root.querySelector<HTMLInputElement>('.power input')
+      if (input) {
+        input.value = String(base.power + s.power)
+        input.dispatchEvent(new Event('input'))
+      }
+    }
+    void Promise.all([loadClubSets(), chosenClubSet()]).then(async ([sets, current]) => {
+      if (!alive) return
+      const box = root.querySelector('.clubset-list')!
+      if (sets.length === 0) {
+        root.querySelector('.clubset-name')!.textContent = '(os do jogo não foram achados)'
+        return
+      }
+      const pick = (set: ClubSetEntry, button?: HTMLButtonElement) => {
+        clubSet = set
+        rememberClubSet(set.id)
+        root.querySelector('.clubset-name')!.textContent = set.label
+        box.querySelectorAll('button').forEach((b) => b.classList.toggle('selected', b === button))
+        button?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+        void updatePower()
+      }
+      for (const set of sets) {
+        const button = document.createElement('button')
+        button.type = 'button'
+        button.title = `${set.label} (${set.name})`
+        button.addEventListener('click', () => {
+          pick(set, button)
+          void sound.play('uiMove')
+        })
+        box.append(button)
+        void clubSetIcon(set.icon).then((url) => {
+          if (url) button.style.backgroundImage = `url("${url}")`
+          else button.textContent = set.label.slice(0, 6)
+        })
+        if (set.id === current?.id) pick(set, button)
+      }
+    })
     // Bola: as da tabela do jogo com modelo na extração.
     void Promise.all([loadBalls(), chosenBall()]).then(([balls, current]) => {
       if (!alive) return
@@ -280,6 +343,8 @@ export function showMenu() {
       buttons[index]?.scrollIntoView({ block: 'nearest' })
       root.querySelector('.character-name')!.textContent = entry?.name ?? 'Sem personagem'
       void preview.show(entry)
+      skeleton = entry?.skeleton
+      void updatePower()
     }
     buttons.forEach((b, i) => b.addEventListener('click', () => select(i)))
     select(index, false)

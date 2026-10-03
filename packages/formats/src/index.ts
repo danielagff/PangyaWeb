@@ -6,6 +6,7 @@ export * from './pet/index.ts'
 export * from './gbin/index.ts'
 export * from './course/index.ts'
 export * from './dds/index.ts'
+export * from './tga/index.ts'
 export * from './pycb/index.ts'
 /** Escritor binário para gerar arquivos sintéticos (testes e personagem de teste). */
 export { Writer } from './test-writer.ts'

@@ -46,7 +46,14 @@ jogar com amigos, com o **PC do Daniel como servidor**. Não é vendido nem publ
 
 ## Em andamento agora
 
-Última entrega (04/10/2026): **efeitos do jogo** — leitor e motor de partículas dos
+Última entrega (04/10/2026): **tacos do jogo** — na tela do personagem, os 121 conjuntos da
+tabela ClubSet.iff com o ícone da loja do jogo (leitor de `.tga` novo em `@pangya/formats`) e
+os atributos; a força total é a do personagem (Character.iff) + a dos tacos, como no jogo, e
+o campo de força é preenchido sozinho. Na partida o personagem segura o taco do conjunto
+escolhido (madeira, ferro, wedge, putter) e já aparece com ele na mão. Tudo liberado e
+guardado no navegador (`pangyaweb.tacos`); loja com pangs fica para depois. No online os
+outros ainda veem o taco do próprio conjunto (só força e bola vão na sala). Controle,
+precisão, spin e curva ainda não mudam a física. Antes: **efeitos do jogo** — leitor e motor de partículas dos
 `.seq`/`.spr` originais (brilho do PANGYA e da batida boa, efeito da bola na cova, tremida e
 clarão) e o letreiro "PangYa"/"Bad" da folha de imagens do jogo. Antes: **entrada do personagem** no começo do buraco e **2º power
 shot** com as câmeras animadas do jogo. Antes: **bolas do jogo** — escolha na tela do personagem (lista da

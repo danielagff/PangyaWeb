@@ -1665,3 +1665,41 @@
   transform: translateX(-50%) scale(1);
   opacity: 1;
 }
+
+/* Escolha dos tacos (tela do personagem): ícones da loja do jogo. */
+.clubset-choice p {
+  margin: 6px 0 2px;
+}
+.clubset-list {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(2, 44px);
+  gap: 4px;
+  overflow-x: auto;
+  max-width: 100%;
+  padding-bottom: 4px;
+}
+.clubset-list button {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  background: #fff center / contain no-repeat;
+  cursor: pointer;
+  font-size: 9px;
+}
+.clubset-list button.selected {
+  border-color: #f5b400;
+  box-shadow: 0 0 0 2px #fff6c0;
+}
+.clubset-stats {
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+/* O quadro do personagem cresceu (tacos e bola): rola em vez de passar da tela. */
+.character-info {
+  max-height: calc(100vh - 220px);
+  overflow-y: auto;
+}

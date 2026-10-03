@@ -34,6 +34,13 @@ curso/modo → partida → resultado.
 
 ## Progresso
 
+- **Tacos** (`equipment/clubsets.ts`): os conjuntos do `clubSets.json` (ClubSet.iff; 121 com
+  os 4 tacos achados na extração pelo `clubs.json`), com o ícone da loja
+  (`ui/shop_myroom/clubs/<ícone>.tga`, lido por `readTga`) e os atributos. Na tela do
+  personagem: grade de ícones, linha de atributos e a força total (base do personagem pelo
+  `characters.json` + a do conjunto) preenchida no campo de força. Guardado no navegador
+  (`pangyaweb.tacos`); `clubModelFor` usa o modelo do conjunto. Falta: loja/pangs, mandar o
+  conjunto na sala online, controle/precisão/spin/curva na física.
 - **Bolas** (`equipment/balls.ts`, `menu/ball-preview.ts`): a lista vem do `balls.json`
   (Ball.iff convertido; 149 bolas, uma por modelo que existe na extração), com os nomes do
   cliente japonês traduzidos pelas palavras conhecidas ("爆弾アズテック" → "Bomba Aztec") e a
