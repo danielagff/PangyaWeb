@@ -46,7 +46,16 @@ jogar com amigos, com o **PC do Daniel como servidor**. Não é vendido nem publ
 
 ## Em andamento agora
 
-Última entrega (03/10/2026): **sons** — todos os momentos do jogo ligados (batida normal,
+Última entrega (03/10/2026): **nomes coreanos dos arquivos corrigidos e vozes de verdade**
+(com o diagnóstico do Daniel). A extração lia os nomes coreanos como japonês ("ﾆﾎｾﾟ.wav"
+em vez de "팡야.wav"), então o jogo não achava sons dos pisos nem texturas com nome coreano;
+o **`servidor.cmd` extrai de novo sozinho, uma vez** (alguns minutos) e apaga os arquivos
+com nome corrompido. As **vozes** vêm dos pacotes de voz por número do personagem
+(`v2_club_7_py1.wav` = "Pangya!" do Kaz): o automático usa o mais completo; tocam também na
+água, no bunker e na escolha do personagem. Músicas de fim de buraco e de fim de rodada
+(`bgm_under_par`, `bgm_over_par`, `bgm_scoreboard`).
+
+Antes: **sons** — todos os momentos do jogo ligados (batida normal,
 PANGYA e power shot, barra, quiques, árvore, água, O.B., cova e aplausos, resultado do
 buraco, menus) com **vozes dos personagens** ("Pangya!", power shot, birdie, par…),
 **música do menu e de cada curso** e **volumes** (painel "🔊 Som" no menu). Os arquivos são
@@ -132,9 +141,10 @@ lugar da bandeira, vista aérea com zoom (M/0, Delete+0), câmera livre e mira A
   (ajuste em `fitClub`, limites `CLUB_FIT`).
 - **Mapeador**: a lista "Copiar lista" com as anotações das animações (quadro do impacto do
   swing de cada taco) e das peças.
-- **Sons**: abrir o `mapeador.cmd` → 🔊 Sons, ouvir e conferir o que foi achado sozinho
-  (e trocar o que estiver errado); dizer o que são as vozes `bu`, `w` e `pre`. Se quiser, a
-  parte "== SONS" do diagnóstico (`?diagnostico`) ajuda a melhorar a escolha automática.
+- **Sons**: depois da reextração, abrir o `mapeador.cmd` → 🔊 Sons, ouvir e conferir o que
+  foi achado sozinho (e trocar o que estiver errado), principalmente a **música de cada
+  curso** (as `.mp3` têm nomes como "crystal lake", "shiny", "spring"). Mandar de novo a
+  parte "== PASTAS DE SOM" e "== MÚSICAS" do diagnóstico ajuda a acertar sozinho.
 - **Nomes dos cursos no menu**: só Blue Lagoon (`blue`) e Pink Wind (`pink`) têm o nome do
   jogo; os outros aparecem pelo nome da pasta (ex.: "Spring Wind"). Quais estão errados? (a
   pasta aparece embaixo do nome na tela do curso; tabela em `apps/client/src/menu/courses.ts`).

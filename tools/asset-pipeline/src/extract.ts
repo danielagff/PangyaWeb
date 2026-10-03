@@ -1,4 +1,12 @@
-import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmdirSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import {
   findPakKey,
@@ -10,6 +18,62 @@ import {
   type PakRegion,
   type XteaKey,
 } from '@pangya/formats'
+
+/**
+ * Versão da extração: sobe quando muda o que sai dela, e o servidor.cmd extrai de novo
+ * sozinho (uma vez). 2: nomes coreanos lidos em CP949 (antes viravam katakana de meia
+ * largura, como "ﾆﾎｾﾟ.wav" em vez de "팡야.wav", e o jogo não achava sons e texturas).
+ */
+export const EXTRACTION_VERSION = 2
+const MARKER = '_extracao.json'
+
+/** Versão da extração em `outDir` (0 = antiga, sem a marca). */
+export function extractionVersion(outDir: string): number {
+  try {
+    const data = JSON.parse(readFileSync(resolve(outDir, MARKER), 'utf8')) as { versao?: number }
+    return typeof data.versao === 'number' ? data.versao : 0
+  } catch {
+    return 0
+  }
+}
+
+export function writeExtractionMarker(outDir: string) {
+  writeFileSync(
+    resolve(outDir, MARKER),
+    JSON.stringify({ versao: EXTRACTION_VERSION, data: new Date().toISOString() }),
+  )
+}
+
+/** Nome coreano lido errado numa extração antiga (katakana de meia largura ou "�"). */
+const GARBLED = /[\uFF61-\uFF9F\uFFFD]/
+
+/**
+ * Apaga os arquivos com nome corrompido de extrações antigas (os mesmos arquivos já foram
+ * extraídos de novo com o nome certo). Não toca no que esta extração gravou. Devolve
+ * quantos apagou.
+ */
+export function removeGarbledFiles(outDir: string, keep: Set<string>): number {
+  const root = resolve(outDir)
+  let removed = 0
+  const walk = (dir: string): boolean => {
+    let empty = true
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const path = join(dir, entry.name)
+      if (entry.isDirectory()) {
+        if (walk(path) && GARBLED.test(entry.name)) rmdirSync(path)
+        else empty = false
+      } else if (GARBLED.test(path.slice(root.length)) && !keep.has(resolve(path))) {
+        unlinkSync(path)
+        removed++
+      } else {
+        empty = false
+      }
+    }
+    return empty
+  }
+  if (existsSync(root)) walk(root)
+  return removed
+}
 
 export interface PakSummary {
   name: string
@@ -74,6 +138,8 @@ export function extractClient(
 
   const byPak = Map.groupBy(vfs.list(), (e) => e.pak)
   const failures: string[] = []
+  /** Caminhos gravados (para apagar só o que sobrou de extrações antigas). */
+  const paths = new Set<string>()
   let written = 0
 
   for (const pak of paks) {
@@ -90,6 +156,7 @@ export function extractClient(
         if (!target.startsWith(resolve(outDir))) throw new Error('caminho fora da pasta de saída')
         mkdirSync(dirname(target), { recursive: true })
         writeFileSync(target, readPakEntry(bytes, entry))
+        paths.add(target)
         written++
       } catch (err) {
         failures.push(`${pak.name}: ${entry.path}: ${err instanceof Error ? err.message : err}`)
@@ -97,7 +164,7 @@ export function extractClient(
     }
     log(`  ${pak.name}: ${entries.length} arquivos`)
   }
-  return { written, failures, paks, vfs }
+  return { written, failures, paks, vfs, paths }
 }
 
 /** Texto do erro; para erros de índice inclui os bytes ao redor da falha. */

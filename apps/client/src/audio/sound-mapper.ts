@@ -20,6 +20,7 @@ import {
   SOUND_GROUPS,
   VOICE_CODES,
   voiceFiles,
+  voicePrefixesFor,
   type ChoiceSource,
   type SoundChoices,
   type SoundEvent,
@@ -158,20 +159,26 @@ export class SoundMapper {
     this.bindEvents()
   }
 
-  /** Vozes: cada personagem com o prefixo dos arquivos (<prefixo>_py1.wav…). */
+  /** Vozes: o pacote de voz de cada personagem (<pacote>_<nº>_py1.wav…), com as falas. */
   private voicesHtml() {
     const voices = voiceFiles(this.all)
-    const prefixes = [...voices.keys()].sort()
+    const all = [...voices.keys()].sort((a, b) => a.localeCompare(b))
+    const option = (p: string, chosen: string | undefined) =>
+      `<option value="${escapeHtml(p)}" ${chosen === p ? 'selected' : ''}>${escapeHtml(p)} (${voices.get(p)!.size} falas)</option>`
     const rows = this.characters
       .map((c) => {
-        const { prefix, source } = resolveVoice(c.id, this.choices, prefixes)
+        const { prefix, source } = resolveVoice(c.id, this.choices, voices)
         const chosen = this.choices.voices[c.id]
+        const mine = voicePrefixesFor(c.id, voices)
+        const others = all.filter((p) => !mine.includes(p))
         const options = [
-          `<option value="*" ${chosen === undefined ? 'selected' : ''}>automático${source === 'auto' ? `: ${escapeHtml(prefix!)}` : ' (nenhuma achada)'}</option>`,
-          ...prefixes.map(
-            (p) =>
-              `<option value="${escapeHtml(p)}" ${chosen === p ? 'selected' : ''}>${escapeHtml(p)}</option>`,
-          ),
+          `<option value="*" ${chosen === undefined ? 'selected' : ''}>automático${source === 'auto' ? `: ${escapeHtml(prefix!)}` : ' (nenhum achado)'}</option>`,
+          mine.length
+            ? `<optgroup label="Deste personagem">${mine.map((p) => option(p, chosen)).join('')}</optgroup>`
+            : '',
+          others.length
+            ? `<optgroup label="Outros pacotes">${others.map((p) => option(p, chosen)).join('')}</optgroup>`
+            : '',
           `<option value="" ${chosen === '' ? 'selected' : ''}>sem voz</option>`,
         ].join('')
         const codes = prefix ? voices.get(prefix) : undefined
@@ -188,10 +195,10 @@ export class SoundMapper {
         </div>`
       })
       .join('')
-    const codes = VOICE_CODES.map((v) => `${v.code} = ${v.label}`).join(' · ')
     return `<h2>Vozes dos personagens</h2>
-      <p class="hint">Arquivos &lt;prefixo&gt;_&lt;código&gt;&lt;n&gt;.wav (${prefixes.length} prefixos achados).
-        Códigos: ${escapeHtml(codes)}. "?" = significado a conferir: ouça e me conte.</p>${rows}`
+      <p class="hint">No Pangya as falas vêm dos pacotes de voz (tacos de voz e eventos):
+        &lt;pacote&gt;_&lt;nº do personagem&gt;_&lt;fala&gt;.wav — ${all.length} pacotes achados.
+        O automático usa o pacote mais completo de cada personagem; troque para ouvir os outros.</p>${rows}`
   }
 
   private bindEvents() {

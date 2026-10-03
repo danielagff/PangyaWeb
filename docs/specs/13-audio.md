@@ -34,11 +34,21 @@ Efeitos sonoros e música tocando nos eventos certos.
   Cada um acha o arquivo sozinho por padrões de nome em coreano e inglês (팡야/pangya,
   컵/cup, 버디/birdie, 박수/applause…; "파" não pega "파도" nem "파워샷"; vozes não entram
   como efeito); sem arquivo, sintetizado (batida, quiques, cova…) ou mudo.
-- **Vozes** `<prefixo>_<código><n>.wav`: o prefixo de cada personagem sai da pasta
-  (`h_kaz` → `kaz`), do nome ou da letra. Tocam: "Pangya!" (`py`, não no putt), power shot
-  (`ps`/`dps`), resultado (`ha` hole in one/albatross?, `e` eagle?, `bi`, `par`, `bo`,
-  `dbo`), O.B. (`ob`), fim da rodada sozinho (`win`/`lose`). Uma fala por vez. `bu`, `w` e
-  `pre` só dá para ouvir no mapeador (significado a conferir).
+- **Vozes**: no Pangya as falas vêm dos **pacotes de voz** (tacos de voz e eventos), um
+  por personagem: `<pacote>_<nº do personagem>_<fala><n>.wav` (`v2_club_7_py1.wav`) ou, em
+  alguns pacotes, com a palavra (`2013_thanksgiving_7_pangya0.wav`; "dbobey" é erro do
+  próprio jogo). Número pela letra do arquivo do personagem: 0 Nuri (m), 1 Hana (f),
+  2 Azer, 3 Cecilia, 4 Max, 5 Kooh, 6 Arin, 7 Kaz, 8 Lucia, 9 Nell, 10 Spika, 11 Nuri R
+  (mm), 12 Hana R (ff), 14 Cecilia R (cc). O automático usa o pacote mais completo do
+  personagem; o mapeador lista os dele primeiro. Tocam: "Pangya!" (`py`, não no putt),
+  power shot (`ps`/`dps`), resultado (`ha` hole in one/albatross, `e`, `bi`, `par`, `bo`,
+  `dbo`), O.B. (`ob`), água (`w`), bunker (`bu`), apresentação na escolha do personagem
+  (`pre`), fim da rodada sozinho (`win`/`lose`). Uma fala por vez.
+- Diagnóstico do cliente JP (03/10/2026): 6933 sons, 191 pacotes de voz; `birdie.wav`,
+  `par.wav`, `bogey.wav`; músicas `.mp3` (`bgm_under_par`, `bgm_over_par`,
+  `bgm_scoreboard` → fim do buraco e da rodada; `bgm_grandprix_lobby` fica fora do menu);
+  vozes de caddie (`1_cien1_tlimit01.wav`…). A página de diagnóstico agora mostra as pastas
+  dos sons e o caminho de cada música (para achar a de cada curso).
 - **Tela "Sons" no mapeador** (`audio/sound-mapper.ts`; `mapeador.html#sons` ou "Sons do
   jogo" no menu): os momentos com os arquivos que tocam e de onde vieram (escolhido,
   automático, sintetizado, mudo); todos os arquivos de som por pasta, com ▶ e ＋ para usar no

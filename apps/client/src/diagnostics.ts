@@ -5,7 +5,7 @@
  */
 import { readPet } from '@pangya/formats'
 import { loadCatalog } from './character/character.ts'
-import { ASSET_BASE, assetNames, findAsset, tryFetchBytes } from './hole/assets.ts'
+import { ASSET_BASE, assetNames, assetPaths, findAsset, tryFetchBytes } from './hole/assets.ts'
 
 async function petOf(path: string, kind: 'bpet' | 'apet') {
   const bytes = await tryFetchBytes(path)
@@ -108,6 +108,19 @@ export async function showDiagnostics() {
   log(`vozes (${prefixes.size} prefixos): ${[...prefixes.keys()].slice(0, 200).join(' | ')}`)
   log(`\nefeitos (${effects.length}):`)
   log(effects.slice(0, 1500).join(' | '))
+
+  // Pastas dos sons e músicas com o caminho (para achar a música de cada curso).
+  const soundPaths = (await assetPaths()).filter((p) => /\.(wav|ogg|mp3)$/i.test(p))
+  const folders = new Map<string, number>()
+  for (const p of soundPaths) {
+    const folder = p.split('/').slice(0, -1).join('/')
+    folders.set(folder, (folders.get(folder) ?? 0) + 1)
+  }
+  log(`\n== PASTAS DE SOM (${folders.size})`)
+  log([...folders].map(([f, n]) => `${f} (${n})`).join(' | '))
+  const music = soundPaths.filter((p) => /\.(mp3|ogg)$/i.test(p))
+  log(`\n== MÚSICAS (${music.length})`)
+  log(music.join(' | '))
 
   log(`\n(base dos assets: ${ASSET_BASE})`)
   box.querySelector('button')!.addEventListener('click', () => {

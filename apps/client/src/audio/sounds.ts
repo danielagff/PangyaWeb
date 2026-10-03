@@ -223,7 +223,7 @@ export class SoundLibrary {
   async voice(characterId: string | undefined, code: string) {
     if (this.muted || !characterId || !this.audio()) return
     const voices = voiceFiles(await this.soundFiles())
-    const { prefix } = resolveVoice(characterId, await this.soundChoices(), [...voices.keys()])
+    const { prefix } = resolveVoice(characterId, await this.soundChoices(), voices)
     const path = prefix && pick(voices.get(prefix)?.get(code) ?? [])
     const buffer = path && (await this.load(path))
     if (!buffer) return

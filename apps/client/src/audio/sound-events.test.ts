@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   audioFiles,
+  characterNumber,
   courseMusicEvent,
   guessVoicePrefix,
   resolveEvent,
@@ -9,10 +10,11 @@ import {
   scoreVoice,
   SOUND_EVENTS,
   voiceFiles,
+  voicePrefixesFor,
   type SoundChoices,
 } from './sound-events.ts'
 
-/** Arquivos inventados no formato do cliente (nomes em coreano, vozes <prefixo>_<código><n>). */
+/** Arquivos inventados no formato do cliente (nomes em coreano; vozes <pacote>_<nº>_<fala><n>). */
 const FILES = audioFiles([
   'data/sound/effect/공_그린.wav',
   'data/sound/effect/충돌_rough2.wav',
@@ -26,12 +28,19 @@ const FILES = audioFiles([
   'data/sound/effect/파도.wav',
   'data/sound/effect/파워샷.wav',
   'data/sound/effect/박수.wav',
-  'data/sound/voice/kaz_py1.wav',
-  'data/sound/voice/kaz_py2.wav',
-  'data/sound/voice/kaz_par1.wav',
-  'data/sound/voice/cesil_bi1.wav',
+  'data/sound/voice/v2_club_7_py1.wav',
+  'data/sound/voice/v2_club_7_py2.wav',
+  'data/sound/voice/v2_club_7_par1.wav',
+  'data/sound/voice/v2_club_7_bi1.wav',
+  'data/sound/voice/2013_thanksgiving_7_pangya0.wav',
+  'data/sound/voice/2013_thanksgiving_7_dbobey0.wav',
+  'data/sound/voice/v2_club_10_py1.wav',
+  'data/sound/voice/v2_club_0_py1.wav',
+  'data/sound/effect/birdie.wav',
   'data/round02_blue/sound/blue_bgm.mp3',
+  'data/sound/bgm/bgm_grandprix_lobby.mp3',
   'data/sound/bgm/lobby.mp3',
+  'data/sound/bgm/bgm_under_par.mp3',
   'data/avatar/h_kaz/h_def.bpet',
 ])
 const byId = (id: string) => SOUND_EVENTS.find((e) => e.id === id)!
@@ -76,33 +85,61 @@ describe('sons: escolha automática pelo nome', () => {
   it('música: a da pasta do curso e a do menu (só arquivos de música)', () => {
     const blue = courseMusicEvent('round02_blue', 'blue', 'Blue Lagoon')
     expect(resolveEvent(blue, none, FILES).files).toEqual(['data/round02_blue/sound/blue_bgm.mp3'])
+    // A música do Grand Prix não serve para o menu.
     expect(resolveEvent(byId('musicMenu'), none, FILES).files).toEqual(['data/sound/bgm/lobby.mp3'])
-  })
-
-  it('vozes por prefixo e código', () => {
-    const voices = voiceFiles(FILES)
-    expect([...voices.keys()].sort()).toEqual(['cesil', 'kaz'])
-    expect(voices.get('kaz')!.get('py')).toEqual([
-      'data/sound/voice/kaz_py1.wav',
-      'data/sound/voice/kaz_py2.wav',
+    expect(resolveEvent(byId('musicHoleGood'), none, FILES).files).toEqual([
+      'data/sound/bgm/bgm_under_par.mp3',
     ])
-    // Vozes não entram como efeito ("kaz_par1" não é o som do par).
-    expect(resolveEvent(byId('par'), none, FILES).files).not.toContain(
-      'data/sound/voice/kaz_par1.wav',
-    )
   })
 
-  it('voz do personagem pela pasta, pelo nome ou pela letra', () => {
-    const prefixes = ['kaz', 'cesil', 'a']
-    expect(guessVoicePrefix('data/avatar/h_kaz/h_def', prefixes)).toBe('kaz')
-    expect(guessVoicePrefix('data/avatar/c_cesillia/c_def', prefixes)).toBe('cesil')
-    expect(guessVoicePrefix('data/avatar/a_nuri/a_def', prefixes)).toBe('a')
-    expect(guessVoicePrefix('data/avatar/z_nada/z_def', prefixes)).toBeUndefined()
+  it('vozes por pacote e fala (código ou palavra)', () => {
+    const voices = voiceFiles(FILES)
+    expect([...voices.keys()].sort()).toEqual([
+      '2013_thanksgiving_7',
+      'v2_club_0',
+      'v2_club_10',
+      'v2_club_7',
+    ])
+    expect(voices.get('v2_club_7')!.get('py')).toEqual([
+      'data/sound/voice/v2_club_7_py1.wav',
+      'data/sound/voice/v2_club_7_py2.wav',
+    ])
+    // "pangya0" = "Pangya!"; "dbobey" (erro do jogo) = double bogey.
+    expect(voices.get('2013_thanksgiving_7')!.get('py')).toEqual([
+      'data/sound/voice/2013_thanksgiving_7_pangya0.wav',
+    ])
+    expect(voices.get('2013_thanksgiving_7')!.has('dbo')).toBe(true)
+    // Vozes não entram como efeito ("…_par1" não é o som do par; "birdie.wav" é).
+    expect(resolveEvent(byId('par'), none, FILES).files).toEqual(['data/sound/effect/파.wav'])
+    expect(resolveEvent(byId('birdie'), none, FILES).files).toEqual([
+      'data/sound/effect/birdie.wav',
+    ])
+  })
+
+  it('voz do personagem pelo número dele, no pacote mais completo', () => {
+    expect(characterNumber('data/avatar/h_kaz/h_def')).toBe(7)
+    expect(characterNumber('data/avatar/female/f_def')).toBe(1)
+    expect(characterNumber('data/avatar/ff_hana/ff_hana_def')).toBe(12)
+    expect(characterNumber('data/avatar/cc_cesillia/cc_def')).toBe(14)
+    expect(characterNumber('data/avatar/teste/t_def')).toBeUndefined()
+    const voices = voiceFiles(FILES)
+    expect(voicePrefixesFor('data/avatar/h_kaz/h_def', voices)).toEqual([
+      'v2_club_7', // 3 falas
+      '2013_thanksgiving_7', // 2 falas
+    ])
+    // Nuri (0) não pega o pacote da Spika (10).
+    expect(voicePrefixesFor('data/avatar/m/m_def', voices)).toEqual(['v2_club_0'])
+    expect(guessVoicePrefix('data/avatar/i_lucia/i_def', voices)).toBeUndefined()
     const choices: SoundChoices = { events: {}, voices: { 'data/avatar/h_kaz/h_def': '' } }
-    expect(resolveVoice('data/avatar/h_kaz/h_def', choices, prefixes)).toEqual({
+    expect(resolveVoice('data/avatar/h_kaz/h_def', choices, voices)).toEqual({
       prefix: undefined,
       source: 'none',
     })
+  })
+
+  it('personagem de teste: voz pela letra do arquivo', () => {
+    const voices = voiceFiles(audioFiles(['data/sound/teste/voice/t_py1.wav']))
+    expect(guessVoicePrefix('data/avatar/teste/t_def', voices)).toBe('t')
   })
 
   it('som e voz do resultado', () => {

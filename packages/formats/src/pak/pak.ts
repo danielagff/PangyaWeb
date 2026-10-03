@@ -31,11 +31,22 @@ export interface PakIndex {
   entries: PakEntry[]
 }
 
-const decodeName = (bytes: Uint8Array) => {
+const SHIFT_JIS = new TextDecoder('shift_jis')
+const CP949 = new TextDecoder('euc-kr') // no navegador e no Node, "euc-kr" é o CP949 (UHC)
+/** Katakana de meia largura ou caractere inválido: sinal de nome coreano lido como japonês. */
+const NOT_JAPANESE = /[\uFF61-\uFF9F\uFFFD]/
+
+/**
+ * Nome de uma entrada. A maioria foi gravada pelo time coreano em CP949 ("팡야.wav",
+ * "공_그린.wav"); alguns, no cliente japonês, em Shift-JIS. Lido como Shift-JIS, um nome
+ * coreano vira katakana de meia largura ("ﾆﾎｾﾟ.wav") e perde letras — então tenta primeiro o
+ * japonês e, se sair isso, lê em coreano.
+ */
+export function decodePakName(bytes: Uint8Array): string {
   const end = bytes.indexOf(0)
-  return new TextDecoder('shift_jis')
-    .decode(end === -1 ? bytes : bytes.subarray(0, end))
-    .replaceAll('\\', '/')
+  const raw = end === -1 ? bytes : bytes.subarray(0, end)
+  const japanese = SHIFT_JIS.decode(raw)
+  return (NOT_JAPANESE.test(japanese) ? CP949.decode(raw) : japanese).replaceAll('\\', '/')
 }
 
 /** A primeira entrada sempre começa no offset 0; a chave certa decifra isso. */
@@ -134,7 +145,7 @@ export function readPakIndex(bytes: Uint8Array, keyOption?: PakKeyOption): PakIn
     }
 
     entries.push({
-      path: decodeName(name),
+      path: decodePakName(name),
       type: ENTRY_TYPES[type] ?? 'raw',
       offset,
       compressedSize,

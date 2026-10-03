@@ -77,7 +77,14 @@ interface Vfs {
       exatamente no rodapé).
 - [x] Chave customizada via `PAK_KEY` e busca da chave nos `.exe/.dll/.dat` do cliente
       (`pnpm assets:pak-key`). Os patches do **Reborn** não abrem com nenhuma chave padrão.
-- [ ] Rodar contra o cliente JP real (local) e registrar o resultado.
+- [x] **Nomes coreanos** (03/10/2026): os nomes das entradas eram lidos só como Shift-JIS e
+      os nomes coreanos (CP949) viravam katakana de meia largura, perdendo letras
+      ("ﾆﾎｾﾟ.wav" em vez de "팡야.wav") — o jogo não achava sons do property.xml nem texturas
+      com nome coreano. `decodePakName`: tenta Shift-JIS; se sair katakana de meia largura
+      ou "�", lê em CP949. A extração tem versão (`EXTRACTION_VERSION` 2, marca em
+      `assets/original/_extracao.json`): o `servidor.cmd` (`pnpm assets:atualizar`) extrai de
+      novo sozinho uma vez e apaga os arquivos com nome corrompido da extração antiga.
+- [x] Rodado contra o cliente JP real no PC do Daniel: 56.910 arquivos no índice.
 
 ## Riscos e perguntas em aberto
 

@@ -245,6 +245,8 @@ export function startOnlineMode() {
         })
         .join('')
       const finished = m.phase === 'finished'
+      const mine = me?.state
+      view.endMusic(finished ? 'round' : mine && mine.strokes > mine.par ? 'holeBad' : 'holeGood')
       const box = view.overlay(`
         <h2>${finished ? 'Fim da partida!' : `Buraco ${m.course!.holes[m.holeIndex]} concluído`}</h2>
         <ul class="results">${results}</ul>

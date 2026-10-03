@@ -114,6 +114,7 @@ export async function startHoleMode(ref: HoleRef) {
     const pars = plan.map((_, i) => nextCard[i]?.par)
     const table = scorecardHtml(plan, pars, [{ name: 'Você', strokes }])
     const next = plan[at + 1]
+    if (next !== undefined) view.endMusic(state.strokes <= state.par ? 'holeGood' : 'holeBad')
     const box = next === undefined ? roundEnd(strokes, pars, table) : holeEnd(next, nextCard, table)
     // Enter = botão principal (próximo buraco / jogar de novo).
     const onKey = (e: KeyboardEvent) => {
@@ -145,6 +146,7 @@ export async function startHoleMode(ref: HoleRef) {
   function roundEnd(strokes: (number | undefined)[], pars: (number | undefined)[], table: string) {
     const t = cardTotals(strokes, pars)
     view.announceEnd(me.id, t.strokes <= t.par)
+    view.endMusic('round')
     const holed = state.result === 'holed'
     const last = holed ? scoreName(state.strokes, state.par) : 'Desistência'
     // Recorde só de rodada completa (todos os buracos do plano jogados).

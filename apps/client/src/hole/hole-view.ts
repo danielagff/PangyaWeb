@@ -52,7 +52,7 @@ import {
   Vector3,
   WebGLRenderer,
 } from 'three'
-import { courseMusicEvent, scoreSound, scoreVoice } from '../audio/sound-events.ts'
+import { courseMusicEvent, scoreSound, scoreVoice, soundEvent } from '../audio/sound-events.ts'
 import { sound, type SoundLibrary } from '../audio/sounds.ts'
 import { categoryOfClub, clubModelFor } from '../character/clubs.ts'
 import { golfMotions, reactionMotion, type Reaction } from '../character/motions.ts'
@@ -1506,6 +1506,10 @@ export class HoleView {
           break
         case 'water':
           void sounds.play('water')
+          void sounds.voice(character, 'w')
+          break
+        case 'stop':
+          if (e.surface === 'bunker') void sounds.voice(character, 'bu')
           break
         case 'outOfBounds':
           void sounds.play('outOfBounds')
@@ -1543,6 +1547,15 @@ export class HoleView {
     const character = this.players.find((p) => p.id === playerId)?.character
     void this.sounds.play(chipIn && strokes > 1 ? 'chipIn' : scoreSound(strokes, par))
     void this.sounds.voice(character, scoreVoice(strokes, par))
+  }
+
+  /**
+   * Música do quadro de fim: do buraco (par ou melhor / acima do par) ou da rodada. A do
+   * curso volta no próximo buraco.
+   */
+  endMusic(kind: 'holeGood' | 'holeBad' | 'round') {
+    const id = { holeGood: 'musicHoleGood', holeBad: 'musicHoleBad', round: 'musicRoundEnd' }[kind]
+    void this.sounds.music(soundEvent(id))
   }
 
   /** Voz de fim de rodada (ganhou/perdeu). */

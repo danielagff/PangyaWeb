@@ -1,8 +1,15 @@
-import { mkdtempSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { mountClient, parsePakKey } from './extract.ts'
+import {
+  EXTRACTION_VERSION,
+  extractionVersion,
+  mountClient,
+  parsePakKey,
+  removeGarbledFiles,
+  writeExtractionMarker,
+} from './extract.ts'
 
 describe('mountClient', () => {
   it('continua quando um .pak está corrompido e registra o erro', () => {
@@ -30,5 +37,33 @@ describe('parsePakKey', () => {
   it('aceita vazio e rejeita formato inválido', () => {
     expect(parsePakKey('')).toBeUndefined()
     expect(() => parsePakKey('1,2,3')).toThrow(/PAK_KEY inválida/)
+  })
+})
+
+describe('extração antiga com nomes coreanos corrompidos', () => {
+  it('apaga só os arquivos com nome corrompido que esta extração não gravou', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'pangya-ext-'))
+    const file = (path: string) => {
+      mkdirSync(join(dir, path, '..'), { recursive: true })
+      writeFileSync(join(dir, path), 'x')
+      return resolve(dir, path)
+    }
+    const old = file('data/sound/ﾆﾎｾﾟ.wav') // "팡야.wav" lido como japonês
+    const oldDir = file('data/ｻﾒｸｮ/a.wav') // pasta com nome corrompido
+    const lost = file('data/f-ﾀﾌｱﾛｹ�.wav')
+    const good = file('data/sound/팡야.wav')
+    const ascii = file('data/sound/birdie.wav')
+    const kept = file('data/ui/ﾃｽﾄ.png') // gravado agora (nome japonês de verdade)
+    expect(removeGarbledFiles(dir, new Set([good, ascii, kept]))).toBe(3)
+    expect([old, oldDir, lost].some(existsSync)).toBe(false)
+    expect(existsSync(join(dir, 'data/ｻﾒｸｮ'))).toBe(false)
+    expect([good, ascii, kept].every(existsSync)).toBe(true)
+  })
+
+  it('marca a versão da extração (sem marca = antiga)', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'pangya-ext-'))
+    expect(extractionVersion(dir)).toBe(0)
+    writeExtractionMarker(dir)
+    expect(extractionVersion(dir)).toBe(EXTRACTION_VERSION)
   })
 })

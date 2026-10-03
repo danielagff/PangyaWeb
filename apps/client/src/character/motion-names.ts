@@ -105,6 +105,8 @@ const CHAT: Record<string, string> = {
   한심: '"que patético"',
   호호: 'risinho',
   화남: 'bravo',
+  sp1: 'especial 1',
+  sp2: 'especial 2',
 }
 
 const ITEMS: Record<string, string> = {
@@ -123,6 +125,7 @@ const ITEMS: Record<string, string> = {
 
 const WHOLE: Record<string, MotionDescription> = {
   기본자세: { category: 'Postura', text: 'postura básica (parado)' },
+  h_intro: { category: 'Entrada e itens', text: 'apresentação (intro do Kaz)' },
   열혈기본자세: { category: 'Postura', text: 'postura básica empolgada' },
   등장모션: { category: 'Entrada e itens', text: 'entrada (aparece no começo)' },
   아이템댄스: { category: 'Emoções (chat)', text: 'dança de item' },

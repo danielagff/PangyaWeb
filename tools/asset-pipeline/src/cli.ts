@@ -1,7 +1,16 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { readGameData } from '@pangya/formats'
-import { extractClient, findPaks, mountClient, searchPakKey } from './extract.ts'
+import {
+  EXTRACTION_VERSION,
+  extractClient,
+  extractionVersion,
+  findPaks,
+  mountClient,
+  removeGarbledFiles,
+  searchPakKey,
+  writeExtractionMarker,
+} from './extract.ts'
 import { writeAssetIndex } from './asset-index.ts'
 import { exampleUrl, installExampleCourse } from './example-course.ts'
 import { installTestCharacter } from './test-character.ts'
@@ -11,13 +20,26 @@ import { convertedDir, originalDir, repoRoot, resolvePangyaDir } from './config.
 const envFile = resolve(repoRoot, '.env')
 if (existsSync(envFile)) process.loadEnvFile(envFile)
 
+/** Existe algum arquivo com essa extensão dentro de `dir`? (para no primeiro) */
+function hasFile(dir: string, ext: string): boolean {
+  if (!existsSync(dir)) return false
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isFile() && entry.name.toLowerCase().endsWith(ext)) return true
+    if (entry.isDirectory() && hasFile(resolve(dir, entry.name), ext)) return true
+  }
+  return false
+}
+
 const commands: Record<string, (args: string[]) => void> = {
   /** Extrai todos os .pak do cliente para assets/original e converte o .iff. */
   build() {
     const dir = resolvePangyaDir()
     console.log(`cliente: ${dir}`)
-    const { written, failures, vfs } = extractClient(dir, originalDir)
+    const { written, failures, vfs, paths } = extractClient(dir, originalDir)
     console.log(`${written} arquivos extraídos → ${originalDir}`)
+    const removed = removeGarbledFiles(originalDir, paths)
+    if (removed) console.log(`${removed} arquivos com nome corrompido (extração antiga) apagados`)
+    writeExtractionMarker(originalDir)
     if (failures.length > 0) {
       const report = resolve(originalDir, '_falhas.txt')
       writeFileSync(report, failures.join('\n'))
@@ -27,6 +49,36 @@ const commands: Record<string, (args: string[]) => void> = {
     const iff = vfs.list().find((e) => /^pangya_\w+\.iff$/i.test(e.path.split('/').pop() ?? ''))
     if (iff) commands['iff']!([resolve(originalDir, iff.path)])
     else console.log('nenhum pangya_*.iff encontrado nos pacotes')
+  },
+
+  /**
+   * O que os scripts de um clique rodam (servidor.cmd, mapeador.cmd, jogar.cmd): extrai o
+   * cliente na primeira vez ou quando a extração mudou (EXTRACTION_VERSION); sem cliente,
+   * instala o curso de exemplo; senão só refaz o índice.
+   */
+  atualizar() {
+    let client: string | undefined
+    try {
+      client = resolvePangyaDir()
+    } catch {
+      client = undefined
+    }
+    if (client && !hasFile(originalDir, '.dds')) {
+      console.log('Primeira vez: extraindo o cliente do Pangya (demora alguns minutos)')
+      return commands['build']!([])
+    }
+    if (client && extractionVersion(originalDir) < EXTRACTION_VERSION) {
+      console.log(
+        'Extraindo de novo, só desta vez: os nomes em coreano agora saem certos ' +
+          '(sons, texturas). Demora alguns minutos.',
+      )
+      return commands['build']!([])
+    }
+    if (!existsSync(resolve(originalDir, '_index.json'))) {
+      console.log('Sem cliente configurado: instalando o curso de exemplo (Blue Lagoon)')
+      return commands['exemplo']!([])
+    }
+    commands['index']!([])
   },
 
   /** Lista os .pak do cliente: entradas e região detectada. */

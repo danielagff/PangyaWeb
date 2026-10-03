@@ -10,7 +10,7 @@ import {
   rememberCharacter,
   type CharacterEntry,
 } from '../character/character.ts'
-import { SOUND_EVENTS } from '../audio/sound-events.ts'
+import { soundEvent } from '../audio/sound-events.ts'
 import { sound } from '../audio/sounds.ts'
 import { volumePanel } from '../audio/volume-panel.ts'
 import { powerInput } from '../settings.ts'
@@ -137,7 +137,7 @@ export function showMenu() {
     if ((e.target as HTMLElement).closest('a, button')) void sound.play('uiConfirm')
   })
   // Música do menu (começa no primeiro toque: o navegador só libera som depois dele).
-  void sound.music(SOUND_EVENTS.find((e) => e.id === 'musicMenu'))
+  void sound.music(soundEvent('musicMenu'))
 
   // ---- título ----
   function titleScreen() {
@@ -243,17 +243,19 @@ export function showMenu() {
       )
     const buttons = [...listElement.querySelectorAll<HTMLButtonElement>('button')]
 
-    const select = (i: number) => {
+    const select = (i: number, speak = true) => {
       index = (i + options.length) % options.length
       const entry = options[index]
       rememberCharacter(entry?.id ?? '')
+      // Fala de apresentação do personagem (pacote de voz), como na escolha do jogo.
+      if (speak) void sound.voice(entry?.id, 'pre')
       buttons.forEach((b, j) => b.classList.toggle('selected', j === index))
       buttons[index]?.scrollIntoView({ block: 'nearest' })
       root.querySelector('.character-name')!.textContent = entry?.name ?? 'Sem personagem'
       void preview.show(entry)
     }
     buttons.forEach((b, i) => b.addEventListener('click', () => select(i)))
-    select(index)
+    select(index, false)
 
     keys = (e) => {
       if (['ArrowLeft', 'ArrowUp'].includes(e.key)) select(index - 1)

@@ -6,8 +6,9 @@
  * servidor) → o arquivo achado sozinho pelo nome → o som sintetizado (ou mudo).
  *
  * Os nomes dos arquivos do cliente são em coreano (o property.xml do curso usa
- * "공_그린.wav" — bola no green —, "충돌_rough2.wav", "구름_rough.wav"); os padrões abaixo
- * procuram em coreano e em inglês e ainda precisam ser conferidos com a extração completa.
+ * "공_그린.wav" — bola no green —, "충돌_rough2.wav", "구름_rough.wav"; e há "팡야.wav",
+ * "나이스샷.wav"…) ou em inglês ("birdie.wav", "par.wav", "bgm_under_par.mp3"); os padrões
+ * abaixo procuram nos dois. Conferido com o diagnóstico do cliente JP (6933 sons).
  */
 
 export type SynthSound = 'hit' | 'pangya' | 'bounce' | 'roll' | 'wood' | 'water' | 'cup' | 'miss'
@@ -25,6 +26,8 @@ export interface SoundEvent {
   category: SoundCategory
   /** Padrões do nome do arquivo (minúsculo); vale o primeiro que achar algum arquivo. */
   patterns: RegExp[]
+  /** Arquivos que nunca servem para este evento (ex.: a música do Grand Prix no menu). */
+  exclude?: RegExp
   /** Sem arquivo: som sintetizado (sem ele, fica mudo). */
   synth?: SynthSound
 }
@@ -46,7 +49,13 @@ const event = (
 
 export const SOUND_EVENTS: SoundEvent[] = [
   event('shot', 'Tacada', 'Batida normal', [/^(타격|임팩트|샷|스윙|shot|impact|hit|swing)/], 'hit'),
-  event('pangya', 'Tacada', 'Batida PANGYA', [/^(팡야|pangya)/, /(팡야|pangya)/], 'pangya'),
+  event(
+    'pangya',
+    'Tacada',
+    'Batida PANGYA',
+    [/^(팡야|pangya)\./, /^(팡야|pangya)/, /(팡야|pangya)/],
+    'pangya',
+  ),
   event('powerShot', 'Tacada', 'Batida com power shot (junto com a batida)', [
     /^(파워샷|파워|power)/,
   ]),
@@ -81,11 +90,24 @@ export const SOUND_EVENTS: SoundEvent[] = [
   event('bogey', 'Resultado', 'Bogey', [/^(보기|bogey)/]),
   event('doubleBogey', 'Resultado', 'Double bogey ou pior', [/^(더블보기|double_?bogey)/]),
   event('chipIn', 'Resultado', 'Chip-in (de fora do green)', [/^(칩인|chip_?in)/]),
-  event('musicMenu', 'Música', 'Música do menu', [/(로비|타이틀|메인|lobby|title|menu|main)/]),
+  {
+    ...event('musicMenu', 'Música', 'Música do menu', [
+      /(^|\/)(로비|lobby)[^/]*$/,
+      /(타이틀|title)/,
+      /(메인|main)/,
+    ]),
+    exclude: /grand ?prix|gp_/,
+  },
+  event('musicHoleGood', 'Música', 'Fim do buraco: par ou melhor', [/bgm_under_par/, /under_?par/]),
+  event('musicHoleBad', 'Música', 'Fim do buraco: acima do par', [/bgm_over_par/, /over_?par/]),
+  event('musicRoundEnd', 'Música', 'Fim da rodada (placar)', [/bgm_scoreboard/, /scoreboard/]),
   event('uiMove', 'Menus', 'Mudar a seleção', [/^(커서|이동|cursor|move|over)/]),
   event('uiConfirm', 'Menus', 'Confirmar', [/^(확인|결정|클릭|버튼|click|ok|confirm|button)/]),
   event('uiBack', 'Menus', 'Voltar', [/^(취소|뒤로|cancel|back)/]),
 ]
+
+/** Evento pelo id. */
+export const soundEvent = (id: string) => SOUND_EVENTS.find((e) => e.id === id)
 
 /** Som do resultado do buraco pelas tacadas e o par. */
 export function scoreSound(strokes: number, par: number): string {
@@ -121,26 +143,75 @@ export interface VoiceCode {
   label: string
 }
 
-/** Códigos das vozes (<prefixo>_<código><n>.wav). "?" = significado ainda a conferir. */
+/**
+ * Falas dos personagens. No Pangya elas vêm dos pacotes de voz (tacos de voz e eventos):
+ * <pacote>_<nº do personagem>_<fala><n>.wav — "v2_club_7_py1.wav" ou, em alguns pacotes, com
+ * a palavra: "2013_thanksgiving_7_pangya0.wav".
+ */
 export const VOICE_CODES: VoiceCode[] = [
   { code: 'py', label: '"Pangya!" (batida perfeita)' },
   { code: 'ps', label: 'Power shot' },
   { code: 'dps', label: '2 power shots' },
-  { code: 'ha', label: 'Hole in one / albatross?' },
-  { code: 'e', label: 'Eagle?' },
+  { code: 'ha', label: 'Hole in one / albatross' },
+  { code: 'e', label: 'Eagle' },
   { code: 'bi', label: 'Birdie' },
   { code: 'par', label: 'Par' },
   { code: 'bo', label: 'Bogey' },
   { code: 'dbo', label: 'Double bogey' },
   { code: 'ob', label: 'O.B.' },
-  { code: 'bu', label: 'Bunker?' },
-  { code: 'w', label: 'Água?' },
-  { code: 'pre', label: 'Antes da tacada?' },
+  { code: 'bu', label: 'Bunker' },
+  { code: 'w', label: 'Água' },
+  { code: 'pre', label: 'Apresentação (escolha do personagem)' },
   { code: 'win', label: 'Ganhou' },
   { code: 'lose', label: 'Perdeu' },
 ]
 
-const VOICE_FILE = /^(.+)_(bi|bo|bu|dbo|dps|e|ha|lose|ob|par|pre|ps|py|w|win)(\d+)\.(wav|ogg|mp3)$/
+/** Palavra de alguns pacotes → código ("dbobey" é um erro de digitação do próprio jogo). */
+const VOICE_WORDS: Record<string, string> = {
+  pangya: 'py',
+  powershot: 'ps',
+  dpowershot: 'dps',
+  hioalba: 'ha',
+  eagle: 'e',
+  birdie: 'bi',
+  bogey: 'bo',
+  dbogey: 'dbo',
+  dbobey: 'dbo',
+  bunker: 'bu',
+  water: 'w',
+  preview: 'pre',
+}
+
+const VOICE_FILE = new RegExp(
+  `^(.+)_(${[...VOICE_CODES.map((v) => v.code), ...Object.keys(VOICE_WORDS)].join('|')})(\\d+)\\.(wav|ogg|mp3)$`,
+)
+
+/**
+ * Número do personagem nos pacotes de voz, pela letra do arquivo dele ("h_def" → Kaz, 7):
+ * 0 Nuri, 1 Hana, 2 Azer, 3 Cecilia, 4 Max, 5 Kooh, 6 Arin, 7 Kaz, 8 Lucia, 9 Nell,
+ * 10 Spika, 11 Nuri R, 12 Hana R, 14 Cecilia R.
+ */
+const CHARACTER_NUMBERS: Record<string, number> = {
+  m: 0,
+  f: 1,
+  a: 2,
+  c: 3,
+  d: 4,
+  e: 5,
+  g: 6,
+  h: 7,
+  i: 8,
+  j: 9,
+  k: 10,
+  mm: 11,
+  ff: 12,
+  cc: 14,
+}
+
+export function characterNumber(characterId: string): number | undefined {
+  const file = characterId.toLowerCase().split('/').pop() ?? ''
+  return CHARACTER_NUMBERS[file.split('_')[0] ?? '']
+}
 
 /** Voz do resultado do buraco. */
 export function scoreVoice(strokes: number, par: number): string {
@@ -159,14 +230,15 @@ const baseName = (path: string) => (path.split('/').pop() ?? path).toLowerCase()
 /** Arquivos de som entre todos os caminhos do índice. */
 export const audioFiles = (paths: string[]) => paths.filter((p) => AUDIO.test(p.toLowerCase()))
 
-/** Vozes por prefixo e código: "kaz" → "py" → [kaz_py1.wav, kaz_py2.wav]. */
+/** Vozes por pacote e código: "v2_club_7" → "py" → [v2_club_7_py1.wav, v2_club_7_py2.wav]. */
 export function voiceFiles(files: string[]): Map<string, Map<string, string[]>> {
   const voices = new Map<string, Map<string, string[]>>()
   for (const path of files) {
     const m = VOICE_FILE.exec(baseName(path))
     if (!m) continue
+    const code = VOICE_WORDS[m[2]!] ?? m[2]!
     const codes = voices.get(m[1]!) ?? new Map<string, string[]>()
-    codes.set(m[2]!, [...(codes.get(m[2]!) ?? []), path])
+    codes.set(code, [...(codes.get(code) ?? []), path])
     voices.set(m[1]!, codes)
   }
   for (const codes of voices.values())
@@ -174,25 +246,32 @@ export function voiceFiles(files: string[]): Map<string, Map<string, string[]>> 
   return voices
 }
 
+export type VoiceFiles = Map<string, Map<string, string[]>>
+
 /**
- * Prefixo de voz de um personagem pelo id do catálogo ("data/avatar/h_kaz/h_def"): a pasta
- * ("h_kaz"), o nome sem a letra ("kaz") ou a letra ("h").
+ * Pacotes de voz de um personagem, do mais completo (mais falas diferentes) ao menos: os que
+ * terminam com o número dele ("v2_club_7"). Sem número (personagem de teste), pelo nome da
+ * pasta ("h_kaz"), o nome sem a letra ("kaz") ou a letra ("h").
  */
-export function guessVoicePrefix(characterId: string, prefixes: string[]): string | undefined {
+export function voicePrefixesFor(characterId: string, voices: VoiceFiles): string[] {
+  const prefixes = [...voices.keys()]
+  const number = characterNumber(characterId)
+  if (number !== undefined) {
+    const mine = new RegExp(`(^|_)${number}$`)
+    return prefixes
+      .filter((p) => mine.test(p))
+      .sort((a, b) => voices.get(b)!.size - voices.get(a)!.size || a.localeCompare(b))
+  }
   const parts = characterId.toLowerCase().split('/')
   const folder = parts.at(-2) ?? ''
   const name = folder.replace(/^[a-z]_/, '')
   const letter = /^([a-z])_/.exec(folder)?.[1] ?? /^([a-z])_/.exec(parts.at(-1) ?? '')?.[1]
-  const wanted = [folder, name, letter].filter((x): x is string => Boolean(x))
-  for (const want of wanted) if (prefixes.includes(want)) return want
-  // Nome parecido ("cecilia" × "cesillia"): mesmo começo de 3 letras ou mais.
-  if (name.length >= 3) {
-    return prefixes.find(
-      (p) => p.length >= 3 && (p.startsWith(name.slice(0, 3)) || name.startsWith(p)),
-    )
-  }
-  return undefined
+  return [folder, name, letter].filter((x): x is string => Boolean(x) && prefixes.includes(x!))
 }
+
+/** Pacote de voz escolhido sozinho para o personagem (o mais completo). */
+export const guessVoicePrefix = (characterId: string, voices: VoiceFiles) =>
+  voicePrefixesFor(characterId, voices)[0]
 
 // ---- escolha ----
 
@@ -212,7 +291,10 @@ const isMusic = (path: string) =>
 /** Arquivos achados sozinhos para o evento: os do primeiro padrão que casar (até 6). */
 export function autoFiles(sound: SoundEvent, files: string[]): string[] {
   const candidates = files.filter(
-    (f) => !VOICE_FILE.test(baseName(f)) && (sound.category !== 'music' || isMusic(f)),
+    (f) =>
+      !VOICE_FILE.test(baseName(f)) &&
+      (sound.category !== 'music' || isMusic(f)) &&
+      !sound.exclude?.test(f.toLowerCase()),
   )
   for (const pattern of sound.patterns) {
     const test = (f: string) =>
@@ -238,15 +320,15 @@ export function resolveEvent(
   return { files: [], source: sound.synth ? 'synth' : 'none' }
 }
 
-/** Prefixo da voz do personagem: o escolhido ou o achado pelo nome. */
+/** Pacote de voz do personagem: o escolhido no mapeador ou o achado sozinho. */
 export function resolveVoice(
   characterId: string,
   choices: SoundChoices,
-  prefixes: string[],
+  voices: VoiceFiles,
 ): { prefix: string | undefined; source: 'chosen' | 'auto' | 'none' } {
   const chosen = choices.voices[characterId]
   if (chosen !== undefined)
     return { prefix: chosen || undefined, source: chosen ? 'chosen' : 'none' }
-  const auto = guessVoicePrefix(characterId, prefixes)
+  const auto = guessVoicePrefix(characterId, voices)
   return { prefix: auto, source: auto ? 'auto' : 'none' }
 }
