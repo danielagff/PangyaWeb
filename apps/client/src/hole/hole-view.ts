@@ -161,6 +161,8 @@ const NEAR_CUP_SLOW = {
   holeIn: { radius: 1.5, speed: 0.1, ease: 0.1 },
   height: 2,
 }
+/** Força da barra (0..1) a partir da qual o swing usa o som forte ("_s"). */
+const SWING_STRONG_PERCENT = 0.7
 /** Moedas (pangs) que saem da bola no PANGYA e da cova quando a bola entra. */
 const PANG_COINS = { pangya: 12, powerShot: 18, hole: 24 }
 const UP = new Vector3(0, 1, 0)
@@ -523,6 +525,9 @@ export class HoleView {
         holed: boolean
         /** Putt (câmera baixa e perto, sem câmera de queda). */
         putt: boolean
+        /** Saiu do tee e a força da barra (0..1), para o som do swing. */
+        tee: boolean
+        percent: number | undefined
         /** Onde a bola estava (cena) e o ponto da primeira queda. */
         from: Vector3
         landingAt: Vector3
@@ -631,6 +636,9 @@ export class HoleView {
     trail.frustumCulled = false
     scene.add(trail)
     scene.add(this.pangs.root)
+    this.pangs.groundAt = (x, z) => this.world.grid.groundAt(x, -z)?.y
+    this.pangs.onLand = () => void this.sounds.play('pangDrop')
+    void this.pangs.preload()
 
     // Anel onde a tacada cai (força, spin e curva atuais, sem vento), como no jogo.
     this.target = new Mesh(
@@ -1542,9 +1550,10 @@ export class HoleView {
       impact?: number
       club?: string
       powerShot?: PowerShot
+      percent?: number
     } = {},
   ): Promise<void> {
-    const { aim, events = [], impact, club, powerShot } = options
+    const { aim, events = [], impact, club, powerShot, percent } = options
     this.flight?.done()
     // A bola só sai quando o taco acerta (meio do swing do personagem).
     const delay = this.startSwing(playerId, club)
@@ -1576,6 +1585,8 @@ export class HoleView {
         slow: 1,
         holed: events.some((e) => e.type === 'hole'),
         putt,
+        tee: player?.state.lie === 'tee',
+        percent,
         from: this.frameAt(frames, 0),
         landingAt: this.frameAt(frames, landing),
         endsAtCup: this.endsAtCup(frames, events),
@@ -1664,7 +1675,7 @@ export class HoleView {
       if (skipped && !last && e.type !== 'hit') continue
       switch (e.type) {
         case 'hit':
-          this.playHit(flight.impact, flight.club, flight.powerShot, character)
+          this.playHit(flight, character)
           this.hitPangs(flight)
           break
         case 'bounce':
@@ -1720,22 +1731,41 @@ export class HoleView {
   }
 
   /** Som da batida: PANGYA, normal ou errada; power shot por cima; e a voz. */
-  private playHit(
-    impact: number | undefined,
-    club: string | undefined,
-    powerShot: PowerShot | undefined,
-    character: string | undefined,
-  ) {
+  private playHit(flight: NonNullable<HoleView['flight']>, character: string | undefined) {
     const sounds = this.sounds
+    const { impact, club = '1W', powerShot } = flight
+    const category = categoryOfClub(club)
     const pangya = impact === undefined || isPangya(impact)
-    void sounds.play(pangya ? 'pangya' : Math.abs(impact) > 1 ? 'miss' : 'shot')
-    // Boa, mas sem PANGYA: "Nice shot!" (não no putt).
-    if (!pangya && Math.abs(impact) <= 1 && !club?.startsWith('PT')) void sounds.play('niceShot')
+    const missed = impact !== undefined && Math.abs(impact) > 1
+    // Swing do jogo: pela situação (saída, madeira, ferro, putt) e pela força da barra
+    // ("_s" forte, "_w" fraco); errada, o "miss" de madeira ou de ferro.
+    const strength = (flight.percent ?? 1) >= SWING_STRONG_PERCENT ? /_s\./ : /_w\./
+    const swing = missed
+      ? sounds.play('miss', 1, category === 'wood' ? /wood/ : /iron/)
+      : sounds.play(
+          category === 'putter'
+            ? 'swingPutt'
+            : category === 'wood'
+              ? flight.tee
+                ? 'swingTee'
+                : 'swingWood'
+              : 'swingIron',
+          1,
+          strength,
+        )
+    // Sem som próprio do taco, a batida genérica.
+    void swing.then((played) => played || sounds.play('shot'))
+    // Timing (não no putt): PANGYA, bom ou ruim.
+    if (category !== 'putter') {
+      void sounds.play(pangya ? 'pangya' : missed ? 'timingBad' : 'timingGood')
+      // Boa, mas sem PANGYA: "Nice shot!".
+      if (!pangya && !missed) void sounds.play('niceShot')
+    }
     const power = powerShot === 'one' || powerShot === 'two' || powerShot === 'item15'
     if (power) void sounds.play('powerShot')
     // Voz: power shot ("ps" / "dps") ou "Pangya!" (não no putt).
     if (power) void sounds.voice(character, powerShot === 'two' ? 'dps' : 'ps')
-    else if (pangya && impact !== undefined && !club?.startsWith('PT')) {
+    else if (pangya && impact !== undefined && category !== 'putter') {
       void sounds.voice(character, 'py')
     }
   }
@@ -2037,6 +2067,7 @@ export class HoleView {
     spot.y = this.world.grid.groundAt(spot.x, -spot.z)?.y ?? cup.y
     for (const [id, other] of this.ready) other.root.visible = id === playerId
     model.root.visible = true
+    this.pangs.clear()
     model.root.position.copy(spot)
     // O modelo olha para -X no próprio espaço: virado para a câmera.
     model.root.rotation.y = Math.atan2(toward.z, -toward.x)

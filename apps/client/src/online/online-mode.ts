@@ -298,6 +298,7 @@ export function startOnlineMode() {
             events: message.events,
             ...(message.impact !== undefined && { impact: message.impact }),
             ...(message.powerShot && { powerShot: message.powerShot }),
+            ...(message.percent !== undefined && { percent: message.percent }),
           })
           view.showResult(`${name}: ${message.message}`)
           if (after?.result === 'holed') {

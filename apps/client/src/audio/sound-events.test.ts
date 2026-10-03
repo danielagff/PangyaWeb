@@ -256,4 +256,48 @@ describe('sons: nomes reais do cliente JP (diagnóstico de 03/10/2026)', () => {
       '2013_thanksgiving_7',
     ])
   })
+
+  it('sons da tacada e das moedas do conjunto novo do jogo (data/sound/new)', () => {
+    const files = audioFiles([
+      'data/sound/new/swing_tee_s.wav',
+      'data/sound/new/swing_tee_w.wav',
+      'data/sound/new/swing_drive_s.wav',
+      'data/sound/new/swing_normal_w.wav',
+      'data/sound/new/swing_putting.wav',
+      'data/sound/new/swing_miss_wood.wav',
+      'data/sound/new/swing_miss_iron.wav',
+      'data/sound/new/shot_best_timing.wav',
+      'data/sound/new/shot_good_timing.wav',
+      'data/sound/new/shot_bad_timing.wav',
+      'data/sound/new/pang_coin_emit.wav',
+      'data/sound/new/pang_coin_drop.wav',
+      'data/sound/new/ball_fall_into_water.wav',
+      'data/sound/new/ball_ob_area.wav',
+      'data/sound/new/ui_button_ok_click.wav',
+      'data/sound/effect/팡야.wav',
+      'data/sound/스윙_wood.wav',
+      'data/sound/충돌_wood.wav',
+      'data/sound/충돌_fairway.wav',
+    ])
+    const of = (id: string) => resolveEvent(byId(id), none, files).files
+    expect(of('swingTee')).toEqual([
+      'data/sound/new/swing_tee_s.wav',
+      'data/sound/new/swing_tee_w.wav',
+    ])
+    expect(of('swingWood')).toEqual(['data/sound/new/swing_drive_s.wav'])
+    expect(of('swingIron')).toEqual(['data/sound/new/swing_normal_w.wav'])
+    expect(of('swingPutt')).toEqual(['data/sound/new/swing_putting.wav'])
+    expect(of('miss')).toEqual([
+      'data/sound/new/swing_miss_iron.wav',
+      'data/sound/new/swing_miss_wood.wav',
+    ])
+    expect(of('pangya')).toEqual(['data/sound/new/shot_best_timing.wav'])
+    expect(of('timingGood')).toEqual(['data/sound/new/shot_good_timing.wav'])
+    expect(of('pang')).toEqual(['data/sound/new/pang_coin_emit.wav'])
+    expect(of('pangDrop')).toEqual(['data/sound/new/pang_coin_drop.wav'])
+    expect(of('water')).toEqual(['data/sound/new/ball_fall_into_water.wav'])
+    expect(of('outOfBounds')).toEqual(['data/sound/new/ball_ob_area.wav'])
+    expect(of('uiConfirm')).toEqual(['data/sound/new/ui_button_ok_click.wav'])
+    expect(of('obstacle')).toEqual(['data/sound/충돌_wood.wav'])
+  })
 })

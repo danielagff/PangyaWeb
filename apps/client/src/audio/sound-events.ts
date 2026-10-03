@@ -56,39 +56,78 @@ const event = (
 })
 
 export const SOUND_EVENTS: SoundEvent[] = [
-  event('shot', 'Tacada', 'Batida normal', [/^(타격|임팩트|샷|스윙|shot|impact|hit|swing)/], 'hit'),
+  // Swing do jogo (data/sound/new): "_s" forte e "_w" fraco (pela força da barra); os
+  // antigos "스윙_wood/_iron/_putt" ficam de reserva.
+  event('swingTee', 'Tacada', 'Batida da saída (madeira no tee)', [
+    /^swing_tee_[sw]\./,
+    /^스윙_wood\./,
+  ]),
+  event('swingWood', 'Tacada', 'Batida de madeira (fora do tee)', [
+    /^swing_drive_[sw]\./,
+    /^스윙_wood\./,
+  ]),
+  event('swingIron', 'Tacada', 'Batida de ferro ou wedge', [
+    /^swing_normal_[sw]\./,
+    /^스윙_iron\./,
+  ]),
+  event('swingPutt', 'Tacada', 'Putt', [/^swing_putting\./, /^스윙_putt\./]),
+  event(
+    'shot',
+    'Tacada',
+    'Batida (quando o taco não tem som próprio)',
+    [/^(타격|임팩트|샷|스윙|shot|impact|hit|swing)/],
+    'hit',
+  ),
+  // Timing da batida (data/sound/new/shot_*_timing): PANGYA, boa, errada.
   event(
     'pangya',
     'Tacada',
-    'Batida PANGYA',
-    [/^(팡야|pangya)\./, /^(팡야|pangya)/, /(팡야|pangya)/],
+    'Batida PANGYA (timing perfeito)',
+    [/^shot_best_timing/, /^(팡야|pangya)\./, /^(팡야|pangya)/, /(팡야|pangya)/],
     'pangya',
   ),
+  event('timingGood', 'Tacada', 'Timing bom (sem PANGYA)', [/^shot_good_timing/]),
+  event('timingBad', 'Tacada', 'Timing ruim', [/^shot_bad_timing/]),
   event('powerShot', 'Tacada', 'Batida com power shot (junto com a batida)', [
+    /^swing_powershot_effect/,
+    /^powershot_club_effect/,
     /^(파워샷|파워|power)/,
   ]),
   event('niceShot', 'Tacada', '"Nice shot!" (batida boa, sem PANGYA)', [/^나이스샷/, /niceshot/]),
-  // "아이템획득(팡)" = item ganho (pang): o tilintar das moedas.
+  // Moedas: data/sound/new/pang_coin_emit (saindo) e pang_coin_drop (caindo no chão).
   event(
     'pang',
     'Tacada',
     'Pangs ganhos (moedas saindo na boa tacada)',
-    [/^아이템획득\(팡\)/, /^팡_/, /coin/],
+    [/^pang_coin_emit/, /^아이템획득\(팡\)/, /^팡_/, /coin/],
     'coins',
   ),
-  event('miss', 'Tacada', 'Batida errada', [/^(헛스윙|미스|miss)/], 'miss'),
+  event('pangDrop', 'Tacada', 'Moedas caindo no chão', [/^pang_coin_drop/]),
+  event(
+    'miss',
+    'Tacada',
+    'Batida errada',
+    [/^swing_miss_(wood|iron)\./, /^(헛스윙|미스|miss)/],
+    'miss',
+  ),
   event('bar', 'Tacada', 'Barra de força (cada toque)', [/^(파워게이지|게이지|gauge|bar)/]),
   event('bounce', 'Bola', 'Quique (piso sem som no property.xml)', [], 'bounce'),
   event('roll', 'Bola', 'Rolando (piso sem som no property.xml)', [], 'roll'),
-  event('obstacle', 'Bola', 'Bate em árvore ou objeto', [/^충돌/, /^(나무|tree|wood)/], 'wood'),
+  event(
+    'obstacle',
+    'Bola',
+    'Bate em árvore ou objeto',
+    [/^충돌_wood/, /^충돌/, /^(나무|tree|wood)/],
+    'wood',
+  ),
   event(
     'water',
     'Bola',
     'Cai na água',
-    [/^(공_)?(물|입수|풍덩|퐁당|해저드|water|splash)/],
+    [/^ball_fall_into_water/, /^(공_)?(물|입수|풍덩|퐁당|해저드|water|splash)/],
     'water',
   ),
-  event('outOfBounds', 'Bola', 'Sai do campo (O.B.)', [/^(ob|아웃|out)(?![a-z])/]),
+  event('outOfBounds', 'Bola', 'Sai do campo (O.B.)', [/^ball_ob_area/, /^(ob|아웃|out)(?![a-z])/]),
   // "공_홀인" = a bola entra; "공_컵점프1" e "공_홀맞기" são a bola pulando/batendo na borda.
   event(
     'cup',
@@ -124,9 +163,12 @@ export const SOUND_EVENTS: SoundEvent[] = [
   event('musicHoleGood', 'Música', 'Fim do buraco: par ou melhor', [/bgm_under_par/, /under_?par/]),
   event('musicHoleBad', 'Música', 'Fim do buraco: acima do par', [/bgm_over_par/, /over_?par/]),
   event('musicRoundEnd', 'Música', 'Fim da rodada (placar)', [/bgm_scoreboard/, /scoreboard/]),
-  event('uiMove', 'Menus', 'Mudar a seleção', [/^(커서|이동|cursor|move|over)/]),
-  event('uiConfirm', 'Menus', 'Confirmar', [/^(확인|결정|클릭|버튼|click|ok|confirm|button)/]),
-  event('uiBack', 'Menus', 'Voltar', [/^(취소|뒤로|cancel|back)/]),
+  event('uiMove', 'Menus', 'Mudar a seleção', [/^커서_이동/, /^(커서|이동|cursor|move|over)/]),
+  event('uiConfirm', 'Menus', 'Confirmar', [
+    /^ui_button_ok_click/,
+    /^(확인|결정|클릭|버튼|click|ok|confirm|button)/,
+  ]),
+  event('uiBack', 'Menus', 'Voltar', [/^ui_button_cancel_click/, /^(취소|뒤로|cancel|back)/]),
 ]
 
 /** Evento pelo id. */

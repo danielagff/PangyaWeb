@@ -94,6 +94,12 @@ Câmeras de jogo e HUD com as informações necessárias para mirar como no orig
   30% (em 0,3 s); se a bola vai entrar, a menos de 1,5 unidade, a 10% (em 0,1 s). O jogo
   também tem linhas para backspin e tacadas especiais e um modo de câmera
   (`slow_camerawork_index`) que fica no programa.
+- **Moedas (pangs) do jogo** (`hole/pang-burst.ts`): o modelo `data/effect/coin.pet` com o
+  movimento do `data/effect/spray/coin_pang.spr` (sobe a 0,9/quadro num cone de 15°, gira,
+  gravidade 0,03/quadro², atrito 1% no ar e 5% no chão, quica com 80%, vive 5–6 s, some na
+  segunda metade, tamanho 2×). Os efeitos do jogo são texto: `.seq` (roteiro, chama
+  "sprays") e `.spr` (partículas, com os campos comentados em coreano) — dá para refazer os
+  outros (brilho do PANGYA `pangya_shot.seq`, hole in one `hole_in_eff.seq`…).
 - **Comemoração** (`celebrate`): depois de embocar, 1,6 s vendo a cova (moedas) e corta para o
   personagem perto da cova, sem o taco, com a **câmera animada do jogo** para aquela pose
   (uma das 4 versões, sorteada; sem o arquivo, uma câmera parada de frente, enquadrada pela

@@ -88,6 +88,7 @@ export async function startHoleMode(ref: HoleRef) {
       events: played.events,
       ...(played.impact !== undefined && { impact: played.impact }),
       ...(request.powerShot && { powerShot: request.powerShot }),
+      percent: request.percent,
     })
     state = applyShot(state, played.outcome)
     view.showResult(describeShot(from, played))

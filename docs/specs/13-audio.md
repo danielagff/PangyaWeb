@@ -85,6 +85,22 @@ Efeitos sonoros e música tocando nos eventos certos.
 - Teste na nuvem: `pnpm assets:teste` gera bipes com nomes no padrão (`data/sound/teste/`).
   Conferido no navegador: música do curso em laço, PANGYA + "Pangya!" na batida, cova +
   aplausos no Hole in One.
+- **Sons da tacada do jogo** (pasta `data/sound/new`, achada com os arquivos que o Daniel
+  subiu): swing pela situação — `swing_tee_s/_w` (madeira no tee), `swing_drive_s/_w`
+  (madeira fora do tee), `swing_normal_s/_w` (ferro/wedge), `swing_putting`, errada
+  `swing_miss_wood/_iron` — com "_s" (forte, mais alto e longo) quando a barra passa de 70%
+  (`SWING_STRONG_PERCENT`) e "_w" abaixo; timing: `shot_best_timing` (PANGYA),
+  `shot_good_timing`, `shot_bad_timing`; power shot `swing_powershot_effect`; moedas
+  `pang_coin_emit` (saindo) e `pang_coin_drop` (primeira tocando o chão); água
+  `ball_fall_into_water`; O.B. `ball_ob_area`; menus `ui_button_ok_click`,
+  `ui_button_cancel_click`, `커서_이동`; árvore `충돌_wood`. Os antigos (`스윙_wood`,
+  `스윙_iron`, `스윙_putt`, `팡야.wav`) ficam de reserva. O servidor manda a força da barra de
+  cada tacada para os outros jogadores ouvirem o mesmo swing. Conferido no navegador com os
+  sons reais: tacada de saída com PANGYA tocou `swing_tee_s`, `shot_best_timing`, a voz
+  "Pangya!" do Kaz (`2014_voice_club_7_py0`), `pang_coin_emit` e `pang_coin_drop`.
+- Também há na pasta: `powershot_ready`/`_cancel`, `play_my_turn`, `shot_dist_count`,
+  `camera_move_to_spot`, `swing_tomahawk`/`cobra`, `홀_삑사리` (bola que bate na borda e
+  não entra), `충돌_pole` (no mastro), `클럽교체` (trocar de taco), `wind_change01-03`.
 - Ainda não: vozes dos caddies, conferir no PC com os arquivos reais.
 
 ## Critérios de aceite

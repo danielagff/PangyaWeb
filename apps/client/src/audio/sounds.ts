@@ -195,18 +195,25 @@ export class SoundLibrary {
     return source
   }
 
-  /** Toca o evento (id de SOUND_EVENTS ou o próprio evento). */
-  async play(which: string | SoundEvent, volume = 1) {
-    if (this.muted) return
+  /**
+   * Toca o evento (id de SOUND_EVENTS ou o próprio evento). `prefer`: entre os arquivos do
+   * evento, sorteia só entre os que casam (ex.: /_s\./ = batida forte), se houver. Devolve se
+   * tocou algo (arquivo ou sintetizado).
+   */
+  async play(which: string | SoundEvent, volume = 1, prefer?: RegExp): Promise<boolean> {
+    if (this.muted) return true
     const sound = typeof which === 'string' ? SOUND_EVENTS.find((e) => e.id === which) : which
     const context = this.audio()
-    if (!sound || !context) return
+    if (!sound || !context) return false
     const { files, source } = await this.filesFor(sound)
-    const path = pick(files)
+    const preferred = prefer ? files.filter((f) => prefer.test(f.split('/').pop()!)) : []
+    const path = pick(preferred.length ? preferred : files)
     const buffer = path && (await this.load(path))
     if (buffer) this.start(buffer, sound.category, volume)
     else if (source === 'synth' && sound.synth)
       synth(context, this.gains.get('effects')!, sound.synth, volume)
+    else return false
+    return true
   }
 
   /** Toca um arquivo pelo nome (sons dos pisos); sem ele, o evento `fallback`. */

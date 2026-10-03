@@ -31,6 +31,8 @@ export type ServerMessage =
       impact?: number
       /** Power shot usado (som e voz da batida). */
       powerShot?: PowerShot
+      /** Força da barra (0..1), para o som do swing. */
+      percent?: number
       outcome: ShotOutcome
       message: string
     }

@@ -46,7 +46,10 @@ jogar com amigos, com o **PC do Daniel como servidor**. Não é vendido nem publ
 
 ## Em andamento agora
 
-Última entrega (04/10/2026): **câmeras originais das comemorações** — lidas dos arquivos
+Última entrega (04/10/2026): **sons originais da tacada** (pasta `data/sound/new`: swing
+por situação e força, timing PANGYA/bom/ruim, moedas saindo e caindo, água, O.B., menus) e
+**moedas 3D do jogo** (`coin.pet` com o movimento do `coin_pang.spr`). Antes:
+**câmeras originais das comemorações** — lidas dos arquivos
 do jogo que o Daniel subiu (`data/camera_path/<personagem>_cam.apet`): cada pose (hole in
 one, eagle, birdie, par, bogey, double bogey) toca com a câmera animada do jogo, uma das 4
 versões sorteada, sem o taco na mão; **câmera lenta perto da cova** com os números do
