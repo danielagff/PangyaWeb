@@ -30,7 +30,7 @@ jogar com amigos, com o **PC do Daniel como servidor**. Não é vendido nem publ
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Extração dos arquivos   | `.pak` (chave JP), `.iff`, `.pet/.bpet/.apet/.mpet`, `.gbin`, `property.xml`, `.dds`, `.pycb`; índice de nomes e catálogo de personagens.                                                                                                                                                                                                                                                                    |
 | Cursos                  | Buracos reais com texturas, céu, névoa, iluminação assada, objetos; cova e bandeira em escala; grade do green.                                                                                                                                                                                                                                                                                               |
-| Física                  | Voo da bola portado do SuperSS-Dev; quique, rolagem e putt no terreno real; colisão com árvores/objetos pelas caixas `.pycb`; água, O.B., bunker.                                                                                                                                                                                                                                                            |
+| Física                  | Voo portado do SuperSS-Dev, com a **barra sendo a distância real** (x% da barra cai a x% do alcance, no plano e sem vento); quique, rolagem e putt no terreno real; colisão com árvores/objetos pelas caixas `.pycb`; água, O.B., bunker.                                                                                                                                                                    |
 | Tacada                  | HUD embaixo como no original: taco na roda do mouse, power shot no Alt (2× = 2 PS), spin/curva clicando na bola do mostrador, força do personagem; barra sempre visível (3 toques, escala do taco, faixa PANGYA; deixar passar cancela; sem o pin); mira A/D precisa (toque = 0,1°).                                                                                                                         |
 | Câmera e cova           | O mouse nunca move a câmera; no voo A/D giram e S mostra de cima até a bola quase cair. Vista aérea (M ou 0) como no original: **linha vermelha até o X** (100% do taco) com a distância, pin com desnível (m) e distância; ↑/↓ andam pela linha, Shift+↑/↓ zoom suave, roda troca o taco, espaço volta à câmera normal; Delete+0 abre no X. Cova de verdade (a bola cai dentro), com a luz que puxa a bola. |
 | Ferramentas de teste    | **Calibrador** na barra de força (um ponteiro: clique põe, X sobe/Z desce 0,1%; no modo sozinho o 2º espaço usa a força dele) e **sempre PANGYA** (tecla P, só sozinho) para testar a física.                                                                                                                                                                                                                |
@@ -46,7 +46,13 @@ jogar com amigos, com o **PC do Daniel como servidor**. Não é vendido nem publ
 
 ## Em andamento agora
 
-Última entrega (03/10/2026), os 3 ajustes pedidos pelo Daniel: a **linha e o X da vista
+Última entrega (03/10/2026): **a barra de força é a distância de verdade** (decisão do
+Daniel). No plano, sem vento e com a bola no centro, x% da barra cai a x% do alcance do taco
+— pin a 115y com o 1W de 230y → 50% cai no pin. Vento, desnível, spin e curva mudam a partir
+daí. Conferido: nos buracos 2 e 6 do Blue Lagoon (par 3), a força certa contando o desnível
+dá Hole in One sem vento.
+
+Antes (versão `5d32c3d`), os 3 ajustes pedidos pelo Daniel: a **linha e o X da vista
 aérea giram junto com a câmera** (presos ao centro, sem pular a cada toque de mira); a
 **barra de força ficou sem a distância, o desnível e a linha do pin** (estão no marcador do
 pin); no **Delete+0, se o X passa do buraco**, a câmera abre e segue na linha da mira na
@@ -81,10 +87,6 @@ lugar da bandeira, vista aérea com zoom (M/0, Delete+0), câmera livre e mira A
 
 ### Perguntas em aberto para o Daniel
 
-- **Força**: qual valor de força dá as distâncias do jogo original (ex.: 3W chegando a 280y
-  na referência)? Hoje o padrão é 15 (1W = 230y na barra). O X da vista aérea mostra onde a
-  nossa física faz a bola cair a 100% (no Blue Lagoon 1, 1W ≈ 196y de voo): comparar com o X
-  do original no mesmo buraco/taco é o jeito mais direto de calibrar.
 - **Luz da cova**: altura em que ela ainda puxa a bola (hoje 0,5 m, `CUP_BEAM.height`) e o
   raio (`CUP_BEAM.radius`).
 - **Taco no chão**: se com os personagens reais o taco ainda flutua ou atravessa o chão
@@ -121,7 +123,9 @@ Regras de nomes de peças já confirmadas pelo Daniel (implementadas em
 1. **Personagens**: aplicar as anotações do mapeador (impacto do swing, nomes, roupas),
    conferir a frente do modelo e a posição na bola com os personagens reais.
 2. **Habilidades do power shot** (tomahawk, spike, cobra): comandos ainda a definir pelo
-   Daniel (a física já suporta `shot`; o HUD só manda tacada normal).
+   Daniel (a física já suporta `shot`; o HUD só manda tacada normal). Junto: ajustar a
+   **curva** e as especiais à barra nova (com a bola mais rápida, a curva máxima do 1W a 100%
+   cai ~12 y ao lado da mira; spec 08).
 3. **Sons**: mapear os efeitos e as vozes ("Pangya!", birdie…) — falta a parte "== SONS" do
    diagnóstico (`?diagnostico`) para saber os nomes dos arquivos; música do curso; volume.
 4. **Interface e menus** (spec 15): feito o menu, o fluxo de buracos e o resultado final.
@@ -141,6 +145,9 @@ Regras de nomes de peças já confirmadas pelo Daniel (implementadas em
 - **Física própria**: o voo vem do SuperSS-Dev (MIT); quique e rolagem são modelo nosso,
   calibrado no fim. O Leonardo Barcelos (autor do GhostPro) confirmou: "isso é motor
   dinâmico do Pangya, você pode criar o seu próprio".
+- **A barra de força é a distância real** (03/10/2026): não precisa ser igual ao original;
+  precisa dar para calcular — no plano e sem vento, x% da barra cai a x% do alcance do taco,
+  e vento, desnível, spin e curva mudam a partir daí.
 - **Não descompilar o GhostPro** (produto pago e fechado de outra pessoa). Ele só faz o voo,
   que já temos.
 - **Servidor autoritativo** no PC do anfitrião: o servidor simula as tacadas e manda o

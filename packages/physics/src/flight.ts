@@ -196,6 +196,16 @@ const cloneState = (s: BallState): BallState => ({
 })
 
 /** Simulador de uma tacada; `step()` avança 0,02 s. */
+/** Opções internas do simulador. */
+export interface FlightOptions {
+  /**
+   * Multiplicador da velocidade de saída no lugar da conta da barra (`barLaunchScale`). O
+   * modelo original do SuperSS usa √força; os testes de referência e a própria calibração
+   * passam o valor direto.
+   */
+  launchScale?: number
+}
+
 export class FlightSimulator {
   readonly club: ClubPhysics
   readonly band: DistanceBand
@@ -208,7 +218,7 @@ export class FlightSimulator {
   private readonly powerFactorShot: number
   state: BallState
 
-  constructor(input: ShotInput, origin: Vec3 = { x: 0, y: 0, z: 0 }) {
+  constructor(input: ShotInput, origin: Vec3 = { x: 0, y: 0, z: 0 }, options: FlightOptions = {}) {
     const club = CLUBS[input.club]
     const ps = input.powerShot ?? 'none'
     const spin = input.spin ?? 0
@@ -230,7 +240,7 @@ export class FlightSimulator {
 
     let power = launchPower(club, band, input.player, ps, spin)
     this.powerFactor = power
-    power *= Math.sqrt(percent)
+    power *= options.launchScale ?? barLaunchScale(input)
     if (shot === 'tomahawk' || shot === 'spike') power *= 1.3
     power *= Math.sqrt((input.ground ?? 100) * 0.01)
     this.powerFactorShot = power
@@ -515,6 +525,75 @@ export function beamCapture(a: Vec3, b: Vec3, cup: Vec3): Vec3 | undefined {
 }
 
 /** Atalho: simula o voo de uma tacada até o chão na altura `landingY` (unidades). */
+/**
+ * A barra de força é a distância de verdade (decisão do Daniel, 03/10/2026): no chão plano,
+ * sem vento, com a bola acertada no centro (sem spin nem curva) e piso 100%, a x% da barra
+ * a bola cai a x% do alcance do taco — o número da barra. Ex.: pin a 115y com o 1W de 230y
+ * → 50% cai no pin. Vento, desnível, spin, curva, piso e tacadas especiais mudam a partir
+ * daí, pela física do voo (que é a do SuperSS; só a velocidade de saída é recalculada).
+ *
+ * A velocidade que dá essa distância é achada por busca (regula falsi, erro < 0,002 y) e
+ * guardada por taco, faixa de distância, força do jogador, power shot e % da barra.
+ */
+export function barLaunchScale(input: ShotInput): number {
+  const percent = Math.max(0, input.percent)
+  if (percent === 0) return 0
+  if (CLUBS[input.club].category === 'putter') return Math.sqrt(percent)
+  const neutral: ShotInput = {
+    club: input.club,
+    player: input.player,
+    percent,
+    powerShot: input.powerShot ?? 'none',
+    targetDistance: input.targetDistance ?? Infinity,
+  }
+  const key = JSON.stringify([
+    input.club,
+    distanceBand(neutral.targetDistance!),
+    input.player,
+    neutral.powerShot,
+    percent,
+  ])
+  const cached = launchScales.get(key)
+  if (cached !== undefined) return cached
+
+  const carry = (scale: number) =>
+    new FlightSimulator(neutral, undefined, { launchScale: scale }).flyTo(0).carry
+  const target = percent * new FlightSimulator(neutral, undefined, { launchScale: 1 }).range
+  // Intervalo [lo, hi] que contém a resposta; depois regula falsi (Illinois).
+  let lo = 0
+  let loErr = -target
+  let hi = Math.sqrt(percent)
+  let hiErr = carry(hi) - target
+  while (hiErr < 0 && hi < 16) {
+    lo = hi
+    loErr = hiErr
+    hi *= 1.3
+    hiErr = carry(hi) - target
+  }
+  let scale = hi
+  let side = 0
+  for (let i = 0; i < 40; i++) {
+    scale = (lo * hiErr - hi * loErr) / (hiErr - loErr)
+    const err = carry(scale) - target
+    if (Math.abs(err) < 0.002) break
+    if (err < 0) {
+      lo = scale
+      loErr = err
+      if (side === -1) hiErr /= 2
+      side = -1
+    } else {
+      hi = scale
+      hiErr = err
+      if (side === 1) loErr /= 2
+      side = 1
+    }
+  }
+  if (launchScales.size > 4000) launchScales.clear()
+  launchScales.set(key, scale)
+  return scale
+}
+const launchScales = new Map<string, number>()
+
 export function simulateFlight(input: ShotInput, landingY = 0): FlightResult {
   return new FlightSimulator(input).flyTo(landingY)
 }

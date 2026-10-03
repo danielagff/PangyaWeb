@@ -35,10 +35,12 @@ function shot(club: ShotInput['club'], surface: GroundSurface, spin = 0) {
 }
 
 describe('simulateGround', () => {
-  it('voo + rolagem no fairway ≈ alcance do HUD de cada taco', () => {
+  it('a bola cai no número da barra e depois rola um pouco além (fairway)', () => {
     for (const club of ['1W', '7I', 'SW'] as const) {
       const { total, flight } = shot(club, SURFACES.fairway)
-      expect(Math.abs(total - flight.range) / flight.range).toBeLessThan(0.05)
+      expect(flight.carry).toBeCloseTo(flight.range, 1)
+      expect(total).toBeGreaterThan(flight.carry)
+      expect(total).toBeLessThan(flight.carry * 1.3)
     }
   })
 

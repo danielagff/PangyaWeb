@@ -110,8 +110,22 @@ medições de referência passam a servir para validar.
       0.4/0.2, rough 0.2/0.42, bunker 0.1/0.6, estrada 0.7/0.1). Leitor em
       `packages/formats/src/course/property.ts`. Falta a fórmula de como o jogo os aplica.
 - [ ] Putt (spec 11).
-- [ ] Calibrar: a 100% e power 15 o voo (carry) dá ~83% do alcance do HUD; confirmar no jogo
-      se o alcance exibido inclui a rolagem.
+- [x] **A barra é a distância de verdade** (decisão do Daniel, 03/10/2026; não precisa ser
+      igual ao original, precisa dar para calcular): no plano, sem vento, com a bola no
+      centro (sem spin/curva) e piso 100%, x% da barra cai a x% do alcance do taco — o número
+      da barra (ex.: pin a 115y, 1W de 230y, 50% cai no pin). `barLaunchScale` em
+      `flight.ts` acha por busca a velocidade de saída que dá essa distância (erro < 0,002 y,
+      guardada por taco/faixa/força/PS/%); o resto do voo é o do SuperSS, então vento,
+      desnível, spin, curva, piso e especiais mudam a distância a partir daí. Antes, no
+      modelo do SuperSS (√força), 100% voava ~83% da barra e 50% só 42% da distância. O
+      modelo antigo continua nos testes de referência (`launchScale: √força`).
+      Conferido no Blue Lagoon: 1W a 25/50/75/100% no plano = 57,5/115/172,5/230 y; no
+      buraco 1 o fairway fica ~4 m abaixo do tee e a bola vai mais longe (desnível); nos
+      buracos 2 e 6 (par 3), a força certa já contando o desnível dá Hole in One sem vento.
+- [ ] Com a bola saindo mais rápida, a **curva** abre mais: 1W a 100% com curva máxima cai
+      ~12 y ao lado da mira (no SuperSS ~1 y; a 50–75% já caía 15–25 y ao lado nos dois).
+      Ajustar junto com as **tacadas especiais** (tomahawk, spike, cobra), que também ainda
+      usam partes da conta antiga (`percentSqrt`).
 
 ## Colisão com objetos
 
