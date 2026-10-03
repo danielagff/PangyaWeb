@@ -30,7 +30,7 @@ jogar com amigos, com o **PC do Daniel como servidor**. Não é vendido nem publ
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Extração dos arquivos   | `.pak` (chave JP), `.iff`, `.pet/.bpet/.apet/.mpet`, `.gbin`, `property.xml`, `.dds`, `.pycb`; índice de nomes e catálogo de personagens.                                                                                                                                                                                                                                                                    |
 | Cursos                  | Buracos reais com texturas, céu, névoa, iluminação assada, objetos; cova e bandeira em escala; grade do green.                                                                                                                                                                                                                                                                                               |
-| Física                  | Voo portado do SuperSS-Dev, com a **barra sendo a distância real** (x% da barra cai a x% do alcance, no plano e sem vento); quique, rolagem e putt no terreno real; colisão com árvores/objetos pelas caixas `.pycb`; água, O.B., bunker.                                                                                                                                                                    |
+| Física                  | Voo portado do SuperSS-Dev, com a **barra sendo a distância real** (x% da barra cai a x% do alcance, no plano e sem vento); quique, rolagem e putt no terreno real; colisão com árvores/objetos pelas caixas `.pycb`; água, O.B., bunker. Na tela a tacada é tocada a 80% da velocidade.                                                                                                                     |
 | Tacada                  | HUD embaixo como no original: taco na roda do mouse, power shot no Alt (2× = 2 PS), spin/curva clicando na bola do mostrador, força do personagem; barra sempre visível (3 toques, escala do taco, faixa PANGYA; deixar passar cancela; sem o pin); mira A/D precisa (toque = 0,1°).                                                                                                                         |
 | Câmera e cova           | O mouse nunca move a câmera; no voo A/D giram e S mostra de cima até a bola quase cair. Vista aérea (M ou 0) como no original: **linha vermelha até o X** (100% do taco) com a distância, pin com desnível (m) e distância; ↑/↓ andam pela linha, Shift+↑/↓ zoom suave, roda troca o taco, espaço volta à câmera normal; Delete+0 abre no X. Cova de verdade (a bola cai dentro), com a luz que puxa a bola. |
 | Ferramentas de teste    | **Calculadora** (tecla G: mira e força para cair na cova, com vento e desnível), **calibrador** na barra de força (um ponteiro: clique põe, X sobe/Z desce 0,1%; no modo sozinho o 2º espaço usa a força dele) e **sempre PANGYA** (tecla P). Tudo só no modo sozinho.                                                                                                                                       |
@@ -40,13 +40,26 @@ jogar com amigos, com o **PC do Daniel como servidor**. Não é vendido nem publ
 | Personagens             | 15 personagens montados com skinning; animações reais do jogo (preparação, backswing, swing, andar de lado, comemorações); taco na mão (Bone01); rosto pelo bloco FANM; posicionado com a cabeça do taco na bola.                                                                                                                                                                                            |
 | Menus                   | Título no estilo do jogo → personagem (lista + **prévia 3D** girável + força) → curso (nome do jogo, 1/3/9/18 buracos, buraco inicial, recorde). Teclado (setas/Enter/Esc) e mouse; "voltar" do navegador funciona.                                                                                                                                                                                          |
 | Rodada                  | Sozinho segue o plano de buracos escolhido; fim de cada buraco e da rodada com **cartão de placar** (par, birdie/bogey marcados, ida/volta, total); recorde por curso salvo no navegador. A sala usa o mesmo cartão e os nomes dos cursos.                                                                                                                                                                   |
-| Mapeador de personagens | Estilo Mixamo (girar, zoom, linha do tempo quadro a quadro); animações **traduzidas e separadas por categoria**; peças por categoria com **base × acessório**; anotações salvas; "usar como roupa padrão"; "copiar lista".                                                                                                                                                                                   |
+| Mapeador de personagens | **Catálogo de animações** estilo Mixamo (todas se mexendo em cartões, busca, categorias, anotação) e estúdio (girar, zoom, linha do tempo quadro a quadro); animações **traduzidas**; peças por categoria com **base × acessório**; anotações salvas; "usar como roupa padrão"; "copiar lista".                                                                                                              |
 | Sons                    | Linha do tempo da tacada (batida, quiques, rolagem, colisão, cova) com os sons de piso do jogo ou sintetizados.                                                                                                                                                                                                                                                                                              |
 | Atualização             | Scripts avisam se o `git pull` falhar; o navegador sempre confere se os arquivos mudaram (sem precisar limpar cache).                                                                                                                                                                                                                                                                                        |
 
 ## Em andamento agora
 
-Última entrega (03/10/2026): **voo da bola suave** — a bola é desenhada entre os pontos da
+Última entrega (03/10/2026): **catálogo de animações no mapeador**, no estilo do Mixamo —
+abre direto no `mapeador.cmd` (tecla C alterna com o estúdio): um cartão por animação,
+**todas se mexendo ao mesmo tempo**, com tradução, nome coreano, duração e anotação; busca,
+filtro por categoria e tamanho dos cartões; clicar no boneco abre no estúdio (quadro a
+quadro). Junto: a **tacada ficou mais lenta na tela** (voo e rolagem a 80%; drive de 5,1 s
+para 6,4 s no ar — onde a bola cai não muda) e uma **pesquisa na internet** sobre as
+animações (resumo na spec 12: não existe catálogo nem lista pronta; há os arquivos
+originais da Arin com nomes e durações e o bloco FRAM com troca de rosto e taco por quadro).
+
+Plano combinado com o Daniel: deixar **1 personagem 100% e 1 mapa 100%** antes de abrir
+para o resto. A calculadora no green saiu da lista (não interessa); o ajuste da curva fica
+para depois.
+
+Antes: **voo da bola suave** — a bola é desenhada entre os pontos da
 física (50 por segundo) pelo tempo exato de cada quadro da tela; antes andava aos trancos e a
 câmera tremia junto.
 
@@ -102,6 +115,8 @@ lugar da bandeira, vista aérea com zoom (M/0, Delete+0), câmera livre e mira A
 
 ### Perguntas em aberto para o Daniel
 
+- **1 personagem e 1 mapa 100%**: qual personagem e qual mapa (Blue Lagoon?), e o que falta
+  neles do jeito que você vê no jogo.
 - **Luz da cova**: altura em que ela ainda puxa a bola (hoje 0,5 m, `CUP_BEAM.height`) e o
   raio (`CUP_BEAM.radius`).
 - **Taco no chão**: se com os personagens reais o taco ainda flutua ou atravessa o chão
@@ -135,24 +150,27 @@ Regras de nomes de peças já confirmadas pelo Daniel (implementadas em
 
 ## O que falta (em ordem)
 
-1. **Personagens**: aplicar as anotações do mapeador (impacto do swing, nomes, roupas),
-   conferir a frente do modelo e a posição na bola com os personagens reais.
-2. **Habilidades do power shot** (tomahawk, spike, cobra): comandos ainda a definir pelo
-   Daniel (a física já suporta `shot`; o HUD só manda tacada normal). Junto: ajustar a
-   **curva** e as especiais à barra nova (com a bola mais rápida, a curva máxima do 1W a 100%
-   cai ~12 y ao lado da mira; spec 08).
-3. **Sons**: mapear os efeitos e as vozes ("Pangya!", birdie…) — falta a parte "== SONS" do
+1. **1 personagem 100%** (qual: o Daniel escolhe): o Daniel anota no catálogo o que é cada
+   animação; com isso, usar todas as que o jogo usa (entrada, tacadas de cada taco, power
+   shot, erros, putts, comemorações e decepções de cada resultado, chat), o **quadro exato do
+   impacto**, a roupa padrão, a frente do modelo e a posição na bola. Ler o bloco **FRAM**
+   (troca de rosto e esconder/mostrar o taco por quadro).
+2. **1 mapa 100%** (qual e o que falta: o Daniel diz).
+3. **Habilidades do power shot** (tomahawk, spike, cobra): comandos ainda a definir pelo
+   Daniel (a física já suporta `shot`; o HUD só manda tacada normal).
+4. **Sons**: mapear os efeitos e as vozes ("Pangya!", birdie…) — falta a parte "== SONS" do
    diagnóstico (`?diagnostico`) para saber os nomes dos arquivos; música do curso; volume.
-4. **Interface e menus** (spec 15): feito o menu, o fluxo de buracos e o resultado final.
+5. **Interface e menus** (spec 15): feito o menu, o fluxo de buracos e o resultado final.
    Falta: telas/sprites originais do cliente (achar os arquivos de UI na extração),
    equipamento (tacos/bolas do `.iff`) mudando a física, configurações (gráficos, volume).
-5. **Problema conhecido**: tela inteira azul depois de várias tacadas no Pink Wind 1 (spec 10)
+6. **Problema conhecido**: tela inteira azul depois de várias tacadas no Pink Wind 1 (spec 10)
    — ainda não reproduzido.
-6. **Calibração final do quique e da rolagem** (spec 08), combinada para o fim: gravar
-   tacadas reais e ajustar as constantes até ficar igual ao original.
-7. **Calculadora no green** (putt) e com spin/curva/especiais; hoje ela só faz a tacada
-   normal no ar.
+7. **Depois** (combinado): ajustar a **curva** e as especiais à barra nova (a curva máxima do
+   1W a 100% cai ~12 y ao lado da mira; spec 08); calculadora com spin/curva/especiais;
+   **calibração final do quique e da rolagem** (gravar tacadas reais e ajustar).
 8. Depois: itens/cartas/caddies, mais modos de jogo, polimento visual.
+
+Fora da lista (Daniel, 03/10/2026): calculadora no green (putt); modo desktop.
 
 ## Decisões tomadas
 
@@ -189,3 +207,5 @@ Detalhes em [`referencias/superss-dev.md`](./referencias/superss-dev.md) e
 | [dx9-collision-boxes](https://github.com/lbarceloss/dx9-collision-boxes)           | sem     | Formato `.pycb` (caixas de colisão por buraco) — usado na colisão com objetos.                     |
 | [GhostPro](https://github.com/lbarceloss/GhostPro)                                 | sem     | Calculadora (port do SuperSS, só voo). Nada novo; decidido não descompilar.                        |
 | Pangya-Server-Community (`game_type.cs`)                                           | —       | Mensagens `ShotData`/`ShotSyncData`, para gravar tacadas reais na calibração final.                |
+| [Paechijanjae](https://codeberg.org/retreev/Paechijanjae) (retreev)                | —       | Arquivos originais esquecidos em patches: movimentos da Arin com nomes e duração (spec 12).        |
+| [docs.pangya.golf](https://docs.pangya.golf) / PangLib (retreev)                   | —       | Documentação de formatos (`.mot`/`.talk` dos caddies, `.pet`); parte desatualizada.                |

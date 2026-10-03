@@ -52,6 +52,27 @@ e mascotes.
 - Ainda não: trocar roupa/peças na interface, expressões faciais (FANM), taco na mão.
 - Taco encostando no chão: na postura de preparação, `fitClub` estica/encolhe o taco a
   partir da mão (0,75–1,5×, `CLUB_FIT`) para a cabeça tocar o chão debaixo da bola.
+- **Catálogo de animações** no mapeador (`motion-catalog.ts`, abre direto; tecla C alterna
+  com o estúdio), no estilo do Mixamo: um cartão por movimento, **todos se mexendo ao mesmo
+  tempo**, com o número da lista, a tradução, o nome coreano, a duração e a anotação; busca,
+  filtro por categoria, trechos finais ("끝") escondidos, tamanho dos cartões; o mouse em
+  cima recomeça do início; clicar no boneco abre no estúdio (quadro a quadro). Desenho: um
+  boneco só, posado e desenhado no retângulo de cada cartão visível (`CharacterModel.pose`
+  - scissor, como o exemplo "multiple elements" do three.js); cada cartão se enquadra
+    medindo o boneco em 9 poses do movimento (mesmo tamanho em todos, só afasta se o movimento
+    sai disso). O personagem de teste (`pnpm assets:teste`) ganhou 8 movimentos com nomes
+    reais para testar.
+- Pesquisa (03/10/2026): **não existe catálogo nem lista de movimentos por personagem** na
+  internet — um tópico de 2025 no [pangya.community](https://pangya.community/t/in-search-of-animations-motions/2832)
+  pede exatamente isso, sem resposta. O que existe: as exportações originais (3ds Max, 30
+  quadros/s) de movimentos da **Arin** esquecidas em patches (repositório
+  [Paechijanjae](https://codeberg.org/retreev/Paechijanjae), `data/avatar/g_arin/`), com nomes
+  e duração (ex.: 우드샷 0–78, 우드샷헛스윙 0–121, 파 0–170, 버디 0–138, 홀인원 0–150); a cadeia
+  "끝" = trecho final, ligado pelo campo "próximo movimento"; o bloco **FRAM** do `.apet`
+  (comandos por quadro: `ptex(...)` troca a textura do rosto, `hideclub`/`showclub`,
+  `hidebone`/`showbone`) — ainda não lido por nós; a lista de comandos de chat
+  ([lounge action commands](https://pangya.community/t/lounge-action-commands-list/428)).
+  Nenhuma fonte diz o quadro do impacto do swing.
 
 ## Critérios de aceite
 

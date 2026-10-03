@@ -100,6 +100,10 @@ Câmeras de jogo e HUD com as informações necessárias para mirar como no orig
   — antes ela pulava de ponto em ponto (quadros repetidos e saltos alternados) e a câmera
   tremia junto. Medido: 0 mudanças bruscas de velocidade em 108 quadros do meio do voo.
   Também no campo de treino.
+- **Tacada um pouco mais lenta na tela** (pedido do Daniel): voo e rolagem tocados a 80% da
+  velocidade da física (`BALL_PLAYBACK_SPEED` em `settings.ts`). Só a animação muda — o
+  caminho e onde a bola para são os mesmos (o servidor nem sabe). Drive de 1W a 100%: 5,1 s →
+  6,4 s no ar; no buraco 2 do Blue Lagoon a tacada inteira foi de 5,4 s para 6,9 s.
 - **Calibrador** (`power-bar.ts`): um ponteiro na barra com a força e as jardas. Mouse em cima
   da barra mostra marcas a cada 1% e a leitura do ponto; **clique** (ou arrastar) põe o
   ponteiro ali, **botão direito** tira; **X sobe e Z desce 0,1%** (Shift: 1%; segurando,

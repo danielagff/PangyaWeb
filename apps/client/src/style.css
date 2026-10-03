@@ -742,6 +742,159 @@
 .viewer-side .outfit-state {
   color: #9be59b;
 }
+.viewer-side .open-catalog {
+  font: inherit;
+  font-weight: bold;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+/* Catálogo de animações do mapeador (estilo Mixamo): a grade fica por cima do canvas, que
+   desenha os bonecos nos retângulos transparentes .preview. */
+.catalog-open .viewer-side,
+.catalog-open .viewer-timeline {
+  display: none;
+}
+.motion-catalog {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  font:
+    13px/1.35 system-ui,
+    sans-serif;
+  color: #fff;
+}
+.motion-catalog[hidden] {
+  display: none;
+}
+.motion-catalog header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  padding: 10px 16px 8px;
+  background: rgba(10, 30, 60, 0.96);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+.motion-catalog h1 {
+  margin: 0;
+  font-size: 16px;
+}
+.motion-catalog .catalog-count {
+  opacity: 0.75;
+}
+.motion-catalog .catalog-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+.motion-catalog button,
+.motion-catalog select,
+.motion-catalog .search {
+  font: inherit;
+}
+.motion-catalog .search {
+  width: 300px;
+  max-width: 100%;
+}
+.motion-catalog .catalog-status {
+  color: #9be59b;
+}
+.motion-catalog .hint {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 12px;
+  opacity: 0.7;
+}
+.catalog-chips {
+  display: flex;
+  flex-basis: 100%;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.catalog-chips button {
+  padding: 3px 10px;
+  border: 0;
+  border-radius: 999px;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.14);
+  cursor: pointer;
+}
+.catalog-chips button.active {
+  color: #000;
+  background: #ffcc33;
+}
+.catalog-chips small {
+  opacity: 0.7;
+}
+.catalog-grid {
+  --card: 200px;
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 16px 24px;
+}
+.catalog-grid h2 {
+  margin: 14px 0 6px;
+  font-size: 14px;
+  color: #ffd54f;
+}
+.catalog-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--card), 1fr));
+  gap: 10px;
+}
+.motion-card[hidden],
+.catalog-grid section[hidden] {
+  display: none;
+}
+.motion-card .preview {
+  position: relative;
+  aspect-ratio: 1;
+  cursor: pointer;
+}
+.motion-card .preview:hover {
+  box-shadow: inset 0 0 0 3px #ffcc33;
+}
+.motion-card .number {
+  position: absolute;
+  top: 4px;
+  left: 6px;
+  font-size: 11px;
+  text-shadow: 0 1px 2px #000;
+}
+.motion-card .info {
+  padding: 6px 8px 8px;
+  background: rgba(10, 30, 60, 0.9);
+  border-radius: 0 0 8px 8px;
+}
+.motion-card strong {
+  display: block;
+}
+.motion-card small {
+  display: block;
+  font-size: 11px;
+  opacity: 0.7;
+  overflow-wrap: anywhere;
+}
+.motion-card .note {
+  box-sizing: border-box;
+  width: 100%;
+  margin-top: 4px;
+  font: inherit;
+}
+.motion-card .note.saved {
+  outline: 2px solid #4caf50;
+  background: #eaf7ea;
+}
+.motion-card .note.failed {
+  outline: 2px solid #e53935;
+}
+.motion-catalog .empty {
+  opacity: 0.8;
+}
 
 /* HUD da tacada (embaixo): mostrador com taco, impacto, power shot e força + barra. */
 .shot-hud {

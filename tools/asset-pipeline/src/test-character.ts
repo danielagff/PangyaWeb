@@ -6,7 +6,8 @@
  * Boneco de caixas com ~6 unidades de altura: rosto com textura pelo bloco FANM
  * (t_fc_01_!fc), acessório de rosto (t_fc_a_z01), cabelo, camisa, calça, sapato, mãos
  * (t_hn_01 e t_hn_28) e um taco preso ao Bone01. Movimentos com os nomes coreanos reais
- * (CP949): 우드샷준비, 우드샷파워준비, 우드샷, 기본자세.
+ * (CP949): 우드샷준비, 우드샷파워준비, 우드샷, 기본자세 e mais alguns (resultado, chat…) para o
+ * catálogo de animações.
  */
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -40,6 +41,15 @@ const CP949: Record<string, number[]> = {
   우드샷: [191, 236, 181, 229, 188, 166],
   우드샷끝: [191, 236, 181, 229, 188, 166, 179, 161],
   기본자세: [177, 226, 186, 187, 192, 218, 188, 188],
+  // Mais nomes reais, para o catálogo de animações do mapeador ter o que mostrar.
+  아이언샷: [190, 198, 192, 204, 190, 240, 188, 166],
+  퍼팅샷: [198, 219, 198, 195, 188, 166],
+  우드샷게걸음: [191, 236, 181, 229, 188, 166, 176, 212, 176, 201, 192, 189],
+  버디승리포즈: [185, 246, 181, 240, 189, 194, 184, 174, 198, 247, 193, 238],
+  퍼팅성공: [198, 219, 198, 195, 188, 186, 176, 248],
+  chat_박수: [99, 104, 97, 116, 95, 185, 218, 188, 246],
+  chat_댄스: [99, 104, 97, 116, 95, 180, 237, 189, 186],
+  '1등모션': [49, 181, 238, 184, 240, 188, 199],
 }
 
 const version = () => new Writer().u8(2).u8(1).u16(0) // 1.2
@@ -251,15 +261,26 @@ export function installTestCharacter(log: (msg: string) => void = console.log) {
       .bytes(bytes)
       .u8(0)
   }
-  const motions = new Writer().u32(4)
-  const motion = (name: string, start: number, end: number, next: string) => {
+  const list: [string, number, number, string][] = [
+    ['우드샷준비', 0, 30, '우드샷디폴트'],
+    ['우드샷파워준비', 31, 55, '우드샷파워준비끝'],
+    ['우드샷', 31, 90, '우드샷끝'],
+    ['기본자세', 0, 30, '기본자세'],
+    // Os outros reaproveitam trechos da mesma animação (só os nomes importam aqui).
+    ['아이언샷', 31, 90, '기본자세'],
+    ['퍼팅샷', 31, 60, '기본자세'],
+    ['우드샷게걸음', 0, 30, '우드샷게걸음'],
+    ['버디승리포즈', 40, 90, '기본자세'],
+    ['퍼팅성공', 0, 45, '기본자세'],
+    ['chat_박수', 0, 15, 'chat_박수'],
+    ['chat_댄스', 0, 90, 'chat_댄스'],
+    ['1등모션', 55, 90, '기본자세'],
+  ]
+  const motions = new Writer().u32(list.length)
+  for (const [name, start, end, next] of list) {
     korean(motions, name).u32(start).u32(end)
     korean(motions, next).lstr('').f32(0).lstr('Bip01')
   }
-  motion('우드샷준비', 0, 30, '우드샷디폴트')
-  motion('우드샷파워준비', 31, 55, '우드샷파워준비끝')
-  motion('우드샷', 31, 90, '우드샷끝')
-  motion('기본자세', 0, 30, '기본자세')
   write(
     't_def.apet',
     new Writer()

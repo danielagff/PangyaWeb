@@ -400,6 +400,23 @@ export class CharacterModel {
     return clip.duration
   }
 
+  /**
+   * Põe a pose do movimento `name` no instante `t` (s), parada. O catálogo usa um boneco só
+   * para desenhar vários movimentos no mesmo quadro: posa, desenha, posa o próximo…
+   */
+  pose(name: string, t: number) {
+    const clip = this.clips.get(name)
+    if (!clip) return
+    const action = this.mixer.clipAction(clip)
+    if (this.current !== action) {
+      this.mixer.stopAllAction()
+      action.reset().play()
+      this.current = action
+    }
+    action.time = Math.max(0, Math.min(t, clip.duration))
+    this.mixer.update(0)
+  }
+
   update(dt: number) {
     this.mixer.update(dt)
   }

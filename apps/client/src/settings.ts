@@ -7,6 +7,12 @@ import { CLUBS, NO_BONUS, powerRange } from '@pangya/physics'
 
 const POWER_KEY = 'pangyaweb.forca'
 
+/**
+ * Velocidade com que a tacada (voo e rolagem) é tocada na tela: 1 = o tempo da física. Só a
+ * animação fica mais lenta — o caminho e onde a bola para não mudam.
+ */
+export const BALL_PLAYBACK_SPEED = 0.8
+
 /** Força do personagem escolhida (padrão: a da calculadora do SuperSS). */
 export function playerPower(): number {
   try {

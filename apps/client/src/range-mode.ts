@@ -20,6 +20,7 @@ import {
   Vector3,
   WebGLRenderer,
 } from 'three'
+import { BALL_PLAYBACK_SPEED } from './settings.ts'
 import { createShotPanel } from './shot-panel.ts'
 
 /** Campo de treino plano (sem assets do jogo). */
@@ -122,7 +123,7 @@ export function startRangeMode() {
     const { result } = flight
     const count = result.frames.length / 3
     // Entre dois pontos da física (50 por segundo), pelo tempo exato do quadro: sem trancos.
-    const exact = Math.max(0, (now - flight.start) / 1000 / STEP_TIME)
+    const exact = Math.max(0, ((now - flight.start) / 1000) * (BALL_PLAYBACK_SPEED / STEP_TIME))
     const index = Math.min(Math.floor(exact), count - 1)
     const at = toScene(result.frames, index)
     if (index < count - 1) at.lerp(toScene(result.frames, index + 1), exact - index)

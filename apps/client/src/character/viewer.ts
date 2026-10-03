@@ -1,9 +1,11 @@
 /**
- * Visualizador de personagens (?personagens), no estilo do Mixamo: o boneco no centro de um
- * estúdio, girando com o mouse (arrastar = girar, roda = zoom, botão direito = mover),
- * linha do tempo para pausar e ver quadro a quadro. Escolhe personagem, taco, peças por slot
- * e toca cada animação, com campo de anotação por item. "Copiar lista" gera um texto com
- * tudo numerado, para dizer o que é cada animação/peça e corrigir os nomes do jogo.
+ * Visualizador de personagens (?personagens), no estilo do Mixamo. Duas telas (tecla C):
+ * - Catálogo: todas as animações em cartões, mexendo ao mesmo tempo (motion-catalog.ts).
+ * - Estúdio: o boneco no centro, girando com o mouse (arrastar = girar, roda = zoom, botão
+ *   direito = mover), linha do tempo para pausar e ver quadro a quadro.
+ * Escolhe personagem, taco, peças por slot e toca cada animação, com campo de anotação por
+ * item. "Copiar lista" gera um texto com tudo numerado, para dizer o que é cada
+ * animação/peça e corrigir os nomes do jogo.
  */
 import {
   Box3,
@@ -32,10 +34,13 @@ import {
   saveOutfit,
   type CharacterEntry,
 } from './character.ts'
+import { MotionCatalog } from './motion-catalog.ts'
 import { describeMotion, MOTION_CATEGORIES } from './motion-names.ts'
 import { golfMotions } from './motions.ts'
 
 const BALL_RADIUS = 0.2
+/** Tela aberta por último (catálogo ou estúdio). */
+const SCREEN_KEY = 'pangyaweb.mapeador.tela'
 
 /** Slots das peças, traduzidos (conferidos com o jogo; "?" = ainda a confirmar). */
 const SLOT_NAMES: Record<string, string> = {
@@ -127,7 +132,7 @@ function countNotes(prefix: string) {
 }
 
 export async function startCharacterViewer() {
-  const catalog = await loadCatalog()
+  const characters = await loadCatalog()
 
   // ---- cena ----
   const renderer = new WebGLRenderer({ antialias: true })
@@ -187,6 +192,7 @@ export async function startCharacterViewer() {
   left.className = 'viewer-side left'
   left.innerHTML = `
     <h1>Mapeador de personagens</h1>
+    <p><button class="open-catalog">📚 Catálogo de animações (C)</button></p>
     <label>Personagem <select name="character"></select></label>
     <label>Taco <select name="club">${CLUBS.map((c) => `<option value="${c.value}">${c.label}</option>`).join('')}</select></label>
     <label>Ver <select name="mode">
@@ -221,6 +227,21 @@ export async function startCharacterViewer() {
     <button class="step" data-step="1" title="→ próximo quadro">▶</button>
     <span class="frame">—</span>`
   document.body.append(left, right, timeline)
+  const catalog = new MotionCatalog({
+    notes: {
+      read: (name) => readNote(noteKey('anim', name)),
+      bind: (input, name) => bindNote(input, noteKey('anim', name)),
+    },
+    onOpen: (name) => openInStudio(name),
+  })
+  catalog.tools.innerHTML = `
+    <label>Personagem <select name="character"></select></label>
+    <label>Taco <select name="club">${CLUBS.map((c) => `<option value="${c.value}">${c.label}</option>`).join('')}</select></label>
+    <button class="copy">Copiar lista</button>
+    <button class="studio">🎬 Estúdio (C)</button>
+    <span class="catalog-status"></span>`
+  catalog.element.hidden = true
+  document.body.append(catalog.element)
   const $ = <T extends Element>(root: Element, selector: string) =>
     root.querySelector(selector) as T
   const characterInput = $<HTMLSelectElement>(left, 'select[name=character]')
@@ -232,11 +253,16 @@ export async function startCharacterViewer() {
   const frameLabel = $<HTMLSpanElement>(timeline, '.frame')
   const loopInput = $<HTMLInputElement>(left, 'input[name=loop]')
   const speedInput = $<HTMLInputElement>(left, 'input[name=speed]')
-  const status = (text: string) => ($(left, '.status').textContent = text)
+  const status = (text: string) => {
+    for (const box of [$(left, '.status'), $(catalog.tools, '.catalog-status')])
+      box.textContent = text
+  }
   const searchInput = $<HTMLInputElement>(left, 'input.search')
   const endingsInput = $<HTMLInputElement>(left, 'input[name=endings]')
   searchInput.addEventListener('input', () => filterMotions())
   endingsInput.addEventListener('change', () => filterMotions())
+  const catalogCharacter = $<HTMLSelectElement>(catalog.tools, 'select[name=character]')
+  const catalogClub = $<HTMLSelectElement>(catalog.tools, 'select[name=club]')
 
   /** Salva a cada letra digitada e mostra ✓ salvo (borda verde) no campo. */
   function bindNote(input: HTMLInputElement, key: string) {
@@ -264,16 +290,17 @@ export async function startCharacterViewer() {
       `📝 ${n} anotaç${n === 1 ? 'ão salva' : 'ões salvas'} deste personagem (ficam neste navegador, mesmo fechando)`
   }
 
-  if (catalog.length === 0) {
+  if (characters.length === 0) {
     status('Nenhum personagem no catálogo (rode a extração dos assets).')
     return
   }
-  characterInput.innerHTML = catalog
+  characterInput.innerHTML = characters
     .map((c, i) => `<option value="${i}">${escapeHtml(c.name)} (${escapeHtml(c.id)})</option>`)
     .join('')
+  catalogCharacter.innerHTML = characterInput.innerHTML
 
   // ---- estado ----
-  let entry: CharacterEntry = catalog[0]!
+  let entry: CharacterEntry = characters[0]!
   /** Peça escolhida por slot ('' = nenhuma). */
   let equipped = new Map<string, string>()
   let model: CharacterModel | undefined
@@ -291,6 +318,7 @@ export async function startCharacterViewer() {
 
   async function rebuild() {
     const token = ++loadToken
+    void refreshCatalog()
     status('Carregando…')
     const parts = [...equipped.values()].filter(Boolean)
     let next: CharacterModel
@@ -356,6 +384,56 @@ export async function startCharacterViewer() {
     controls.target.copy(center)
     camera.position.copy(center).addScaledVector(direction.normalize(), distance)
     controls.update()
+  }
+
+  // ---- catálogo ----
+  let catalogToken = 0
+  let catalogStale = true
+
+  /** O catálogo tem um boneco próprio (mesma roupa e taco do estúdio), carregado ao abrir. */
+  async function refreshCatalog() {
+    if (!catalog.visible) {
+      catalogStale = true
+      return
+    }
+    catalogStale = false
+    const token = ++catalogToken
+    catalog.setModel(undefined)
+    const category = clubInput.value as ClubCategory | ''
+    try {
+      const next = await CharacterModel.load(entry, [...equipped.values()].filter(Boolean))
+      await next.setClub(category ? await clubModelFor(category) : undefined)
+      if (token === catalogToken) catalog.setModel(next)
+    } catch (err) {
+      status(`Erro: ${String(err)}`)
+    }
+  }
+
+  function showCatalog(on: boolean) {
+    catalog.element.hidden = !on
+    document.body.classList.toggle('catalog-open', on)
+    try {
+      localStorage.setItem(SCREEN_KEY, on ? 'catalogo' : 'estudio')
+    } catch {
+      // sem armazenamento: abre no catálogo da próxima vez
+    }
+    if (on) {
+      catalogCharacter.value = characterInput.value
+      catalogClub.value = clubInput.value
+      if (catalogStale) void refreshCatalog()
+    } else {
+      renderMotions() // mostra as anotações feitas no catálogo
+    }
+  }
+
+  /** Clique no boneco do catálogo: toca o movimento no estúdio. */
+  function openInStudio(name: string) {
+    showCatalog(false)
+    motion = name
+    model?.play(name, loopInput.checked, 0)
+    setPaused(false)
+    renderMotions()
+    left.querySelector('.motions li.active')?.scrollIntoView({ block: 'center' })
   }
 
   function setPaused(paused: boolean) {
@@ -506,7 +584,7 @@ export async function startCharacterViewer() {
   }
 
   function selectCharacter(index: number) {
-    entry = catalog[index]!
+    entry = characters[index]!
     motion = undefined
     equipped = new Map(entry.defaults.map((path) => [keyOf(path), path]))
     renderOutfitState()
@@ -575,7 +653,22 @@ export async function startCharacterViewer() {
   }
 
   characterInput.addEventListener('change', () => selectCharacter(Number(characterInput.value)))
-  clubInput.addEventListener('change', () => void applyClub())
+  clubInput.addEventListener('change', () => {
+    void applyClub()
+    void refreshCatalog()
+  })
+  catalogCharacter.addEventListener('change', () => {
+    characterInput.value = catalogCharacter.value
+    selectCharacter(Number(catalogCharacter.value))
+  })
+  catalogClub.addEventListener('change', () => {
+    clubInput.value = catalogClub.value
+    void applyClub()
+    void refreshCatalog()
+  })
+  $(catalog.tools, 'button.copy').addEventListener('click', copyList)
+  $(catalog.tools, 'button.studio').addEventListener('click', () => showCatalog(false))
+  $(left, 'button.open-catalog').addEventListener('click', () => showCatalog(true))
   modeInput.addEventListener('change', () => {
     place()
     frame()
@@ -603,7 +696,10 @@ export async function startCharacterViewer() {
   })
   window.addEventListener('keydown', (e) => {
     if (e.target instanceof HTMLInputElement && e.target.type !== 'range') return
-    if (e.code === 'KeyH') document.body.classList.toggle('viewer-clean')
+    if (e.target instanceof HTMLSelectElement) return
+    if (e.code === 'KeyC') showCatalog(!catalog.visible)
+    else if (catalog.visible) return
+    else if (e.code === 'KeyH') document.body.classList.toggle('viewer-clean')
     else if (e.code === 'Space') {
       e.preventDefault()
       setPaused(!model?.paused)
@@ -626,11 +722,22 @@ export async function startCharacterViewer() {
   })
 
   selectCharacter(0)
+  let screen = 'catalogo'
+  try {
+    screen = localStorage.getItem(SCREEN_KEY) ?? screen
+  } catch {
+    // sem armazenamento: começa no catálogo
+  }
+  showCatalog(screen !== 'estudio')
 
   const timer = new Timer()
   renderer.setAnimationLoop((time) => {
     timer.update(time)
     const dt = Math.min(timer.getDelta(), 0.1)
+    if (catalog.visible) {
+      catalog.render(renderer, dt)
+      return
+    }
     if (model) {
       model.update(dt * Number(speedInput.value))
       const head = studio() ? undefined : model.clubHead()

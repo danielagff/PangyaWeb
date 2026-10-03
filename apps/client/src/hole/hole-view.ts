@@ -61,6 +61,7 @@ import {
   type CharacterEntry,
 } from '../character/character.ts'
 
+import { BALL_PLAYBACK_SPEED } from '../settings.ts'
 import { browserFiles } from './assets.ts'
 import { aimDirection, toScene } from './coords.ts'
 import { buildCourseScene, SKY_RADIUS, type CourseScene } from './course-scene.ts'
@@ -1449,7 +1450,7 @@ export class HoleView {
   private freeFlightCamera() {
     const f = this.flight
     if (!f || f.start === -Infinity) return false
-    return f.index < f.landing - FREE_CAMERA_UNTIL_LANDING / STEP_TIME
+    return f.index < f.landing - (FREE_CAMERA_UNTIL_LANDING * BALL_PLAYBACK_SPEED) / STEP_TIME
   }
 
   showResult(text: string) {
@@ -1617,7 +1618,8 @@ export class HoleView {
       // A física tem um ponto a cada 0,02 s (50 por segundo) e a tela é 60 Hz ou mais:
       // a bola é desenhada entre dois pontos, pelo tempo exato do quadro — sem isso ela anda
       // aos trancos (uns quadros repetem a posição, outros pulam) e a câmera treme junto.
-      const exact = Math.max(0, elapsed / STEP_TIME)
+      // Tocada um pouco mais devagar que a física (BALL_PLAYBACK_SPEED).
+      const exact = Math.max(0, (elapsed * BALL_PLAYBACK_SPEED) / STEP_TIME)
       const index = Math.min(Math.floor(exact), count - 1)
       const between = index < count - 1 ? exact - index : 0
       if (elapsed >= 0) this.playEvents(index, skipped)
