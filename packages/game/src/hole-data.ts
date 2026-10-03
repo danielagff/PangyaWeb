@@ -61,6 +61,8 @@ export interface TerrainPart {
 
 export interface HoleObject {
   model: string
+  /** Tem ossos e animação própria (navio balançando, lâmpada): a cena anima em vez de fixar. */
+  animated?: boolean
   subMeshes: PetSubMesh[]
   /** Matrizes de mundo (Pangya) de cada instância. */
   instances: Mat4x3[]
@@ -94,6 +96,8 @@ export interface HoleData {
 
 export interface HoleNpc {
   model: string
+  /** Comportamento do jogo ("*type": 0 voa, 1 borboleta, 3 toupeira, 4 golfinho, 5 anda). */
+  type?: number
   count: number
   box: { min: [number, number, number]; max: [number, number, number] }
 }
@@ -110,7 +114,13 @@ export function readSoundBoxes(boxes: GbinSoundBox[]): { ambient: string[]; npcs
     const pet = /\*pet\s+(\S+)/i.exec(text)?.[1]
     if (pet) {
       const count = Number(/\*num\s+(\d+)/i.exec(text)?.[1] ?? 1)
-      npcs.push({ model: pet, count, box: { min: box.min, max: box.max } })
+      const type = /\*type\s+(\d+)/i.exec(text)?.[1]
+      npcs.push({
+        model: pet,
+        ...(type !== undefined && { type: Number(type) }),
+        count,
+        box: { min: box.min, max: box.max },
+      })
     } else if (text && !text.startsWith('*')) ambient.add(text)
   }
   return { ambient: [...ambient], npcs }
@@ -212,6 +222,7 @@ export async function loadHoleData(
           if (withModels) {
             objects.push({
               model,
+              ...(pet.bones.length > 0 && pet.animations.length > 0 && { animated: true }),
               subMeshes: petToSubMeshes(pet),
               instances: elements.map((e) => e.matrix),
             })

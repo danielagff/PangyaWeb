@@ -39,6 +39,8 @@ import {
   Uint16BufferAttribute,
   Vector3,
   VectorKeyframeTrack,
+  DataTexture,
+  type Material,
   type AnimationAction,
   type KeyframeTrack,
 } from 'three'
@@ -248,6 +250,49 @@ const maxFrame = (pet: Pet) =>
       ),
     ),
   )
+
+/** Ossos de um .pet/.bpet (nomes únicos "b<i>" para as trilhas de animação). */
+function buildSkeleton(pet: Pet) {
+  const restWorld = pet.bones.map((_, i) => toMatrix4(boneWorldMatrix(pet, i)))
+  const rest = pet.bones.map((b) => {
+    const p = new Vector3()
+    const q = new Quaternion()
+    const s = new Vector3()
+    toMatrix4(b.matrix).decompose(p, q, s)
+    return { p, q, s }
+  })
+  const bones = pet.bones.map((_, i) => {
+    const bone = new Bone()
+    bone.name = `b${i}`
+    bone.position.copy(rest[i]!.p)
+    bone.quaternion.copy(rest[i]!.q)
+    bone.scale.copy(rest[i]!.s)
+    return bone
+  })
+  pet.bones.forEach((b, i) => {
+    const parent = b.parent >= 0 && b.parent < bones.length ? bones[b.parent] : undefined
+    if (parent && parent !== bones[i]) parent.add(bones[i]!)
+  })
+  return { restWorld, rest, bones }
+}
+
+/**
+ * Um .pet com ossos e animação própria (objeto do cenário, bicho): o grupo (coordenadas do
+ * Pangya), os clipes por "motion" e os ossos pelo nome do jogo. Cada chamada monta uma cópia.
+ */
+export async function buildAnimatedPet(pet: Pet, textures: TextureLibrary) {
+  const { restWorld, rest, bones } = buildSkeleton(pet)
+  const group = new Group()
+  pet.bones.forEach((b, i) => {
+    if (b.parent < 0 || b.parent >= bones.length) group.add(bones[i]!)
+  })
+  const mesh = await buildPart(pet, pet, bones, restWorld, textures)
+  if (!mesh) return undefined
+  group.add(mesh)
+  const clips = buildClips(pet, pet, rest)
+  const byName = new Map(pet.bones.map((b, i) => [b.name, bones[i]!]))
+  return { group, clips, bones: byName, mesh }
+}
 
 async function readFile(path: string, kind: 'bpet' | 'apet' | 'mpet') {
   const bytes = await tryFetchBytes(path)
@@ -488,14 +533,22 @@ export class CharacterModel {
     const name = action.getClip().name
     const duration = action.getClip().duration
     // Eventos dos quadros percorridos (no laço, a volta passa pelo fim e recomeça).
-    if (this.onEvent && dt > 0) {
+    if (dt > 0) {
       const list = this.events.get(name)
       const now = action.time
       const fired =
         now >= this.eventTime
           ? eventsBetween(list, this.eventTime, now)
           : [...eventsBetween(list, this.eventTime, duration), ...eventsBetween(list, -1, now)]
-      for (const e of fired) for (const c of e.commands) this.onEvent(c, this)
+      for (const e of fired) {
+        for (const c of e.commands) {
+          // Expressão do rosto (piscar, sorrir…): vale em todo lugar (jogo, menu, mapeador).
+          if (c.name === 'ptex' && /^__facetexture__$/i.test(c.args[0] ?? '') && c.args[1]) {
+            void this.paintFace(c.args[1])
+          }
+          this.onEvent?.(c, this)
+        }
+      }
       this.eventTime = now
     }
     if (this.chainTo && action.time >= duration - 1e-4) this.start(this.chainTo, true, 0.2, 0)
@@ -509,6 +562,28 @@ export class CharacterModel {
     if (!bone) return undefined
     this.root.updateMatrixWorld(true)
     return bone.getWorldPosition(new Vector3())
+  }
+
+  /**
+   * Pinta uma expressão no rosto (`*ptex("__facetexture__" "d_face-blink2.png")`): a imagem
+   * do jogo é um recorte do rosto com fundo verde (#00ff00), que não é pintado. A pintura
+   * fica até a próxima (o "-reset" volta olhos e boca ao normal).
+   */
+  async paintFace(file: string) {
+    const faces: FaceTexture[] = []
+    this.inner.traverse((o) => {
+      const materials = (o as Mesh).material
+      for (const m of Array.isArray(materials) ? materials : materials ? [materials] : []) {
+        const face = (m as Material).userData['face'] as FaceTexture | undefined
+        if (face) faces.push(face)
+      }
+    })
+    // "d_face-blink2.png" pinta o rosto "d_face" (não outras peças com FANM, como o cabelo).
+    const base = file.toLowerCase().replace(/-[^-]*$/, '')
+    const target = faces.filter((f) => f.name.toLowerCase().replace(/\.[^.]+$/, '') === base)
+    if (target.length === 0) return
+    const overlay = await faceOverlay(this.rig.textures, file)
+    if (overlay) for (const face of target) face.paint(overlay)
   }
 
   /** Esconde/mostra o taco pelos eventos da animação (*hideclub / *showclub). */
@@ -637,27 +712,7 @@ export class CharacterModel {
     const folder = entry.skeleton.split('/').slice(-2, -1)[0] ?? ''
     const textures = new TextureLibrary(folder)
 
-    // Ossos do .bpet (nomes únicos "b<i>" para as trilhas de animação).
-    const restWorld = skeletonPet.bones.map((_, i) => toMatrix4(boneWorldMatrix(skeletonPet, i)))
-    const rest = skeletonPet.bones.map((b) => {
-      const p = new Vector3()
-      const q = new Quaternion()
-      const s = new Vector3()
-      toMatrix4(b.matrix).decompose(p, q, s)
-      return { p, q, s }
-    })
-    const bones = skeletonPet.bones.map((_, i) => {
-      const bone = new Bone()
-      bone.name = `b${i}`
-      bone.position.copy(rest[i]!.p)
-      bone.quaternion.copy(rest[i]!.q)
-      bone.scale.copy(rest[i]!.s)
-      return bone
-    })
-    skeletonPet.bones.forEach((b, i) => {
-      const parent = b.parent >= 0 && b.parent < bones.length ? bones[b.parent] : undefined
-      if (parent && parent !== bones[i]) parent.add(bones[i]!)
-    })
+    const { restWorld, rest, bones } = buildSkeleton(skeletonPet)
 
     const clips = apet ? buildClips(apet, skeletonPet, rest) : new Map<string, AnimationClip>()
     const model = new CharacterModel(entry, clips)
@@ -712,6 +767,75 @@ async function partTexture(pet: Pet, textureIndex: number, textures: TextureLibr
     if (texture) return texture
   }
   return undefined
+}
+
+/** Imagem RGBA (como a da TextureLibrary). */
+interface FaceImage {
+  width: number
+  height: number
+  rgba: Uint8Array
+}
+
+/** Expressões já lidas, por arquivo (o verde já marcado como transparente). */
+const overlays = new WeakMap<TextureLibrary, Map<string, Promise<FaceImage | undefined>>>()
+
+/** Imagem de expressão do rosto; os pixels verdes (#00ff00) ficam transparentes (alfa 0). */
+function faceOverlay(textures: TextureLibrary, file: string) {
+  let cache = overlays.get(textures)
+  if (!cache) overlays.set(textures, (cache = new Map()))
+  const key = file.toLowerCase()
+  let image = cache.get(key)
+  if (!image) {
+    image = textures.image(file).then((img) => {
+      if (!img) return undefined
+      const rgba = img.rgba.slice()
+      for (let i = 0; i < rgba.length; i += 4) {
+        if (rgba[i + 1]! > 200 && rgba[i]! < 80 && rgba[i + 2]! < 80) rgba[i + 3] = 0
+      }
+      return { width: img.width, height: img.height, rgba }
+    })
+    cache.set(key, image)
+  }
+  return image
+}
+
+/** Textura do rosto de um personagem, onde as expressões (*ptex) são pintadas. */
+export class FaceTexture {
+  readonly texture: DataTexture
+
+  /** `name`: o nome do rosto no FANM (ex.: "d_face"; as expressões são "d_face-…"). */
+  constructor(
+    source: DataTexture,
+    readonly name: string,
+  ) {
+    const { width, height, data } = source.image as {
+      width: number
+      height: number
+      data: Uint8Array
+    }
+    this.texture = source.clone()
+    this.texture.image = { width, height, data: new Uint8Array(data) }
+    this.texture.needsUpdate = true
+  }
+
+  /** Pinta a expressão por cima (só os pixels que não são o verde de fundo). */
+  paint(overlay: FaceImage) {
+    const image = this.texture.image as { width: number; height: number; data: Uint8Array }
+    const { data, width, height } = image
+    // Expressão em outro tamanho: amostra pela proporção.
+    for (let y = 0; y < height; y++) {
+      const oy = Math.floor((y * overlay.height) / height)
+      for (let x = 0; x < width; x++) {
+        const o = (oy * overlay.width + Math.floor((x * overlay.width) / width)) * 4
+        if (overlay.rgba[o + 3] === 0) continue
+        const i = (y * width + x) * 4
+        data[i] = overlay.rgba[o]!
+        data[i + 1] = overlay.rgba[o + 1]!
+        data[i + 2] = overlay.rgba[o + 2]!
+      }
+    }
+    this.texture.needsUpdate = true
+  }
 }
 
 /** Uma peça (.mpet) como SkinnedMesh presa aos ossos do personagem. */
@@ -769,14 +893,21 @@ async function buildPart(
     g.setAttribute('skinIndex', new Uint16BufferAttribute(skinIndex, 4))
     g.setAttribute('skinWeight', new Float32BufferAttribute(skinWeight, 4))
     geometries.push(g)
-    const texture = await partTexture(pet, textureIndex, textures)
-    materials.push(
-      new MeshLambertMaterial({
-        ...(texture ? { map: texture } : { color: 0xd8c0a8 }),
-        side: DoubleSide,
-        alphaTest: 0.5,
-      }),
-    )
+    let texture = await partTexture(pet, textureIndex, textures)
+    // Rosto (material com FANM): uma cópia só deste personagem, onde as expressões pintam.
+    const names = partTextureNames(pet, textureIndex)
+    const face =
+      names.length > 1 && texture instanceof DataTexture
+        ? new FaceTexture(texture, names[0]!)
+        : undefined
+    if (face) texture = face.texture
+    const material = new MeshLambertMaterial({
+      ...(texture ? { map: texture } : { color: 0xd8c0a8 }),
+      side: DoubleSide,
+      alphaTest: 0.5,
+    })
+    if (face) material.userData['face'] = face
+    materials.push(material)
   }
   if (geometries.length === 0) return undefined
   const geometry = mergeGeometries(geometries, true)

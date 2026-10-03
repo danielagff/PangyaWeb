@@ -75,3 +75,13 @@ Para a física, o essencial é o **tipo de superfície** de cada triângulo:
 
 - Se os tipos de superfície não estiverem em dados explícitos, podem estar codificados em
   material/textura — mapear material → tipo manualmente para o primeiro curso.
+
+- **Vida do cenário** (04/10/2026, `apps/client/src/hole/scene-life.ts`): objetos com ossos e
+  animação própria (no Blue Lagoon: `blue_ship02` balançando e `blue_house02_lamp`) tocam a
+  animação em laço, cada instância com a sua (antes eram desenhados parados); as partes
+  "Night…" (janelas acesas, luzes) ficam escondidas nos cursos de dia. Os **bichos** das
+  caixas "*type N *pet NPC_….pet *num K" do .gbin aparecem com a animação do arquivo
+  (NPC_Default) e um movimento por tipo — aproximado, porque o caminho é código do jogo:
+  0 gaivota voa em círculos na caixa; 1 borboleta passeia; 3 toupeira sai do chão e some;
+  4 golfinho pula da água e some; 5 caranguejo anda de lado. Os modelos olham para −Z.
+  Conferido na nuvem (buraco 1: 15 bichos, gaivotas batendo as asas de frente).

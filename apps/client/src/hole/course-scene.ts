@@ -102,6 +102,8 @@ export async function buildCourseScene(
   }
 
   for (const object of hole.objects) {
+    // Os animados (navio, lâmpada…) ficam com a vida do cenário (scene-life.ts).
+    if (object.animated) continue
     const parts = object.subMeshes.map((sub) => {
       const g = new BufferGeometry()
       g.setAttribute('position', new Float32BufferAttribute(sub.positions, 3))

@@ -95,3 +95,14 @@ e mascotes.
 
 - [ ] Um personagem completo com taco executando a tacada inteira em sincronia.
 - [ ] Troca de pelo menos uma parte (ex.: roupa) em tempo de execução.
+
+- **Rosto: piscar e expressões** (04/10/2026): as animações do jogo trocam o rosto pelo
+  evento `*ptex("__facetexture__" "d_face-blink2.png")` (a preparação 우드샷준비 pisca:
+  blink2 → blink1 → blink0; as poses usam f01…/m01…). As imagens são recortes do rosto com
+  fundo verde (#00ff00): o verde não é pintado. Cada personagem tem a sua cópia da textura
+  do rosto (`FaceTexture`), pintada só no material do rosto ("d_face" para "d_face-…"). Vale
+  em todo lugar (partida, menu, mapeador), para todos os personagens. Conferido com o Max
+  real: o rosto muda 3 vezes a cada piscada.
+- **Sombra do personagem** (hole-view): o terreno do curso é sem luz (luz assada), então um
+  receptor de sombra (`ShadowMaterial`) fica no chão sob o personagem, alinhado à
+  inclinação, e o sol projeta a sombra do corpo e do taco (`CHARACTER_SHADOW`).

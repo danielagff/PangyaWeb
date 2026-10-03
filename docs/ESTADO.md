@@ -52,7 +52,11 @@ um, copia o código já descriptografado da memória com o PE-sieve e manda para
 repositório privado `pangyaweb-dump`). Falta o Daniel rodar; depois analisar a cópia e achar
 as funções da câmera. Riscos: o jogo fechar rápido demais, GameGuard, código virtualizado.
 
-Última entrega (04/10/2026): **câmera de mira e personagem como no original** — câmera mais
+Última entrega (04/10/2026): **personagens piscando e com expressões, sombra e cenário vivo**
+— o rosto troca pelo evento `*ptex` das animações do jogo (todos os personagens piscam na
+preparação e fazem as caras das poses); sombra do personagem e do taco no chão; o navio e
+as lâmpadas animados; gaivotas, borboletas, toupeiras, golfinhos e caranguejos de cada
+buraco (movimento aproximado por tipo). Antes: **câmera de mira e personagem como no original** — câmera mais
 perto e baixa (personagem grande à esquerda, bola embaixo no centro) e a cabeça do taco
 exatamente na bola (antes ficava ~0,5 jarda além ou flutuando). Testado na nuvem com o Max e o
 Blue Lagoon reais, baixados dos repositórios privados. Antes: **rosa dos ventos embaixo à direita, ao lado da barra**, no

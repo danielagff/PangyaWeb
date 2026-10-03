@@ -33,6 +33,9 @@ import {
   CircleGeometry,
   CylinderGeometry,
   DirectionalLight,
+  PCFSoftShadowMap,
+  PlaneGeometry,
+  ShadowMaterial,
   DoubleSide,
   EqualStencilFunc,
   Float32BufferAttribute,
@@ -92,6 +95,7 @@ import { PangBurst } from './pang-burst.ts'
 import { loadPetObject } from './pet-object.ts'
 import { createShotHud, type ShotHud } from './shot-hud.ts'
 import { lerpFactor, Smooth } from './smooth.ts'
+import { SceneLife } from './scene-life.ts'
 import { SURFACE_LABELS } from './surface-colors.ts'
 import { TextureLibrary } from './textures.ts'
 
@@ -125,6 +129,13 @@ const FREE_CAMERA_UNTIL_LANDING = 0.8
  * ver a bola; se a bola rola para longe dela, vai atrás devagar. Quando a bola para, a câmera
  * fica onde está (sem zoom) até a próxima tacada. No putt: atrás da bola, baixa.
  */
+/**
+ * Sombra do personagem: o receptor (quadrado no chão sob ele, alinhado à inclinação, só
+ * mostra a sombra) e o quanto ela escurece. O terreno do curso é desenhado sem luz (luz
+ * assada do jogo), por isso não recebe sombra direto.
+ */
+const CHARACTER_SHADOW = { size: 26, opacity: 0.5, lift: 0.04, sun: [45, 55, 25] as const }
+
 const SHOT_CAMERA = {
   // Mirando: como no original, perto e baixo (personagem à esquerda, a bola embaixo no centro).
   aim: { back: 15, up: 6, look: 40 },
@@ -592,6 +603,18 @@ export class HoleView {
   private readonly ready = new Map<string, CharacterModel>()
   /** Taco sendo preparado por personagem (evita repetir a cada mudança do painel). */
   private readonly addressing = new Map<CharacterModel, { category: string; done: Promise<void> }>()
+  /** Sol (luz dos personagens) e o receptor da sombra deles no chão. */
+  private sun!: DirectionalLight
+  private readonly shadowCatcher = new Mesh(
+    new PlaneGeometry(CHARACTER_SHADOW.size, CHARACTER_SHADOW.size).rotateX(-Math.PI / 2),
+    new ShadowMaterial({
+      opacity: CHARACTER_SHADOW.opacity,
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+    }),
+  )
+
   /** Movimento escolhido com a tecla N (depuração). */
   private motionIndex = -1
   /** O backswing já começou com a barra (a tacada continua do topo). */
@@ -638,6 +661,20 @@ export class HoleView {
     const sun = new DirectionalLight(0xffffff, 1.1)
     sun.position.set(300, 800, 200)
     scene.add(sun)
+    // Sombra do personagem (e do taco/bola): o sol projeta num receptor no chão, sob ele.
+    renderer.shadowMap.enabled = true
+    renderer.shadowMap.type = PCFSoftShadowMap
+    sun.castShadow = true
+    sun.shadow.mapSize.set(1024, 1024)
+    const s = CHARACTER_SHADOW.size / 2
+    Object.assign(sun.shadow.camera, { left: -s, right: s, top: s, bottom: -s, near: 1, far: 200 })
+    sun.shadow.camera.updateProjectionMatrix()
+    sun.shadow.bias = -0.0005
+    scene.add(sun.target)
+    this.sun = sun
+    this.shadowCatcher.visible = false
+    this.shadowCatcher.receiveShadow = true
+    scene.add(this.shadowCatcher)
 
     // Tecla C: caixas de colisão dos objetos (depuração).
     const edges = [0, 1, 1, 2, 2, 3, 3, 0, 4, 5, 5, 6, 6, 7, 7, 4, 0, 4, 1, 5, 2, 6, 3, 7]
@@ -923,6 +960,7 @@ export class HoleView {
         devTools: options.devTools ?? false,
         title: `${ref.prefix} — buraco ${ref.hole}`,
       })
+      view.startSceneLife(textures)
       status.textContent =
         `${world.grid.triangleCount} triângulos · ${data.objects.length} modelos` +
         (data.missingModels.length ? ` (${data.missingModels.length} faltando)` : '') +
@@ -2452,8 +2490,48 @@ export class HoleView {
     return toScene(frames[i * 3]!, frames[i * 3 + 1]! + BALL_RADIUS, frames[i * 3 + 2]!)
   }
 
+  /** Objetos animados e bichos do buraco (carregam sem travar o começo). */
+  private sceneLife: SceneLife | undefined
+
+  startSceneLife(textures: TextureLibrary) {
+    const life = new SceneLife(
+      this.scene,
+      this.world.data,
+      textures,
+      (x, z) => this.world.grid.groundAt(x, z)?.y,
+    )
+    this.sceneLife = life
+    this.cleanups.push(() => life.dispose())
+    life.load().catch((err: unknown) => console.warn('vida do cenário:', err))
+  }
+
+  /** Põe o sol e o receptor da sombra sob o personagem visível (ou esconde). */
+  private placeShadow() {
+    let model: CharacterModel | undefined
+    for (const m of this.ready.values()) if (m.root.visible) model = m
+    this.shadowCatcher.visible = !!model
+    if (!model) return
+    model.root.traverse((o) => (o.castShadow = true))
+    const at = model.root.position
+    const hit = this.world.grid.groundAt(at.x, -at.z)
+    const y = hit?.y ?? at.y
+    this.shadowCatcher.position.set(at.x, y + CHARACTER_SHADOW.lift, at.z)
+    if (hit) {
+      const [nx, ny, nz] = this.world.grid.normalOf(hit.triangle)
+      this.shadowCatcher.quaternion.setFromUnitVectors(UP, new Vector3(nx, ny, -nz))
+    }
+    this.sun.target.position.set(at.x, y, at.z)
+    this.sun.position.set(
+      at.x + CHARACTER_SHADOW.sun[0],
+      y + CHARACTER_SHADOW.sun[1],
+      at.z + CHARACTER_SHADOW.sun[2],
+    )
+  }
+
   private frame(now: number, dt: number) {
     this.frameDt = dt
+    this.placeShadow()
+    this.sceneLife?.update(dt)
     if (this.flight) {
       const { frames, playerId } = this.flight
       const count = frames.length / 3
