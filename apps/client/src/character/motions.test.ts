@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { describeMotion } from './motion-names.ts'
-import { golfMotions, motionMeaning, reactionForScore, reactionMotion } from './motions.ts'
+import {
+  golfMotions,
+  motionMeaning,
+  reactionEnding,
+  reactionForScore,
+  reactionMotion,
+} from './motions.ts'
 
 // Trecho real do a_def.apet (Azer, cliente JP).
 const azer = [
@@ -59,10 +65,34 @@ describe('movimentos de golfe', () => {
   it('reações pelo placar', () => {
     expect(reactionForScore(3, 4)).toBe('birdie')
     expect(reactionForScore(1, 3)).toBe('albatross')
-    expect(reactionForScore(6, 4)).toBe('bogey')
+    expect(reactionForScore(5, 4)).toBe('bogey')
+    expect(reactionForScore(6, 4)).toBe('doubleBogey')
+    expect(reactionForScore(9, 4)).toBe('doubleBogey')
     expect(reactionMotion(azer, 'birdie')).toBe('버디승리포즈')
     expect(reactionMotion(azer, 'trouble')).toBe('타임오버벙커OB실망포즈')
     expect(reactionMotion(azer, 'eagle')).toBe('버디승리포즈')
+  })
+
+  it('do hole in one ao double bogey, com as variações do par e a pose final', () => {
+    const all = [
+      '알바홀인승리포즈',
+      '이글승리포즈',
+      '버디승리포즈',
+      '세이브파승리포즈',
+      '세이브파승리포즈2',
+      '세이브파승리포즈02',
+      '보기실격실망포즈',
+      '더블보기실망포즈',
+      '더블보기실망포즈끝',
+    ].map((name, i) => ({ name, frameStart: i * 10, frameEnd: i * 10 + 9 }))
+    expect(reactionMotion(all, 'albatross')).toBe('알바홀인승리포즈')
+    expect(reactionMotion(all, 'eagle')).toBe('이글승리포즈')
+    expect(reactionMotion(all, 'par', () => 0)).toBe('세이브파승리포즈')
+    expect(reactionMotion(all, 'par', () => 0.99)).toBe('세이브파승리포즈02')
+    expect(reactionMotion(all, 'bogey')).toBe('보기실격실망포즈')
+    expect(reactionMotion(all, 'doubleBogey')).toBe('더블보기실망포즈')
+    expect(reactionEnding(all, '더블보기실망포즈')).toBe('더블보기실망포즈끝')
+    expect(reactionEnding(all, '보기실격실망포즈')).toBeUndefined()
   })
 })
 

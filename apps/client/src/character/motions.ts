@@ -71,32 +71,56 @@ export function golfMotions(motions: MotionInfo[], club: ClubCategory): GolfMoti
   }
 }
 
-export type Reaction = 'albatross' | 'eagle' | 'birdie' | 'par' | 'bogey' | 'trouble' | 'putt'
+export type Reaction =
+  'albatross' | 'eagle' | 'birdie' | 'par' | 'bogey' | 'doubleBogey' | 'trouble' | 'putt'
 
+/**
+ * Poses de reação do jogo, da mais feliz à mais triste (a primeira que o personagem tiver;
+ * no par, uma das variações sorteada). "알바홀인" = albatross/hole in one, "세이브파" = salvou
+ * o par, "보기실격" = bogey, "더블보기" = double bogey.
+ */
 const REACTIONS: Record<Reaction, string[]> = {
-  albatross: ['알바홀인승리포즈', '이글승리포즈'],
+  albatross: ['알바홀인승리포즈', '이글승리포즈', '버디승리포즈'],
   eagle: ['이글승리포즈', '버디승리포즈'],
   birdie: ['버디승리포즈'],
-  par: ['세이브파승리포즈', '퍼팅성공'],
+  par: ['세이브파승리포즈', '세이브파승리포즈2', '세이브파승리포즈02', '퍼팅성공'],
   bogey: ['보기실격실망포즈', '퍼팅후실망포즈'],
+  doubleBogey: ['더블보기실망포즈', '보기실격실망포즈', '퍼팅후실망포즈'],
   trouble: ['타임오버벙커OB실망포즈', '보기실격실망포즈'],
   putt: ['퍼팅성공'],
 }
+/** Variações do par sorteadas entre si (as que o personagem tiver). */
+const PAR_VARIANTS = ['세이브파승리포즈', '세이브파승리포즈2', '세이브파승리포즈02']
 
-/** Pose de reação ao resultado (comemoração/decepção). */
-export function reactionMotion(motions: MotionInfo[], reaction: Reaction) {
+/** Pose de reação ao resultado (comemoração/decepção); `random` sorteia a variação do par. */
+export function reactionMotion(
+  motions: MotionInfo[],
+  reaction: Reaction,
+  random: () => number = Math.random,
+) {
   const names = new Set(motions.map((m) => m.name))
+  if (reaction === 'par') {
+    const variants = PAR_VARIANTS.filter((n) => names.has(n))
+    if (variants.length) return variants[Math.floor(random() * variants.length)]
+  }
   return REACTIONS[reaction].find((n) => names.has(n))
 }
 
-/** Reação pelo resultado do buraco (tacadas − par). */
+/** Pose parada do fim de uma reação ("버디승리포즈" → "버디승리포즈끝"), se existir. */
+export function reactionEnding(motions: MotionInfo[], name: string | undefined) {
+  const ending = name && `${name}끝`
+  return ending && motions.some((m) => m.name === ending) ? ending : undefined
+}
+
+/** Reação pelo resultado do buraco (tacadas − par), do hole in one ao double bogey. */
 export function reactionForScore(strokes: number, par: number): Reaction {
   const diff = strokes - par
   if (strokes === 1 || diff <= -3) return 'albatross'
   if (diff === -2) return 'eagle'
   if (diff === -1) return 'birdie'
   if (diff === 0) return 'par'
-  return 'bogey'
+  if (diff === 1) return 'bogey'
+  return 'doubleBogey'
 }
 
 /** Tradução aproximada do nome coreano de um movimento ('' se desconhecido). */

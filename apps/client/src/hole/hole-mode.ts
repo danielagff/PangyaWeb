@@ -9,7 +9,6 @@ import {
   type HoleRef,
 } from '@pangya/game'
 import { chosenCharacter } from '../character/character.ts'
-import { reactionForScore } from '../character/motions.ts'
 import { courseName, describePlan, formatHoles, parseHoles, soloUrl } from '../menu/courses.ts'
 import { saveRecord } from '../menu/records.ts'
 import { cardTotals, scorecardHtml } from '../menu/scorecard.ts'
@@ -95,14 +94,11 @@ export async function startHoleMode(ref: HoleRef) {
     if (played.outcome.type === 'hole') {
       view.announceScore(me.id, state.strokes, state.par, isChipIn(state))
     }
-    // Reação do personagem: comemora ao embocar, lamenta água/O.B.
+    // Reação do personagem: ao embocar, comemora (ou lamenta) pelo resultado, perto da cova;
+    // na água/O.B., lamenta.
     const type = played.outcome.type
-    const pose =
-      type === 'hole'
-        ? view.react(me.id, reactionForScore(state.strokes, state.par))
-        : type === 'water' || type === 'outOfBounds'
-          ? view.react(me.id, 'trouble')
-          : 0
+    if (type === 'hole') await view.celebrate(me.id, state.strokes, state.par)
+    const pose = type === 'water' || type === 'outOfBounds' ? view.react(me.id, 'trouble') : 0
     if (pose) await new Promise((r) => setTimeout(r, Math.min(pose, 3) * 1000))
     view.setPlayers([{ ...me, state }], state.finished ? undefined : me.id, true)
     if (state.finished) endHole()

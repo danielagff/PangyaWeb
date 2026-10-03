@@ -55,7 +55,13 @@ import {
 import { courseMusicEvent, scoreSound, scoreVoice, soundEvent } from '../audio/sound-events.ts'
 import { sound, type SoundLibrary } from '../audio/sounds.ts'
 import { categoryOfClub, clubModelFor } from '../character/clubs.ts'
-import { golfMotions, reactionMotion, type Reaction } from '../character/motions.ts'
+import {
+  golfMotions,
+  reactionEnding,
+  reactionForScore,
+  reactionMotion,
+  type Reaction,
+} from '../character/motions.ts'
 import {
   placeAtBall,
   CharacterModel,
@@ -94,24 +100,48 @@ const NEAR_MISS_YARDS = 1.5
 /** Segundos antes de a bola cair em que a câmera livre do voo volta ao normal. */
 const FREE_CAMERA_UNTIL_LANDING = 0.8
 /**
- * Câmera da tacada, como no Pangya (distâncias em unidades, tempos em segundos de tela):
- * - `aim`/`putt`: atrás do jogador mirando (e no green);
- * - `hold`: depois da batida a câmera fica parada atrás do jogador vendo a bola sair;
- * - `chase`: depois persegue a bola por trás, afastando aos poucos (`blend` s);
- * - `landing`: `lead` s antes de cair ela freia atrás do ponto de queda e vê a bola descer;
- * - `roll`: depois de cair, segue a bola rolando, mais perto (`putt` no putt);
- * - `cup`: quando a bola vai parar na cova ou pertinho (`stopYards`), ao chegar a `yards`
- *   dela a câmera desce ao lado da cova e vê a bola chegando.
+ * Câmera da tacada, como no Pangya (vídeo do Daniel; distâncias em unidades, tempos em
+ * segundos de tela). Cada tacada sorteia uma câmera e vai nela até a bola cair:
+ * - `hold`: no swing e logo depois da batida, parada atrás do jogador (a bola e os pangs);
+ * - `chase`: colada atrás da bola, baixa, olhando para a frente;
+ * - `sky`: do chão, atrás e embaixo da bola, olhando para ela (o céu quando ela sobe);
+ * - `high`: bem alta atrás da bola, vendo o curso de cima;
+ * - `side`: parada ao lado do meio do voo, girando para acompanhar (tacadas longas).
+ * `arrival.lead` s antes de a bola cair, **corta** para uma câmera parada perto da queda (se a
+ * bola vai entrar ou parar a menos de `cup.stopYards` da cova, perto da cova) que só gira para
+ * ver a bola; se a bola rola para longe dela, vai atrás devagar. Quando a bola para, a câmera
+ * fica onde está (sem zoom) até a próxima tacada. No putt: atrás da bola, baixa.
  */
 const SHOT_CAMERA = {
   aim: { back: 22, up: 8, look: 40 },
   putt: { back: 18, up: 9, look: 25 },
   hold: 0.5,
-  chase: { back: 34, up: 12, look: 25, blend: 1.2, lerp: 0.2 },
-  landing: { lead: 1, back: 26, up: 10, lerp: 0.06 },
-  roll: { back: 16, up: 6, look: 8, lerp: 0.08 },
+  chase: { back: 9, up: 2.5, look: 30, lerp: 0.35 },
+  sky: { back: 24, up: 3, lerp: 0.08 },
+  high: { back: 30, up: 45, look: 45, lerp: 0.15 },
+  side: { along: 0.45, out: 0.35, up: 10 },
+  /** Tacadas mais curtas que isto (jardas) sorteiam só `chase` e `high`. */
+  shortYards: 60,
+  arrival: { lead: 1.1, back: 22, side: 7, up: 8, far: 60, follow: 0.03 },
+  cup: { stopYards: 2, back: 13, side: 4, up: 5.5, sideView: 14, near: 15 },
   puttRoll: { back: 11, up: 4.5, look: 6, lerp: 0.1 },
-  cup: { yards: 4, stopYards: 2, beyond: 2.5, side: 3, up: 1.4, lerp: 0.12 },
+  /** Suavização do ponto para onde a câmera olha (por quadro a 60 q/s). */
+  lookLerp: 0.15,
+}
+type ShotCameraMode = 'chase' | 'sky' | 'high' | 'side'
+/**
+ * Comemoração depois de embocar: `wait` s vendo a cova (efeitos e pangs); depois corta para o
+ * personagem perto da cova (`fromCup`), de frente para a câmera, fazendo a pose do resultado
+ * (do hole in one ao double bogey), no máximo `seconds` s antes do quadro de fim. A câmera
+ * fica a `distance` alturas do personagem, a `up` altura do chão, olhando a `lookHeight`.
+ */
+const CELEBRATION = {
+  wait: 1.6,
+  fromCup: 3,
+  distance: 1.7,
+  up: 0.55,
+  lookHeight: 0.55,
+  seconds: 4.5,
 }
 /** Moedas (pangs) que saem da bola no PANGYA e da cova quando a bola entra. */
 const PANG_COINS = { pangya: 12, powerShot: 18, hole: 24 }
@@ -380,6 +410,14 @@ export class HoleView {
   private readonly trailGeometry = new BufferGeometry()
   private readonly ray = new Raycaster()
   private readonly pangs = new PangBurst()
+  /** Para onde a câmera olha (suavizado) nas câmeras da tacada. */
+  private readonly lookPoint = new Vector3()
+  /** Depois da tacada a câmera fica parada até a próxima vez (sem zoom no fim). */
+  private cameraHold = false
+  /** Câmera fixa da comemoração (posição e para onde olha). */
+  private cinematic: { position: Vector3; look: Vector3 } | undefined
+  /** A bola entrou: a luz da cova some. */
+  private cupHidden = false
   private readonly keys = new Set<string>()
   private readonly cleanups: (() => void)[] = []
   private readonly bar: PowerBar
@@ -458,8 +496,11 @@ export class HoleView {
         /** Onde a bola estava (cena) e o ponto da primeira queda. */
         from: Vector3
         landingAt: Vector3
-        /** Quadro em que a câmera vai para o lado da cova (Infinity: não vai). */
-        cupFrame: number
+        /** A bola vai entrar ou parar pertinho da cova (câmera da queda na cova). */
+        endsAtCup: boolean
+        /** Câmera sorteada para o voo e a parte da câmera mostrada agora (troca = corte). */
+        mode: ShotCameraMode
+        stage: string
       }
     | undefined
   readonly sounds: SoundLibrary
@@ -859,7 +900,8 @@ export class HoleView {
     this.controllable = controllable && !!this.active
     if (!this.active) {
       this.phase = 'idle'
-      for (const model of this.ready.values()) model.root.visible = false
+      // Na comemoração, o personagem fica.
+      if (!this.cinematic) for (const model of this.ready.values()) model.root.visible = false
       this.panel.setEnabled(false, 'Fim do buraco')
       this.bar.setPinDistance(undefined)
       this.target.visible = false
@@ -869,6 +911,9 @@ export class HoleView {
     }
     this.phase = 'aim'
     this.readyAt = performance.now()
+    this.cameraHold = false
+    this.cinematic = undefined
+    this.cupHidden = false
     const state = this.active.state
     this.showCharacter(this.active)
     if (changedTurn) {
@@ -1325,9 +1370,8 @@ export class HoleView {
    * some de tão fina). Na vista aérea some: lá o pin é o marcador desenhado.
    */
   private fitBeam() {
-    // Some na vista aérea e na câmera da cova (ficaria na frente da bola chegando).
-    const f = this.flight
-    this.beam.visible = !this.aerial && !(f && f.index >= f.cupFrame)
+    // Some na vista aérea e depois que a bola entra.
+    this.beam.visible = !this.aerial && !this.cupHidden
     if (!this.beam.visible) return
     const at = this.beam.position
     const distance = Math.hypot(this.camera.position.x - at.x, this.camera.position.z - at.z)
@@ -1500,7 +1544,9 @@ export class HoleView {
         putt,
         from: this.frameAt(frames, 0),
         landingAt: this.frameAt(frames, landing),
-        cupFrame: this.cupCameraFrame(frames, events, putt ? 0 : landing),
+        endsAtCup: this.endsAtCup(frames, events),
+        mode: this.pickShotCamera(frames, landing, putt),
+        stage: '',
       }
     })
   }
@@ -1517,22 +1563,30 @@ export class HoleView {
     return count - 1
   }
 
-  /**
-   * Quadro em que a câmera da cova entra: só se a bola entra ou para pertinho dela, quando a
-   * bola chega a SHOT_CAMERA.cup.yards da cova rolando (depois de `from`, a queda; não se ela
-   * já cai perto).
-   */
-  private cupCameraFrame(frames: Float32Array, events: ShotEvent[], from: number) {
-    const count = frames.length / 3
+  /** A bola entra na cova ou para a menos de SHOT_CAMERA.cup.stopYards dela. */
+  private endsAtCup(frames: Float32Array, events: ShotEvent[]) {
+    if (events.some((e) => e.type === 'hole')) return true
+    const last = frames.length - 3
     const cup = this.world.cup
-    const gap = (i: number) => Math.hypot(frames[i * 3]! - cup.x, frames[i * 3 + 2]! - cup.z)
-    const near = yardsToUnits(SHOT_CAMERA.cup.yards)
-    const holed = events.some((e) => e.type === 'hole')
-    if (!holed && gap(count - 1) > yardsToUnits(SHOT_CAMERA.cup.stopYards)) return Infinity
-    // Já cai perto da cova (dunk, putt curto): a câmera da queda/rolagem já mostra.
-    if (gap(from) < near * 1.5) return Infinity
-    for (let i = from; i < count; i++) if (gap(i) < near) return i
-    return Infinity
+    const gap = Math.hypot(frames[last]! - cup.x, frames[last + 2]! - cup.z)
+    return gap < yardsToUnits(SHOT_CAMERA.cup.stopYards)
+  }
+
+  /** Sorteia a câmera do voo (as curtas não vão para o céu nem para o lado). */
+  private pickShotCamera(frames: Float32Array, landing: number, putt: boolean): ShotCameraMode {
+    if (putt) return 'chase'
+    // Testes automatizados: window.__shotCamera força uma câmera.
+    const forced = (window as unknown as { __shotCamera?: ShotCameraMode }).__shotCamera
+    if (forced) return forced
+    const reach = Math.hypot(
+      frames[landing * 3]! - frames[0]!,
+      frames[landing * 3 + 2]! - frames[2]!,
+    )
+    const modes: ShotCameraMode[] =
+      reach < yardsToUnits(SHOT_CAMERA.shortYards)
+        ? ['chase', 'high']
+        : ['chase', 'sky', 'high', 'side']
+    return modes[Math.floor(Math.random() * modes.length)]!
   }
 
   /** A câmera livre do voo vale até pouco antes de a bola cair. */
@@ -1596,8 +1650,8 @@ export class HoleView {
         case 'hole': {
           void sounds.play('cup')
           void sounds.play('applause')
-          const cup = toScene(this.world.cup.x, this.world.cup.y, this.world.cup.z)
-          this.pangs.burst(cup.add(new Vector3(0, 0.5, 0)), PANG_COINS.hole)
+          this.cupHidden = true
+          this.pangs.burst(this.cupScene().add(new Vector3(0, 0.5, 0)), PANG_COINS.hole)
           setTimeout(() => void sounds.play('pang'), 250)
           break
         }
@@ -1762,65 +1816,202 @@ export class HoleView {
       .add(new Vector3(0, up, 0))
   }
 
-  /** Câmera da tacada em andamento (SHOT_CAMERA): parada, perseguindo, queda, rolagem, cova. */
+  /** Câmera da tacada em andamento (SHOT_CAMERA): parada, a sorteada, a da queda; o putt. */
   private flightCamera(focus: Vector3, forward: Vector3, free: boolean) {
     const f = this.flight!
     const { camera } = this
     const elapsed = (performance.now() - f.start) / 1000
     const start = f.putt ? SHOT_CAMERA.putt : SHOT_CAMERA.aim
+    const look = (target: Vector3, snap: boolean) => {
+      if (snap) this.lookPoint.copy(target)
+      else this.lookPoint.lerp(target, lerpFactor(SHOT_CAMERA.lookLerp, this.frameDt))
+      camera.lookAt(this.lookPoint)
+    }
     // O swing e a bola saindo: parada atrás do jogador.
     if (elapsed < SHOT_CAMERA.hold) {
+      f.stage = 'hold'
       this.moveCamera(f.from, this.behind(f.from, forward, start.back, start.up), 0.12)
-      camera.lookAt(f.from.clone().addScaledVector(forward, start.look))
+      look(f.from.clone().addScaledVector(forward, start.look), true)
       return
     }
-    // Chegando na cova: ao lado dela, baixa, vendo a bola chegar.
-    if (f.index >= f.cupFrame) {
-      const c = SHOT_CAMERA.cup
-      const cup = toScene(this.world.cup.x, this.world.cup.y, this.world.cup.z)
-      const approach = cup.clone().sub(this.frameAt(f.frames, f.cupFrame)).setY(0)
-      if (approach.lengthSq() < 1e-6) approach.copy(forward)
-      approach.normalize()
-      const side = new Vector3().crossVectors(UP, approach)
-      const desired = cup
-        .clone()
-        .addScaledVector(approach, c.beyond)
-        .addScaledVector(side, c.side)
-        .add(new Vector3(0, c.up, 0))
-      this.moveCamera(cup, desired, c.lerp, 0.8)
-      camera.lookAt(focus.clone().lerp(cup, 0.5))
-      return
-    }
-    // Depois de cair (ou no putt): segue a bola rolando, mais perto.
-    if (f.putt || f.index >= f.landing) {
-      const r = f.putt ? SHOT_CAMERA.puttRoll : SHOT_CAMERA.roll
-      // Atrás da bola no sentido em que ela anda (quebra do green, quique de lado).
-      const travel = focus
-        .clone()
-        .sub(this.frameAt(f.frames, Math.max(f.putt ? 0 : f.landing, f.index - 25)))
-        .setY(0)
-      const along = travel.lengthSq() > 1 ? travel.normalize() : forward
+    // Putt: atrás da bola, baixa, no sentido em que ela anda.
+    if (f.putt) {
+      const r = SHOT_CAMERA.puttRoll
+      const along = this.travel(f, focus, forward, 25)
       this.moveCamera(focus, this.behind(focus, along, r.back, r.up), r.lerp)
-      camera.lookAt(focus.clone().addScaledVector(along, r.look))
+      look(focus.clone().addScaledVector(along, r.look), false)
       return
     }
-    // Pouco antes de cair: freia atrás do ponto de queda e vê a bola descer.
-    const l = SHOT_CAMERA.landing
-    const lead = (l.lead * BALL_PLAYBACK_SPEED) / STEP_TIME
-    if (!free && f.index >= f.landing - lead) {
-      const anchor = this.behind(f.landingAt, forward, l.back, l.up)
-      this.moveCamera(f.landingAt, anchor, l.lerp)
-      camera.lookAt(focus)
+    // Perto de cair: corta para a câmera parada da queda.
+    const a = SHOT_CAMERA.arrival
+    const lead = (a.lead * BALL_PLAYBACK_SPEED) / STEP_TIME
+    const spinning = free && this.flightYaw !== 0
+    if (f.index >= f.landing - lead && !spinning) {
+      const cut = f.stage !== 'arrival'
+      f.stage = 'arrival'
+      if (cut) this.cutCamera(this.arrivalPosition(f, forward))
+      else if (camera.position.distanceTo(focus) > a.far) {
+        // A bola rolou para longe: vai atrás dela devagar.
+        const along = this.travel(f, focus, forward, 25)
+        this.moveCamera(focus, this.behind(focus, along, a.back, a.up), a.follow)
+      }
+      // Entre a bola e onde ela vai (o chão sempre na tela, mesmo com a bola lá no alto).
+      const ground = f.endsAtCup ? this.cupScene() : f.landingAt
+      look(
+        f.index < f.landing
+          ? ground.clone().lerp(focus, 0.5)
+          : focus.clone().lerp(ground, f.endsAtCup ? 0.4 : 0),
+        cut,
+      )
       return
     }
-    // No ar: persegue a bola por trás, afastando aos poucos de onde estava.
-    const c = SHOT_CAMERA.chase
-    const t = Math.min(1, (elapsed - SHOT_CAMERA.hold) / c.blend)
-    const k = t * t * (3 - 2 * t)
-    const back = start.back + (c.back - start.back) * k
-    const up = start.up + (c.up - start.up) * k
-    this.moveCamera(focus, this.behind(focus, forward, back, up), c.lerp)
-    camera.lookAt(focus.clone().addScaledVector(forward, c.look))
+    // No ar: a câmera sorteada (girando com A/D, a de perseguição).
+    const mode: ShotCameraMode = spinning ? 'chase' : f.mode
+    const cut = f.stage !== mode
+    f.stage = mode
+    const place = (at: Vector3, lerp: number, minHeight?: number) =>
+      cut ? this.cutCamera(at) : this.moveCamera(focus, at, lerp, minHeight)
+    switch (mode) {
+      case 'chase': {
+        const c = SHOT_CAMERA.chase
+        const along = spinning ? forward : this.travel(f, focus, forward, 4)
+        place(this.behind(focus, along, c.back, c.up), c.lerp)
+        look(focus.clone().addScaledVector(along, c.look), cut)
+        break
+      }
+      case 'sky': {
+        const c = SHOT_CAMERA.sky
+        const at = focus.clone().addScaledVector(forward, -c.back)
+        at.y = (this.world.grid.groundAt(at.x, -at.z)?.y ?? f.from.y) + c.up
+        place(at, c.lerp, c.up)
+        // Um pouco abaixo da bola: o horizonte aparece enquanto ela não sobe muito.
+        const below = this.world.grid.groundAt(focus.x, -focus.z)?.y ?? f.from.y
+        look(focus.clone().setY(focus.y - (focus.y - below) * 0.25), cut)
+        break
+      }
+      case 'high': {
+        const c = SHOT_CAMERA.high
+        const at = focus.clone().addScaledVector(forward, -c.back)
+        at.y = Math.max(focus.y, f.from.y) + c.up
+        place(at, c.lerp)
+        look(
+          focus
+            .clone()
+            .addScaledVector(forward, c.look)
+            .setY(focus.y - c.up * 0.3),
+          cut,
+        )
+        break
+      }
+      case 'side': {
+        const c = SHOT_CAMERA.side
+        if (cut) {
+          const span = f.landingAt.clone().sub(f.from).setY(0)
+          const right = new Vector3().crossVectors(span, UP).normalize()
+          const at = f.from
+            .clone()
+            .addScaledVector(span, c.along)
+            .addScaledVector(right, span.length() * c.out)
+          at.y = Math.max(f.from.y, f.landingAt.y) + c.up
+          this.cutCamera(at)
+        }
+        look(focus, cut)
+        break
+      }
+    }
+  }
+
+  /** Câmera parada da queda: perto da cova (atrás ou de lado) ou de lado atrás da queda. */
+  private arrivalPosition(f: NonNullable<HoleView['flight']>, forward: Vector3) {
+    const a = SHOT_CAMERA.arrival
+    const c = SHOT_CAMERA.cup
+    let at: Vector3
+    if (f.endsAtCup) {
+      const cup = this.cupScene()
+      const approach = cup.clone().sub(f.landingAt).setY(0)
+      const dunk = approach.length() < c.near
+      if (approach.lengthSq() < 1e-6) approach.copy(forward)
+      approach.setY(0).normalize()
+      const side = new Vector3().crossVectors(approach, UP)
+      // Caindo perto: de trás, vendo a bola descer na cova; rolando de longe: de lado.
+      at = dunk
+        ? cup.clone().addScaledVector(approach, -c.back).addScaledVector(side, c.side)
+        : cup.clone().addScaledVector(approach, -4).addScaledVector(side, c.sideView)
+      at.y = cup.y + c.up
+    } else {
+      const side = new Vector3().crossVectors(forward, UP).setY(0).normalize()
+      at = f.landingAt.clone().addScaledVector(forward, -a.back).addScaledVector(side, a.side)
+      at.y = f.landingAt.y + a.up
+    }
+    return at
+  }
+
+  /** Corte: a câmera vai direto para `at` (acima do chão). */
+  private cutCamera(at: Vector3) {
+    const below = this.world.grid.groundAt(at.x, -at.z)
+    if (below && at.y < below.y + 3) at.y = below.y + 3
+    this.camera.position.copy(at)
+  }
+
+  /** Sentido em que a bola anda (no plano), pelos últimos `frames` quadros. */
+  private travel(
+    f: NonNullable<HoleView['flight']>,
+    focus: Vector3,
+    fallback: Vector3,
+    frames: number,
+  ) {
+    const moved = focus
+      .clone()
+      .sub(this.frameAt(f.frames, Math.max(0, f.index - frames)))
+      .setY(0)
+    return moved.lengthSq() > 0.25 ? moved.normalize() : fallback
+  }
+
+  private cupScene() {
+    return toScene(this.world.cup.x, this.world.cup.y, this.world.cup.z)
+  }
+
+  /**
+   * Comemoração do resultado depois de embocar (do hole in one ao double bogey): um tempo
+   * vendo a cova e corta para o personagem perto dela, de frente, fazendo a pose.
+   */
+  async celebrate(playerId: string, strokes: number, par: number) {
+    const sleep = (s: number) => new Promise((r) => setTimeout(r, s * 1000))
+    await sleep(CELEBRATION.wait)
+    const model = this.ready.get(playerId)
+    const name = model && reactionMotion(model.motions, reactionForScore(strokes, par))
+    if (!model || !name) return
+    const cup = this.cupScene()
+    const toward = this.camera.position.clone().sub(cup).setY(0)
+    if (toward.lengthSq() < 1e-6) toward.set(0, 0, 1)
+    toward.normalize()
+    const spot = cup.clone().addScaledVector(toward, CELEBRATION.fromCup)
+    spot.y = this.world.grid.groundAt(spot.x, -spot.z)?.y ?? cup.y
+    for (const [id, other] of this.ready) other.root.visible = id === playerId
+    model.root.visible = true
+    model.root.position.copy(spot)
+    // O modelo olha para -X no próprio espaço: virado para a câmera.
+    model.root.rotation.y = Math.atan2(toward.z, -toward.x)
+    const duration = model.play(name, false, 0.15)
+    model.update(0)
+    // Altura pelo esqueleto (a caixa do modelo inteiro inclui o taco e sobras).
+    model.root.updateMatrixWorld(true)
+    let top = -Infinity
+    const bone = new Vector3()
+    model.root.traverse((o) => {
+      if ((o as { isBone?: boolean }).isBone) top = Math.max(top, o.getWorldPosition(bone).y)
+    })
+    const height = Number.isFinite(top) ? Math.max(2, (top - spot.y) * 1.1) : 6
+    this.cinematic = {
+      position: spot
+        .clone()
+        .addScaledVector(toward, CELEBRATION.distance * height)
+        .add(new Vector3(0, CELEBRATION.up * height, 0)),
+      look: spot.clone().add(new Vector3(0, CELEBRATION.lookHeight * height, 0)),
+    }
+    await sleep(Math.min(duration, CELEBRATION.seconds))
+    const ending = reactionEnding(model.motions, name)
+    if (ending && this.cinematic) model.play(ending, true, 0.2)
   }
 
   /**
@@ -1890,6 +2081,7 @@ export class HoleView {
         const { done } = this.flight
         this.flight = undefined
         this.phase = 'idle'
+        this.cameraHold = true
         done()
       }
     } else if (this.phase === 'aim') {
@@ -1933,7 +2125,10 @@ export class HoleView {
       this.moveAerial(dt, now)
       this.placeCamera(this.ballPosition(), 0.12)
       this.placeTarget() // depois da câmera: na vista aérea usa o giro dela deste quadro
-    } else if (!this.debugFreeze) {
+    } else if (this.cinematic) {
+      this.camera.position.copy(this.cinematic.position)
+      this.camera.lookAt(this.cinematic.look)
+    } else if (!this.debugFreeze && !this.cameraHold) {
       this.placeCamera(this.ballPosition(), 0.08)
     }
     for (const model of this.ready.values()) if (model.root.visible) model.update(dt)

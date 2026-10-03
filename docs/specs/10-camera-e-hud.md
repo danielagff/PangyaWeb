@@ -60,13 +60,23 @@ Câmeras de jogo e HUD com as informações necessárias para mirar como no orig
 - Desnível do pin em **metros**, como no original (`unitsToMeters`), no HUD e na barra.
 - Câmera do voo: A/D giram em volta da bola, S alterna a vista de cima; 0,8 s antes de a bola
   tocar o chão (`FREE_CAMERA_UNTIL_LANDING`) volta sozinha à câmera padrão.
-- **Câmera da tacada no estilo do Pangya** (`SHOT_CAMERA`, `flightCamera`): parada atrás do
-  jogador no swing e 0,5 s depois da batida (a bola saindo e os pangs); depois persegue a
-  bola por trás, afastando aos poucos; 1 s antes da queda freia atrás do ponto de queda e vê
-  a bola descer; depois segue a bola rolando por trás **no sentido em que ela anda**; se a
-  bola entra ou para a menos de 2 y da cova, ao chegar a 4 y dela a câmera desce ao lado da
-  cova (sem a luz da cova, que ficaria na frente) e vê a bola chegando. No putt, sem câmera
-  de queda: atrás da bola, baixa. `__debugDrop(jardas)` rola a bola até a cova (testes).
+- **Câmera da tacada no estilo do Pangya** (`SHOT_CAMERA`, `flightCamera`), refeita pelo
+  vídeo do Daniel: **cada tacada sorteia uma câmera** e vai nela até a bola cair — `chase`
+  (colada atrás da bola, baixa), `sky` (do chão, olhando a bola subir: o céu), `high` (bem
+  alta, vendo o curso de cima) ou `side` (parada ao lado do meio do voo, girando; só em
+  tacadas de 60 y ou mais). Antes, 0,5 s parada atrás do jogador (a bola saindo e os pangs).
+  1,1 s antes de cair, **corta** para uma câmera parada perto da queda que só gira para ver a
+  bola (se ela vai entrar ou parar a menos de 2 y da cova, perto da cova: de trás se cai
+  perto, de lado se vem rolando de longe); se a bola rola para longe, vai atrás devagar.
+  Quando a bola para, **a câmera fica parada** (antes ela voltava para trás da bola e dava um
+  zoom na cova); a luz da cova some quando a bola entra; na próxima vez corta para trás do
+  jogador. No putt: atrás da bola, baixa. A/D no voo giram (câmera de perseguição) e S
+  mostra de cima, como antes. `window.__shotCamera = 'sky'` força uma câmera (testes);
+  `__debugDrop(jardas)` rola a bola até a cova.
+- **Comemoração** (`celebrate`): depois de embocar, 1,6 s vendo a cova (moedas) e corta para o
+  personagem perto da cova, de frente para a câmera (enquadrado pela altura do esqueleto),
+  fazendo a pose do resultado; depois fica na pose final ("…끝") com o quadro do fim do
+  buraco por cima.
 - Barra de força no estilo do original: escala de jardas (meio e máximo do taco), zona de
   impacto amarela com a faixa PANGYA (rosa, `IMPACT_TUNING.pangyaZone`) e linha central;
   deixar o marcador passar da zona cancela a tacada (o jogador desistiu) e volta a mirar.

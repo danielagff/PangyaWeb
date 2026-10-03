@@ -304,12 +304,11 @@ export function startOnlineMode() {
             view.announceScore(message.playerId, after.strokes, after.par, isChipIn(after))
           }
           const type = message.outcome.type
+          if (type === 'hole' && after) {
+            await view.celebrate(message.playerId, after.strokes, after.par)
+          }
           const pose =
-            type === 'hole'
-              ? view.react(message.playerId, 'putt')
-              : type === 'water' || type === 'outOfBounds'
-                ? view.react(message.playerId, 'trouble')
-                : 0
+            type === 'water' || type === 'outOfBounds' ? view.react(message.playerId, 'trouble') : 0
           if (pose) await new Promise((r) => setTimeout(r, Math.min(pose, 3) * 1000))
           say(`<strong>${escapeHtml(name)}</strong>: ${escapeHtml(message.message)}`)
         })

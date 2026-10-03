@@ -46,15 +46,15 @@ jogar com amigos, com o **PC do Daniel como servidor**. Não é vendido nem publ
 
 ## Em andamento agora
 
-Última entrega (04/10/2026, trabalhando sozinho à noite): **câmera da tacada no estilo do
-Pangya** (fica parada atrás do jogador vendo a bola sair, persegue a bola, freia atrás do
-ponto de queda e vê a bola descer, segue a bola rolando no sentido em que ela anda e, quando
-a bola vai entrar ou parar pertinho, desce ao lado da cova); **pangs** (moedas douradas
-saindo da bola no PANGYA/power shot e da cova quando a bola entra) com o **som das moedas**
-(`아이템획득(팡).wav`); **música de cada curso pela trilha oficial** (pangya.wiki: Blue
-Lagoon = `daydream.mp3`/`frog.mp3`, Pink Wind = `spring.mp3`, Wiz City = `secretwish`/
-`adayinthewizcity`…). A barra não mostra mais "Espaço: começar" durante o voo. Ainda não
-visto pelo Daniel.
+Última entrega (04/10/2026): **câmeras da tacada sorteadas, como no vídeo do Daniel**
+(perseguindo colada na bola, do chão olhando o céu, do alto vendo o curso, parada de lado),
+**corte para uma câmera parada na queda**, sem o zoom no fim (a câmera fica parada quando a
+bola para) e **comemoração pelo resultado** (do hole in one ao double bogey: corta para o
+personagem perto da cova fazendo a pose do jogo). Antes, na mesma noite: **pangs** (moedas
+saindo da bola no PANGYA/power shot e da cova) com o som das moedas (`아이템획득(팡).wav`) e
+**música de cada curso pela trilha oficial** (pangya.wiki: Blue Lagoon =
+`daydream.mp3`/`frog.mp3`, Pink Wind = `spring.mp3`, Wiz City = `secretwish`/
+`adayinthewizcity`…).
 
 Antes: **sons com os nomes reais** (2º diagnóstico, depois da
 reextração): cova `공_홀인`, **público** (aplausos, "uau" no birdie, "oh…" quando para
@@ -161,9 +161,10 @@ lugar da bandeira, vista aérea com zoom (M/0, Delete+0), câmera livre e mira A
   swing de cada taco) e das peças.
 - **Sons**: abrir o `mapeador.cmd` → 🔊 Sons, ouvir e conferir o que foi achado sozinho (e
   trocar o que estiver errado). A música de cada curso agora vem da trilha oficial.
-- **Câmera da tacada e pangs**: se a câmera está parecida com a do jogo (tempos e distâncias
-  em `SHOT_CAMERA`, `hole-view.ts`) e quando os pangs devem sair (hoje: PANGYA, power shot e
-  bola na cova; sem valor em pangs, porque não sabemos as regras de quanto o jogo dá).
+- **Câmeras da tacada, comemoração e pangs**: se as câmeras sorteadas e a da queda estão
+  parecidas com as do jogo (tempos e distâncias em `SHOT_CAMERA`, `CELEBRATION`,
+  `hole-view.ts`), se a comemoração é perto da cova mesmo e quando os pangs devem sair (hoje:
+  PANGYA, power shot e bola na cova; sem valor em pangs, porque não sabemos as regras).
 - **Nomes dos cursos no menu**: só Blue Lagoon (`blue`) e Pink Wind (`pink`) têm o nome do
   jogo; os outros aparecem pelo nome da pasta (ex.: "Spring Wind"). Quais estão errados? (a
   pasta aparece embaixo do nome na tela do curso; tabela em `apps/client/src/menu/courses.ts`).

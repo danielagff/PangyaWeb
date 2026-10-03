@@ -32,6 +32,13 @@ e mascotes.
 
 ## Progresso
 
+- **Reações pelo resultado** (`reactionMotion`, pedido do Daniel: "de bogey a HIO o personagem
+  comemora com base na felicidade"): hole in one/albatross `알바홀인승리포즈`, eagle
+  `이글승리포즈`, birdie `버디승리포즈`, par uma das `세이브파승리포즈`/`2`/`02` (sorteada),
+  bogey `보기실격실망포즈`, double bogey ou pior `더블보기실망포즈` (sem a pose, a mais próxima);
+  depois a pose final "…끝". Tocam perto da cova com a câmera de frente (spec 10). As
+  versões com item (`날개알바홀인승리포즈_item`, asas; bike, dragão…) ficam para quando houver
+  itens.
 - Catálogo (`tools/asset-pipeline/src/characters.ts` → `assets/original/_characters.json`,
   gerado junto com o índice): cada `.bpet` com o `.apet` e as `.mpet` da mesma pasta,
   peças por slot (2º pedaço do nome: ha, fc, ts, pv, ft, hn…; `!xx` = slots escondidos) e
