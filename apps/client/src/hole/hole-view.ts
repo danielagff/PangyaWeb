@@ -126,7 +126,8 @@ const FREE_CAMERA_UNTIL_LANDING = 0.8
  * fica onde está (sem zoom) até a próxima tacada. No putt: atrás da bola, baixa.
  */
 const SHOT_CAMERA = {
-  aim: { back: 22, up: 8, look: 40 },
+  // Mirando: como no original, perto e baixo (personagem à esquerda, a bola embaixo no centro).
+  aim: { back: 15, up: 6, look: 40 },
   putt: { back: 18, up: 9, look: 25 },
   hold: 0.5,
   chase: { back: 9, up: 2.5, look: 30, lerp: 0.35 },
@@ -590,7 +591,7 @@ export class HoleView {
   private readonly characters = new Map<string, Promise<CharacterModel | undefined>>()
   private readonly ready = new Map<string, CharacterModel>()
   /** Taco sendo preparado por personagem (evita repetir a cada mudança do painel). */
-  private readonly addressing = new Map<CharacterModel, string>()
+  private readonly addressing = new Map<CharacterModel, { category: string; done: Promise<void> }>()
   /** Movimento escolhido com a tecla N (depuração). */
   private motionIndex = -1
   /** O backswing já começou com a barra (a tacada continua do topo). */
@@ -1150,15 +1151,21 @@ export class HoleView {
   }
 
   /** Taco na mão e postura de preparação, com a cabeça do taco encostada na bola. */
-  private async address(model: CharacterModel, club: string = this.panel.read().club) {
+  private address(model: CharacterModel, club: string = this.panel.read().club): Promise<void> {
     const category = categoryOfClub(club)
-    if (this.addressing.get(model) === category) return
-    this.addressing.set(model, category)
-    await this.equipClub(model, club)
-    if (this.addressing.get(model) !== category) return // trocou de taco enquanto carregava
-    model.address(this.golf(model, club).idle)
-    this.addressing.delete(model)
-    if (model.root.visible && this.phase === 'aim' && !this.bar.active) this.placeCharacter(model)
+    // O mesmo taco já carregando: espera esse (quem espera precisa do taco já medido).
+    const pending = this.addressing.get(model)
+    if (pending?.category === category) return pending.done
+    const done = (async () => {
+      await this.equipClub(model, club)
+      if (this.addressing.get(model)?.category !== category) return // trocou de taco
+      model.address(this.golf(model, club).idle)
+      this.addressing.delete(model)
+      // A medida nova do taco (address) volta o tamanho dele ao original: reposiciona.
+      if (model.root.visible && this.phase === 'aim' && !this.bar.active) this.placeCharacter(model)
+    })()
+    this.addressing.set(model, { category, done })
+    return done
   }
 
   /** Movimentos de golfe do personagem para o taco (o do painel, se não informado). */
@@ -1308,7 +1315,11 @@ export class HoleView {
         // Deixou passar da zona: desistiu de bater agora; volta a mirar.
         onCancel: () => {
           this.backswing = false
-          if (model?.root.visible) this.idle(model)
+          if (model?.root.visible) {
+            this.idle(model)
+            // O taco pode ter terminado de carregar com a barra andando: reposiciona.
+            this.placeCharacter(model)
+          }
           this.readyAt = performance.now()
         },
       },

@@ -52,7 +52,10 @@ um, copia o código já descriptografado da memória com o PE-sieve e manda para
 repositório privado `pangyaweb-dump`). Falta o Daniel rodar; depois analisar a cópia e achar
 as funções da câmera. Riscos: o jogo fechar rápido demais, GameGuard, código virtualizado.
 
-Última entrega (04/10/2026): **rosa dos ventos embaixo à direita, ao lado da barra**, no
+Última entrega (04/10/2026): **câmera de mira e personagem como no original** — câmera mais
+perto e baixa (personagem grande à esquerda, bola embaixo no centro) e a cabeça do taco
+exatamente na bola (antes ficava ~0,5 jarda além ou flutuando). Testado na nuvem com o Max e o
+Blue Lagoon reais, baixados dos repositórios privados. Antes: **rosa dos ventos embaixo à direita, ao lado da barra**, no
 visual do original (aro prateado com parafusos, miolo verde translúcido, selo "7m"). Antes:
 **HUD = a PowerBar do Daniel, idêntica** — os componentes
 dele (`docs/referencias/powerbar/`) portados como estão, conferidos lado a lado com o

@@ -220,6 +220,15 @@ Câmeras de jogo e HUD com as informações necessárias para mirar como no orig
   - Fora do desenho: contadores do voo e o quadro de quando a bola para (em cima) e o texto
     de ajuda (acima do HUD).
 
+- **Câmera de mira como no original** (04/10/2026, `SHOT_CAMERA.aim`: 15 atrás, 6 acima,
+  olhando 40 à frente; antes 22/8/40): o personagem fica grande, à esquerda, e a bola embaixo
+  no centro, logo acima da barra. Conferido na nuvem com o Max e o Blue Lagoon reais (dos
+  repositórios privados) contra o print do Daniel do jogo original.
+- **Personagem com a cabeça do taco na bola**: o taco é esticado até o chão (`fitClub`), o
+  que mudava onde a cabeça ficava (~0,5 jarda além da bola); agora o personagem é posto pela
+  cabeça já ajustada. E quando o taco termina de carregar depois do personagem posicionado
+  (ou com a barra andando), ele é reposicionado (antes o taco ficava flutuando).
+
 ## Problemas conhecidos
 
 ### Tela inteira azul (céu/névoa) depois de algumas tacadas — Pink Wind buraco 1

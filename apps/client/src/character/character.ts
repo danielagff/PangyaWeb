@@ -289,25 +289,40 @@ export function placeAtBall(
   groundY: (at: Vector3) => number,
   ballGroundY?: number,
 ) {
-  const head = model.addressHead
-  let at: Vector3
+  // Põe o personagem pela cabeça do taco; o taco é esticado até o chão (fitClub), o que
+  // muda onde a cabeça fica: refaz com a cabeça já ajustada (antes ela ficava ~0,5 jarda
+  // além da bola).
+  let at = placeBy(model, model.addressHead, ball, right)
+  at.y = groundY(at)
+  if (ballGroundY !== undefined) {
+    const fitted = model.fitClub(ballGroundY - at.y)
+    if (fitted) {
+      at = placeBy(model, fitted, ball, right)
+      at.y = groundY(at)
+      model.fitClub(ballGroundY - at.y)
+    }
+  }
+  model.root.position.copy(at)
+}
+
+/** Gira o personagem e acha onde ele fica para a cabeça do taco (`head`) cair na bola. */
+function placeBy(
+  model: CharacterModel,
+  head: Vector3 | undefined,
+  ball: Vector3,
+  right: Vector3,
+): Vector3 {
   // Medida absurda (taco mal preso, pose estranha): usa a distância padrão.
   const reach = head ? Math.hypot(head.x, head.z) : 0
   if (head && reach > 0.2 && reach < 8 && Number.isFinite(head.y)) {
     const angle = Math.atan2(right.x, right.z) - Math.atan2(head.x, head.z)
     model.root.rotation.y = angle
     const offset = new Vector3(head.x, 0, head.z).applyAxisAngle(new Vector3(0, 1, 0), angle)
-    at = ball.clone().sub(offset)
-  } else {
-    at = ball.clone().addScaledVector(right, -CHARACTER_TUNING.ballDistance)
-    model.root.rotation.y =
-      Math.atan2(-right.x, -right.z) + (CHARACTER_TUNING.facingDegrees * Math.PI) / 180
+    return ball.clone().sub(offset)
   }
-  at.y = groundY(at)
-  model.root.position.copy(at)
-  // Taco encostando no chão debaixo da bola (o terreno pode estar mais alto ou mais baixo
-  // que debaixo dos pés).
-  if (ballGroundY !== undefined) model.fitClub(ballGroundY - at.y)
+  model.root.rotation.y =
+    Math.atan2(-right.x, -right.z) + (CHARACTER_TUNING.facingDegrees * Math.PI) / 180
+  return ball.clone().addScaledVector(right, -CHARACTER_TUNING.ballDistance)
 }
 
 /** Texturas e rostos (FANM) de uma peça, para o visualizador. */
@@ -553,14 +568,17 @@ export class CharacterModel {
    * de preparação: estica ou encolhe o taco a partir da mão, ao longo do cabo. Sem isso o
    * taco do jogo fica flutuando, porque a postura e o chão do nosso buraco não batem exato.
    */
-  fitClub(groundY: number) {
+  fitClub(groundY: number): Vector3 | undefined {
     const head = this.addressHead
     const grip = this.addressGrip
     const object = this.club?.object
-    if (!head || !grip || !object || head.y >= grip.y) return
+    if (!head || !grip || !object || head.y >= grip.y) return undefined
     const scale = (groundY - grip.y) / (head.y - grip.y)
-    if (!Number.isFinite(scale)) return
-    object.scale.setScalar(Math.min(CLUB_FIT.max, Math.max(CLUB_FIT.min, scale)))
+    if (!Number.isFinite(scale)) return undefined
+    const fit = Math.min(CLUB_FIT.max, Math.max(CLUB_FIT.min, scale))
+    object.scale.setScalar(fit)
+    // Onde a cabeça fica com o taco ajustado (o taco cresce a partir da mão).
+    return grip.clone().add(head.clone().sub(grip).multiplyScalar(fit))
   }
 
   /**
