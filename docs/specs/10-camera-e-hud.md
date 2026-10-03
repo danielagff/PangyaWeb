@@ -196,26 +196,26 @@ Câmeras de jogo e HUD com as informações necessárias para mirar como no orig
   areia, com vento sorteado): toda tacada que ela achou entrou na cova (320/320); o resto
   era obstáculo no caminho (69) ou fora de alcance (3). Leva até ~50 ms.
 
-- **HUD da tacada com os componentes do HTML de base do Daniel** (04/10/2026,
-  `hole/hud/pb-components.ts`): `<power-bar>` com `<pb-arc-panel>`, `<pb-bar>`,
-  `<pb-gauge>`, `<pb-tab>` e `<pb-socket>`, **as mesmas tags, atributos e coordenadas** do
-  HTML (1620 × 380; a ordem é a sobreposição) e o mesmo tema (`--pb-stroke` #111,
-  `--pb-accent` #1aa3e8, `--pb-fill` branco, traços 1,4 e 3,5, fonte Nunito 800). Os
-  arquivos `components/pb-*.js` do Daniel não vieram: as peças foram refeitas pelos
-  atributos (SVG). Com os originais, dá para trocar pelo desenho exato.
-  - `<pb-gauge>`: aro, anel da força (cheio na %), **a bola escolhida pelo jogador**
-    (`hud/ball-image.ts`: o `.pet` da bola desenhado uma vez num PNG; sem bola, uma branca),
-    o ponto de impacto (clique/arraste = spin e curva, duplo clique centraliza), a %,
-    "PangYa ×N" e os 2 indicadores de power shot.
-  - `<pb-bar>`: moldura branca, trilho escuro, azul com divisões, zona PANGYA rosa, faixa
-    vermelha, polegar cinza, "Max", jardas do meio/máximo, calibrador (triângulo verde com
-    as jardas), "Callipers Z X" e o "Click" laranja na volta. A lógica dos 3 toques
-    (`power-bar.ts`) só muda os atributos dele.
-  - `<pb-tab>`: o passo (Start/Power/Impact). `<pb-socket>`: o taco (3W) e o power shot
-    ("−", "1PS", "2PS"). `<pb-arc-panel>`: itens e chat (ainda só enfeite).
-  - Fora do SVG: contadores do voo e o quadro de quando a bola para (piso, "Distance", pin),
-    em cima da barra, e o texto de ajuda embaixo.
-  - `pnpm assets:teste` agora cria uma bola de teste (`t_ball`, listrada) para conferir.
+- **HUD da tacada = a PowerBar do Daniel** (04/10/2026, `hole/hud/pb-components.ts`): os
+  componentes dele (`docs/referencias/powerbar/`: `rosa.html`, `components/pb-*.js` e o
+  print `rosa.png`) **portados como estão** — mesmo SVG, cores, gradientes, Shadow DOM e a
+  unidade `--u` do `<power-bar>` (1620 × 380) — com o mesmo HTML e as mesmas coordenadas.
+  Conferido lado a lado com o `rosa.html` aberto no navegador. O jogo só acrescenta (sem
+  mudar o desenho em repouso):
+  - `<pb-gauge>`: **a bola escolhida pelo jogador** no lugar da bola de vidro
+    (`hud/ball-image.ts`: o `.pet` desenhado uma vez num PNG; sem bola, a de vidro), o ponto
+    azul de spin anda com o impacto (clique/arraste na bola; duplo clique centraliza), a %
+    (subindo; depois a força fixada), "PangYa ×N" depois da batida e o anel dourado no
+    power shot.
+  - `<pb-bar>`: `value` é o cursor; ele sobe da faixa magenta (0) até o máximo e volta para
+    a **zona de impacto à esquerda do 0** (faixa branca; o ponto PANGYA é a faixa magenta;
+    se passa até o começo da trilha, cancela). Na volta, "Click" laranja na zona; a linha
+    branca marca a força fixada; o calibrador é o `target` do desenho (triângulo e jardas
+    verdes); com o mouse em cima, a régua com a leitura. Geometria em `hud/pb-geometry.ts`.
+  - `<pb-tab>`: o passo (Start/Power/Impact). `<pb-socket>` de cima: o taco; o de baixo
+    ("−", botão de spin): clique centraliza o impacto.
+  - Fora do desenho: contadores do voo e o quadro de quando a bola para (em cima) e o texto
+    de ajuda (acima do HUD).
 
 ## Problemas conhecidos
 

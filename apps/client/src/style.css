@@ -857,229 +857,16 @@
   }
 }
 
-/* HUD da tacada: os componentes <power-bar> do HTML de base (hud/pb-components.ts). */
+/* HUD da tacada: o <power-bar> do HTML de base (hud/pb-components.ts), com o mesmo tema. */
 power-bar {
-  display: block;
-  /* Tema: cores e espessuras de todas as peças (como no HTML de base). */
+  max-width: 1620px;
+  margin: 0 auto;
+  /* Tema: troque aqui as cores e espessuras de todas as peças */
   --pb-stroke: #111;
   --pb-accent: #1aa3e8;
   --pb-fill: #fff;
   --pb-stroke-width: 1.4;
   --pb-stroke-thick: 3.5;
-  font-family: Nunito, system-ui, sans-serif;
-  font-weight: 800;
-}
-power-bar .pb-svg {
-  display: block;
-  width: 100%;
-  height: auto;
-  overflow: visible;
-}
-power-bar text {
-  font-family: Nunito, system-ui, sans-serif;
-  font-weight: 800;
-  fill: var(--pb-stroke);
-  pointer-events: none;
-  user-select: none;
-}
-power-bar .pb-shape {
-  fill: var(--pb-fill);
-  stroke: var(--pb-stroke);
-}
-power-bar .pb-line,
-power-bar .pb-outline {
-  stroke: var(--pb-stroke);
-  stroke-width: var(--pb-stroke-width);
-}
-power-bar .pb-outline {
-  fill: none;
-}
-power-bar .pb-thick {
-  stroke-width: var(--pb-stroke-thick);
-}
-power-bar line.pb-line {
-  fill: none;
-}
-power-bar .pb-icon {
-  fill: none;
-  stroke: var(--pb-stroke);
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-power-bar .pb-hit {
-  fill: transparent;
-  pointer-events: all;
-}
-power-bar .pb-accent-stop {
-  stop-color: var(--pb-accent);
-}
-/* Barra. */
-power-bar .pb-rail {
-  fill: #232b36;
-}
-power-bar .pb-rail-line {
-  fill: none;
-  stroke: var(--pb-stroke);
-  stroke-width: var(--pb-stroke-width);
-}
-power-bar .pb-div {
-  stroke: rgba(255, 255, 255, 0.45);
-  stroke-width: 2;
-}
-power-bar .pb-div-half {
-  stroke: rgba(255, 255, 255, 0.8);
-  stroke-width: 3;
-}
-power-bar .pb-ruler {
-  opacity: 0;
-  transition: opacity 0.15s;
-}
-power-bar .pb-hovering .pb-ruler {
-  opacity: 1;
-}
-power-bar .pb-tick {
-  stroke: rgba(255, 255, 255, 0.6);
-  stroke-width: 1.5;
-}
-power-bar .pb-zone {
-  fill: #ff4fa3;
-}
-power-bar .pb-pangya {
-  fill: #ffb3da;
-}
-power-bar .pb-pangya-center {
-  stroke: #fff;
-  stroke-width: 2;
-}
-power-bar .pb-near .pb-zone {
-  animation: pb-blink 0.25s infinite alternate;
-}
-@keyframes pb-blink {
-  to {
-    fill: #ffd1e8;
-  }
-}
-power-bar .pb-end {
-  fill: #e53935;
-}
-power-bar .pb-power line {
-  stroke: #fff;
-  stroke-width: 4;
-}
-power-bar .pb-power-text {
-  font-size: 20px;
-  fill: #fff;
-}
-power-bar .pb-guide {
-  stroke: #fff;
-  stroke-width: 2;
-}
-power-bar .pb-label {
-  font-size: 28px;
-}
-power-bar .pb-max {
-  font-style: italic;
-}
-power-bar .pb-callipers-text {
-  font-size: 24px;
-}
-power-bar .pb-key {
-  font-size: 20px;
-}
-power-bar .pb-target-mark {
-  fill: #2ecc71;
-  stroke: var(--pb-stroke);
-  stroke-width: var(--pb-stroke-width);
-}
-power-bar .pb-target-text {
-  fill: #12a150;
-  font-size: 26px;
-}
-power-bar .pb-click {
-  animation: pb-click 0.35s infinite alternate;
-}
-@keyframes pb-click {
-  to {
-    translate: 0 6px;
-  }
-}
-power-bar .pb-click-text {
-  font-size: 30px;
-  font-style: italic;
-  fill: #ff9800;
-  stroke: var(--pb-stroke);
-  stroke-width: 1;
-}
-power-bar .pb-click-arrow {
-  fill: #ff9800;
-  stroke: var(--pb-stroke);
-  stroke-width: var(--pb-stroke-width);
-}
-power-bar .pb-readout rect {
-  fill: var(--pb-fill);
-  stroke: var(--pb-stroke);
-  stroke-width: var(--pb-stroke-width);
-}
-power-bar .pb-readout text {
-  font-size: 22px;
-}
-power-bar .pb-done .pb-frame {
-  stroke: #ffb300;
-}
-power-bar .pb-cancelled {
-  opacity: 0.6;
-}
-/* Mostrador. */
-power-bar .pb-gauge-track {
-  fill: none;
-  stroke: #e3edf6;
-}
-power-bar .pb-gauge-value {
-  fill: none;
-  stroke: var(--pb-accent);
-}
-power-bar .pb-power-shot .pb-gauge-value {
-  stroke: #ffb300;
-}
-power-bar .pb-ball-hit {
-  cursor: crosshair;
-  touch-action: none;
-}
-power-bar .pb-cross {
-  stroke: rgba(30, 60, 120, 0.35);
-  stroke-width: 1.5;
-}
-power-bar .pb-dot {
-  fill: #e53935;
-  stroke: #fff;
-  stroke-width: 3;
-}
-power-bar .pb-ps {
-  fill: var(--pb-fill);
-  stroke: var(--pb-stroke);
-  stroke-width: var(--pb-stroke-width);
-}
-power-bar .pb-ps.pb-on {
-  fill: #ffb300;
-}
-power-bar .pb-value {
-  font-size: 38px;
-}
-power-bar .pb-streak {
-  font-size: 28px;
-  font-style: italic;
-  fill: #ff3fa4;
-}
-power-bar .pb-tab-label {
-  font-style: italic;
-  fill: var(--pb-accent);
-}
-power-bar .pb-tab-arrow {
-  fill: var(--pb-accent);
-}
-power-bar .pb-socket-label {
-  fill: var(--pb-stroke);
 }
 
 /* HUD da tacada (embaixo): o <power-bar> escalado para a tela (shot-hud.ts). */
@@ -1107,17 +894,14 @@ power-bar .pb-socket-label {
   margin: 0 auto;
   container-type: inline-size;
 }
-.shot-hud.waiting power-bar .pb-gauge,
-.shot-hud.waiting power-bar .pb-tab {
+.shot-hud.waiting pb-gauge,
+.shot-hud.waiting pb-tab {
   opacity: 0.6;
 }
 .shot-hud .bar-label {
-  position: absolute;
-  left: 30%;
-  right: 6%;
-  bottom: 1%;
-  font-size: 1.25cqw;
-  text-align: center;
+  margin: 0 16px 4px;
+  min-height: 1.3em;
+  opacity: 0.9;
 }
 /* Contadores do voo e quadro do fim da tacada, no centro, em cima da barra. */
 .shot-hud .counters,

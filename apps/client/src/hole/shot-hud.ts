@@ -52,11 +52,6 @@ const STEP_LABELS: Record<PowerBarStage, string> = {
   rising: 'Power',
   returning: 'Impact',
 }
-const STEP_COLORS: Record<PowerBarStage, string> = {
-  idle: '#1aa3e8',
-  rising: '#e91e63',
-  returning: '#ff9800',
-}
 
 /** Onde a bola parou, para o quadro do fim da tacada. */
 export interface ShotStop {
@@ -76,6 +71,7 @@ export function createShotHud(onShoot: () => void) {
   // ordem define a sobreposição).
   root.innerHTML = `
     <p class="result" aria-live="polite"></p>
+    <p class="bar-label"></p>
     <div class="stage">
       <div class="counters" hidden>
         <div class="traveled"></div>
@@ -91,18 +87,17 @@ export function createShotHud(onShoot: () => void) {
         <pb-bar x="320" y="180" w="1290" h="100" max="256" value="0"></pb-bar>
         <pb-gauge cx="177" cy="210" r="157" track="143" inner="133" value="0"></pb-gauge>
         <pb-tab x="312" y="245" w="148" h="77" radius="12" label="Start"></pb-tab>
-        <pb-socket cx="71" cy="94" r="61" inner="44" thick label="1W" title="Taco (roda do mouse)"></pb-socket>
-        <pb-socket class="ps-socket" cx="250" cy="330" r="40" inner="30" label="−" label-color="#2196f3" title="Power shot (Alt: 1 toque = 1 PS, 2 toques rápidos = 2 PS)"></pb-socket>
+        <pb-socket class="club" cx="71" cy="94" r="61" inner="44" thick label="1W" title="Taco (roda do mouse)"></pb-socket>
+        <pb-socket class="spin" cx="250" cy="330" r="40" inner="30" label="−" label-color="#2196f3" title="Spin: clique centraliza o ponto de impacto"></pb-socket>
       </power-bar>
-      <div class="bar-label"></div>
     </div>`
   document.body.appendChild(root)
   const $ = <T extends Element>(selector: string) => root.querySelector(selector) as T
   const result = $<HTMLParagraphElement>('.result')
   const gauge = $<PbGauge>('pb-gauge')
   const tab = $<PbTab>('pb-tab')
-  const clubSocket = $<PbSocket>('pb-socket:not(.ps-socket)')
-  const psSocket = $<PbSocket>('.ps-socket')
+  const clubSocket = $<PbSocket>('pb-socket.club')
+  const spinSocket = $<PbSocket>('pb-socket.spin')
   const counters = $<HTMLDivElement>('.counters')
   const stop = $<HTMLDivElement>('.stop')
   const bar = createPowerBar($<PbBar>('pb-bar'), $<HTMLDivElement>('.bar-label'))
@@ -115,10 +110,9 @@ export function createShotHud(onShoot: () => void) {
   }
   bar.onUpdate(({ stage, position, power }) => {
     tab.setAttribute('label', STEP_LABELS[stage])
-    tab.setAttribute('label-color', STEP_COLORS[stage])
     root.dataset['stage'] = stage
     const shown = stage === 'rising' ? position : power
-    gauge.setAttribute('value', String(Math.round(shown * 1000) / 10))
+    gauge.setAttribute('value', String(Math.round(Math.max(0, shown) * 100)))
     if (stage === 'rising' && position === 0) {
       // Nova tacada: some o "PangYa" e o quadro da tacada anterior.
       gauge.setAttribute('streak', '0')
@@ -147,10 +141,18 @@ export function createShotHud(onShoot: () => void) {
     gauge.setAttribute('spin', String(input.spin))
     const count = input.powerShot === 'two' ? 2 : input.powerShot === 'one' ? 1 : 0
     gauge.setAttribute('ps', String(count))
-    psSocket.setAttribute('label', count ? `${count}PS` : '−')
     root.classList.toggle('power-shot', count > 0)
     listeners.forEach((l) => l())
   }
+
+  // Botão de spin ("−"): centraliza o ponto de impacto.
+  spinSocket.style.pointerEvents = 'auto'
+  spinSocket.style.cursor = 'pointer'
+  spinSocket.addEventListener('click', () => {
+    if (!enabled) return
+    input.spin = input.curve = 0
+    changed()
+  })
 
   // Ponto de impacto: clique/arraste na bola do mostrador; duplo clique centraliza.
   let aimingImpact = false

@@ -20,17 +20,16 @@
  * Velocidade e largura da zona são estimativas (a comparar com o original).
  */
 import { IMPACT_TUNING } from '@pangya/game'
-import type { PbBar, PbTrackDetail } from './hud/pb-components.ts'
+import type { PbBar } from './hud/pb-components.ts'
+import { pbBarZone } from './hud/pb-geometry.ts'
 
 export const POWER_BAR_TUNING = {
   /** Segundos para o marcador ir de 0 a 100%. */
   riseSeconds: 1.1,
   /** Segundos para voltar de 100% até a zona de impacto. */
   returnSeconds: 1.1,
-  /** Meia-largura da zona de impacto, em fração da barra. */
-  zoneHalf: 0.035,
-  /** Quanto o marcador passa da zona antes de cancelar a tacada. */
-  overrun: 0.05,
+  /** Meia-largura da zona de impacto, em fração da escala (a faixa branca do desenho). */
+  zoneHalf: pbBarZone().half,
 }
 
 /** Erro de impacto (em meias-larguras da zona) que ainda conta como PANGYA (tacada perfeita). */
@@ -42,8 +41,13 @@ export interface PowerBarResult {
   impact: number
 }
 
-/** Posição da zona de impacto na barra (fração a partir da esquerda). */
-const ZONE = 0.06
+/**
+ * Zona de impacto do desenho do <pb-bar> (frações da escala: 0 = início, 1 = máximo): o
+ * ponto PANGYA é a faixa magenta no começo da escala, a zona é a faixa branca à esquerda
+ * dela e o cursor pode voltar até o começo da trilha.
+ */
+const BAR_ZONE = pbBarZone()
+const ZONE = BAR_ZONE.center
 
 export interface PowerBarOptions {
   /** Texto do primeiro passo. */
@@ -111,9 +115,6 @@ const num = (value: number) => String(Math.round(value * 10000) / 10000)
  */
 export function createPowerBar(bar: PbBar, label: HTMLElement) {
   const k = POWER_BAR_TUNING
-  bar.setAttribute('zone', num(ZONE))
-  bar.setAttribute('zone-half', num(k.zoneHalf))
-  bar.setAttribute('pangya', num(PANGYA_WINDOW))
   label.textContent = IDLE_LABEL
 
   let stage: PowerBarStage = 'idle'
@@ -140,20 +141,11 @@ export function createPowerBar(bar: PbBar, label: HTMLElement) {
   const snapTarget = () => (snap ? calibrator : undefined)
   const updates: ((update: PowerBarUpdate) => void)[] = []
   const finishes: ((result: PowerBarResult) => void)[] = []
-  const states = new Set<string>()
 
-  /** Atributos do <pb-bar> em jardas (`max`) ou, sem escala, em fração. */
-  const scaled = (fraction: number) => num(maxYards ? fraction * maxYards : fraction)
-  const setState = (name: string, on: boolean) => {
-    if (on) states.add(name)
-    else states.delete(name)
-    bar.setAttribute('state', [...states].join(' '))
-  }
-  /** Preenchimento até `fill` e o polegar em `at` (frações). */
-  const drawBar = (fill: number, at = fill) => {
-    bar.setAttribute('value', scaled(Math.max(0, fill)))
-    bar.setAttribute('position', num(Math.max(0, at)))
-  }
+  /** Atributos do <pb-bar> em jardas (`max`). */
+  const scaled = (fraction: number) => num(fraction * (maxYards || 256))
+  /** Cursor em `at` (fração da escala; negativo = na zona de impacto). */
+  const drawBar = (at: number) => bar.setAttribute('value', scaled(at))
   const showPower = (value: number | undefined) => {
     if (value === undefined) bar.removeAttribute('power')
     else bar.setAttribute('power', scaled(value))
@@ -184,23 +176,37 @@ export function createPowerBar(bar: PbBar, label: HTMLElement) {
     saveCalibrator(value)
     drawCalibrator()
   }
-  // Mouse no trilho: régua com a leitura; clique põe o calibrador (arrastando, acompanha);
+  // Mouse na barra: régua com a leitura; clique põe o calibrador (arrastando, acompanha);
   // botão direito tira.
   let dragging = false
-  const onTrack = (e: Event) => {
-    const { type, fraction, button } = (e as CustomEvent<PbTrackDetail>).detail
-    if (type === 'leave') bar.removeAttribute('hover')
+  const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
+  const onPointer = (e: PointerEvent) => {
+    const fraction = clamp01(bar.scaleAt(e))
+    if (e.type === 'pointerleave') bar.removeAttribute('hover')
     else bar.setAttribute('hover', num(fraction))
-    if (type === 'down') {
-      if (button === 2) setCalibrator(undefined)
-      else if (button === 0) {
+    if (e.type === 'pointerdown') {
+      if (e.button === 2) setCalibrator(undefined)
+      else if (e.button === 0) {
         dragging = true
+        bar.setPointerCapture(e.pointerId)
         setCalibrator(stepCalibrator(fraction, 0))
       }
-    } else if (type === 'move' && dragging) setCalibrator(stepCalibrator(fraction, 0))
-    else if (type === 'up') dragging = false
+    } else if (e.type === 'pointermove' && dragging) setCalibrator(stepCalibrator(fraction, 0))
+    else if (e.type === 'pointerup' || e.type === 'pointercancel') dragging = false
   }
-  bar.addEventListener('pb-track', onTrack)
+  const pointerEvents = [
+    'pointerenter',
+    'pointermove',
+    'pointerleave',
+    'pointerdown',
+    'pointerup',
+    'pointercancel',
+  ] as const
+  for (const type of pointerEvents) bar.addEventListener(type, onPointer)
+  const noMenu = (e: Event) => e.preventDefault()
+  bar.addEventListener('contextmenu', noMenu)
+  bar.title =
+    'Calibrador: clique para pôr o triângulo (botão direito tira); X sobe, Z desce (Shift: 1%)'
   /** X sobe, Z desce o calibrador (0,1%; Shift: 1%). Sem ponteiro, começa no pin. */
   const onKey = (e: KeyboardEvent) => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
@@ -221,8 +227,7 @@ export function createPowerBar(bar: PbBar, label: HTMLElement) {
     if (stage === 'idle') return
     const p = position(now)
     shown = p
-    if (stage === 'rising') drawBar(p)
-    else drawBar(power, p)
+    drawBar(p)
     notify(p)
     if (stage === 'rising') {
       const target = snapTarget()
@@ -234,13 +239,12 @@ export function createPowerBar(bar: PbBar, label: HTMLElement) {
     } else if (autoPangya && p <= ZONE) {
       // Sempre PANGYA: bate sozinho no centro da zona.
       shown = ZONE
-      drawBar(power, ZONE)
+      drawBar(ZONE)
       done(0)
       return
     } else {
-      // Perto da zona, ela pisca para chamar a atenção.
-      setState('near', p < ZONE + 0.12 && p > ZONE - k.zoneHalf)
-      if (p < ZONE - k.zoneHalf - k.overrun) {
+      // Passou da zona e chegou ao começo da trilha: desistiu.
+      if (p <= BAR_ZONE.floor) {
         giveUp()
         return
       }
@@ -259,13 +263,10 @@ export function createPowerBar(bar: PbBar, label: HTMLElement) {
     powered?.(power)
     label.textContent = autoPangya
       ? `${percentText(power)} ${yards(power)} · sempre PANGYA: o impacto sai sozinho`
-      : `${percentText(power)} ${yards(power)} · espaço no PANGYA (rosa)`
+      : `${percentText(power)} ${yards(power)} · espaço na zona (faixa branca)`
   }
 
   const rest = () => {
-    setState('done', false)
-    setState('cancelled', false)
-    setState('near', false)
     drawBar(0)
     showPower(undefined)
     label.textContent = idleText || IDLE_LABEL
@@ -282,8 +283,6 @@ export function createPowerBar(bar: PbBar, label: HTMLElement) {
   const done = (impact: number) => {
     cancelAnimationFrame(raf)
     stage = 'idle'
-    setState('near', false)
-    setState('done', true)
     label.textContent =
       Math.abs(impact) <= PANGYA_WINDOW
         ? '✨ PANGYA!'
@@ -300,8 +299,6 @@ export function createPowerBar(bar: PbBar, label: HTMLElement) {
   const giveUp = () => {
     cancelAnimationFrame(raf)
     stage = 'idle'
-    setState('near', false)
-    setState('cancelled', true)
     label.textContent = 'Tacada cancelada — espaço para tentar de novo'
     power = 0
     notify(0)
@@ -322,7 +319,7 @@ export function createPowerBar(bar: PbBar, label: HTMLElement) {
       if (yardsAt100 === maxYards) return
       maxYards = yardsAt100
       bar.setAttribute('max', num(yardsAt100))
-      drawBar(stage === 'rising' ? shown : stage === 'returning' ? power : 0, shown)
+      drawBar(stage === 'idle' ? 0 : shown)
       if (stage === 'returning') showPower(power)
       drawCalibrator()
     },
@@ -333,13 +330,11 @@ export function createPowerBar(bar: PbBar, label: HTMLElement) {
     /** Liga/desliga o 2º toque usar a força do calibrador. */
     setSnapToMark(on: boolean) {
       snap = on
-      bar.toggleAttribute('snap', on)
       drawCalibrator()
     },
     /** Liga/desliga o "sempre PANGYA" (impacto perfeito em toda tacada). */
     setAutoPangya(on: boolean) {
       autoPangya = on
-      bar.toggleAttribute('auto', on)
     },
     /**
      * Distância até o pin (jardas; undefined = sem pin). Não aparece na barra: serve para o
@@ -395,7 +390,8 @@ export function createPowerBar(bar: PbBar, label: HTMLElement) {
       cancelAnimationFrame(raf)
       clearTimeout(resetTimer)
       window.removeEventListener('keydown', onKey)
-      bar.removeEventListener('pb-track', onTrack)
+      for (const type of pointerEvents) bar.removeEventListener(type, onPointer)
+      bar.removeEventListener('contextmenu', noMenu)
     },
   }
 }

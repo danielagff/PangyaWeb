@@ -1,5 +1,7 @@
 /**
- * Componentes do HUD da tacada, os mesmos do HTML de base do Daniel (PowerBar):
+ * Componentes da PowerBar do Daniel (components/pb-*.js), portados como estão: mesmo
+ * desenho (SVG, cores, gradientes), mesmos atributos, Shadow DOM e a unidade de design --u
+ * do <power-bar> (o desenho mede 1620 × 380). Uso, como no HTML de base:
  *
  *   <power-bar>
  *     <pb-arc-panel cx="177" cy="210" inner="157" outer="214" start="-70" end="-8"
@@ -11,807 +13,557 @@
  *     <pb-socket cx="250" cy="330" r="40" inner="30" label="−" label-color="#2196f3"></pb-socket>
  *   </power-bar>
  *
- * Coordenadas em unidades de design (1620 × 380); a ordem dos filhos define a sobreposição.
- * Cada peça desenha um grupo SVG dentro do <svg> do <power-bar>. Tema pelas variáveis CSS
- * do <power-bar>: --pb-stroke, --pb-accent, --pb-fill, --pb-stroke-width, --pb-stroke-thick.
- *
- * Ângulos do arco em graus, 0 = direita, crescendo no sentido horário (como no SVG).
- * Atributos "dinâmicos" (valor, posição, estado) só atualizam o que muda — sem redesenhar
- * tudo a cada quadro e sem perder o arraste do mouse.
+ * O que o jogo acrescenta (sem mudar o desenho em repouso), marcado com "Jogo:":
+ * - <pb-gauge>: `ball` (imagem da bola do jogador no lugar da bola de vidro), `spin`/`curve`
+ *   (o ponto azul anda a partir do lugar dele), `streak` ("PangYa ×N") e `ps` (power shot:
+ *   anel dourado); evento "pb-impact" (clique/arraste na bola).
+ * - <pb-bar>: `value` negativo (o cursor volta para a zona de impacto, à esquerda do 0),
+ *   `power` (linha da força fixada), `stage="returning"` ("Click" na zona), `hover` (régua do
+ *   calibrador).
  */
 
-const SVG_NS = 'http://www.w3.org/2000/svg'
+import { pbBarGeometry } from './pb-geometry.ts'
+
+export { pbBarZone } from './pb-geometry.ts'
+
+/** Medidas do desenho original. */
 export const PB_DESIGN = { width: 1620, height: 380 }
 
-type Attrs = Record<string, string | number | undefined>
-
-/** Cria um elemento SVG com atributos (undefined = não põe). */
-export function svg<K extends keyof SVGElementTagNameMap>(
-  tag: K,
-  attrs: Attrs = {},
-  parent?: Element,
-): SVGElementTagNameMap[K] {
-  const node = document.createElementNS(SVG_NS, tag)
-  for (const [name, value] of Object.entries(attrs)) {
-    if (value !== undefined) node.setAttribute(name, String(value))
+/** Base das peças: posiciona em unidades de design e desenha um <svg> no Shadow DOM. */
+export class PbElement extends HTMLElement {
+  static get observedAttributes(): string[] {
+    return []
   }
-  parent?.appendChild(node)
-  return node
-}
 
-/** Texto SVG. */
-function text(parent: Element, content: string, attrs: Attrs) {
-  const node = svg('text', attrs, parent)
-  node.textContent = content
-  return node
-}
-
-const rad = (deg: number) => (deg * Math.PI) / 180
-const polar = (cx: number, cy: number, r: number, deg: number): [number, number] => [
-  cx + r * Math.cos(rad(deg)),
-  cy + r * Math.sin(rad(deg)),
-]
-
-/** Setor de coroa circular (de `start` a `end` graus, entre os raios `inner` e `outer`). */
-function annularSector(
-  cx: number,
-  cy: number,
-  inner: number,
-  outer: number,
-  start: number,
-  end: number,
-) {
-  const large = Math.abs(end - start) > 180 ? 1 : 0
-  const [ax, ay] = polar(cx, cy, outer, start)
-  const [bx, by] = polar(cx, cy, outer, end)
-  const [c, d] = polar(cx, cy, inner, end)
-  const [e, f] = polar(cx, cy, inner, start)
-  return (
-    `M${ax},${ay} A${outer},${outer} 0 ${large} 1 ${bx},${by} ` +
-    `L${c},${d} A${inner},${inner} 0 ${large} 0 ${e},${f} Z`
-  )
-}
-
-let uid = 0
-const nextId = (prefix: string) => `${prefix}-${++uid}`
-
-/** Ícones de traço (caixa 24 × 24). */
-const ICONS: Record<string, string> = {
-  flask:
-    'M9 3h6M10 3v6.5L4.6 18.7A1.5 1.5 0 0 0 5.9 21h12.2a1.5 1.5 0 0 0 1.3-2.3L14 9.5V3M7 15h10',
-  chat: 'M20 15a2 2 0 0 1-2 2H8l-4 4V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2z',
-  bag: 'M5 8h14l-1 13H6zM9 8V6a3 3 0 0 1 6 0v2',
-}
-
-/** Peça do <power-bar>: desenha um grupo no SVG do pai. */
-abstract class PbPart extends HTMLElement {
-  readonly group = svg('g')
-  private built = false
-  /** Atributos que só pedem `update()` (o resto redesenha a peça). */
-  protected static dynamic: string[] = []
-
-  num(name: string, fallback = 0) {
-    const value = Number(this.getAttribute(name))
-    return this.hasAttribute(name) && Number.isFinite(value) ? value : fallback
+  constructor() {
+    super()
+    this.attachShadow({ mode: 'open' })
   }
 
   connectedCallback() {
-    this.style.display = 'none'
-    this.redraw()
-    ;(this.closest('power-bar') as PowerBarElement | null)?.layout()
-  }
-
-  attributeChangedCallback(name: string, old: string | null, value: string | null) {
-    if (!this.built || old === value) return
-    if ((this.constructor as typeof PbPart).dynamic.includes(name)) this.update()
-    else this.redraw()
-  }
-
-  redraw() {
-    this.group.replaceChildren()
-    this.draw(this.group)
-    this.built = true
     this.update()
   }
 
-  /** Desenho completo. */
-  protected abstract draw(g: SVGGElement): void
-  /** Só a parte que muda (valor, posição…). */
-  protected update() {}
+  attributeChangedCallback() {
+    if (this.isConnected) this.update()
+  }
 
-  /** Ponto do evento em unidades de design. */
-  protected designPoint(e: PointerEvent | MouseEvent) {
-    const owner = this.group.ownerSVGElement
-    const matrix = owner?.getScreenCTM()
-    if (!owner || !matrix) return { x: 0, y: 0 }
+  /** Lê um atributo numérico com valor padrão. */
+  num(name: string, fallback: number) {
+    const v = parseFloat(this.getAttribute(name) ?? '')
+    return Number.isNaN(v) ? fallback : v
+  }
+
+  /** Posiciona o elemento dentro do <power-bar> (coordenadas em unidades de design). */
+  place(x: number, y: number, w: number, h: number) {
+    const u = (n: number) => `calc(${n} * var(--u))`
+    Object.assign(this.style, { left: u(x), top: u(y), width: u(w), height: u(h) })
+  }
+
+  /** Renderiza um <svg> com viewBox local e o conteúdo informado. */
+  draw(viewBox: string, content: string) {
+    this.shadowRoot!.innerHTML = `
+        <style>
+          :host { position: absolute; display: block; pointer-events: none; }
+          svg { width: 100%; height: 100%; overflow: visible; display: block; }
+          .line { fill: none; stroke: var(--pb-stroke, #111); stroke-width: var(--pb-stroke-width, 1.4); }
+          .fill { fill: var(--pb-fill, #fff); }
+          .accent { fill: none; stroke: var(--pb-accent, #1aa3e8); stroke-width: var(--pb-stroke-width, 1.4); }
+          .thick { stroke-width: var(--pb-stroke-thick, 3.5); }
+        </style>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}">${content}</svg>`
+  }
+
+  update() {}
+
+  /** Jogo: ponto do evento no viewBox do svg da peça. */
+  protected local(e: MouseEvent) {
+    const svg = this.shadowRoot!.querySelector('svg')
+    const matrix = svg?.getScreenCTM()
+    if (!svg || !matrix) return { x: 0, y: 0 }
     const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(matrix.inverse())
     return { x: p.x, y: p.y }
   }
 }
 
-/** Contêiner: um <svg> 1620 × 380 com os grupos dos filhos, na ordem. */
+/** Container: define a escala --u e a proporção do desenho. */
 export class PowerBarElement extends HTMLElement {
-  readonly svg = svg('svg', {
-    viewBox: `0 0 ${PB_DESIGN.width} ${PB_DESIGN.height}`,
-    class: 'pb-svg',
-  })
-
   connectedCallback() {
-    if (!this.svg.isConnected) this.prepend(this.svg)
-    this.layout()
+    const w = parseFloat(this.getAttribute('design-width') ?? '') || PB_DESIGN.width
+    const h = parseFloat(this.getAttribute('design-height') ?? '') || PB_DESIGN.height
+    Object.assign(this.style, {
+      display: 'block',
+      position: 'relative',
+      containerType: 'inline-size',
+      aspectRatio: `${w} / ${h}`,
+    })
+    this.style.setProperty('--u', `calc(100cqw / ${w})`)
+  }
+}
+
+// <pb-arc-panel>: setor de anel ao redor do gauge, dividido em seções,
+// cada uma com um botão de item (ícone) no meio.
+// Atributos: cx, cy (centro do gauge), inner, outer (raios),
+// start, end (ângulos em graus; 0 = direita, negativo = para cima),
+// sections (quantidade de divisões), slot (raio do botão),
+// icons (lista separada por vírgula: flask, chat).
+// Evento: "pb-item" com detail { index, icon } ao clicar num botão.
+
+// Ícones desenhados numa caixa de -10..10.
+const ICONS: Record<string, string> = {
+  flask: `<path d="M -4.5 -9 H 4.5 M -2.5 -9 V -3 L -8 6.5 Q -9 9 -6.5 9 H 6.5 Q 9 9 8 6.5 L 2.5 -3 V -9" />
+            <path d="M -5.6 2.5 H 5.6" />`,
+  chat: `<path d="M -8.5 -5.5 Q -8.5 -8 -6 -8 H 6 Q 8.5 -8 8.5 -5.5 V 1.5 Q 8.5 4 6 4 H -0.5 L -5 8 V 4 H -6 Q -8.5 4 -8.5 1.5 Z" />
+           <circle cx="-4" cy="-2" r=".6" /><circle cx="0" cy="-2" r=".6" /><circle cx="4" cy="-2" r=".6" />`,
+}
+
+export class PbArcPanel extends PbElement {
+  static override get observedAttributes() {
+    return ['cx', 'cy', 'inner', 'outer', 'start', 'end', 'sections', 'slot', 'icons']
   }
 
-  /** Põe os grupos dos filhos no SVG, na ordem do HTML (a ordem é a sobreposição). */
-  layout() {
-    for (const child of this.children) {
-      if (child instanceof PbPart) this.svg.appendChild(child.group)
+  override update() {
+    const cx = this.num('cx', 0),
+      cy = this.num('cy', 0)
+    const ri = this.num('inner', 157),
+      ro = this.num('outer', 214)
+    const a0 = this.num('start', -70),
+      a1 = this.num('end', -8)
+    const n = Math.max(1, Math.round(this.num('sections', 2)))
+    const slotR = this.num('slot', 17)
+    const icons = (this.getAttribute('icons') || '').split(',').map((s) => s.trim())
+
+    const xy = (r: number, deg: number) => {
+      const t = (deg * Math.PI) / 180
+      return [r * Math.cos(t), r * Math.sin(t)] as [number, number]
     }
-  }
-}
+    const pt = (r: number, deg: number) =>
+      xy(r, deg)
+        .map((v) => v.toFixed(2))
+        .join(' ')
+    const step = (a1 - a0) / n
+    const mid = (ri + ro) / 2
+    const large = a1 - a0 > 180 ? 1 : 0
 
-/** Painel em arco com os espaços dos ícones (itens, chat…). */
-export class PbArcPanel extends PbPart {
-  static observedAttributes = [
-    'cx',
-    'cy',
-    'inner',
-    'outer',
-    'start',
-    'end',
-    'sections',
-    'slot',
-    'icons',
-  ]
+    // Fundo do setor (fechado) e bordas visíveis.
+    let svg = `
+        <path class="sector" d="M ${pt(ri, a0)} L ${pt(ro, a0)} A ${ro} ${ro} 0 ${large} 1 ${pt(ro, a1)}
+                                L ${pt(ri, a1)} A ${ri} ${ri} 0 ${large} 0 ${pt(ri, a0)} Z" />
+        <path class="rim" d="M ${pt(ro - 3, a0 + 0.6)} A ${ro - 3} ${ro - 3} 0 ${large} 1 ${pt(ro - 3, a1)}" />`
 
-  protected draw(g: SVGGElement) {
-    const cx = this.num('cx')
-    const cy = this.num('cy')
-    const inner = this.num('inner')
-    const outer = this.num('outer')
-    const start = this.num('start')
-    const end = this.num('end')
-    const sections = Math.max(1, Math.round(this.num('sections', 1)))
-    const slot = this.num('slot', 16)
-    const icons = (this.getAttribute('icons') ?? '').split(',').map((s) => s.trim())
-    g.setAttribute('class', 'pb-arc-panel')
-    svg(
-      'path',
-      { d: annularSector(cx, cy, inner, outer, start, end), class: 'pb-shape pb-thick' },
-      g,
-    )
-    const step = (end - start) / sections
-    const mid = (inner + outer) / 2
-    for (let i = 0; i < sections; i++) {
-      if (i > 0) {
-        const [x1, y1] = polar(cx, cy, inner, start + step * i)
-        const [x2, y2] = polar(cx, cy, outer, start + step * i)
-        svg('line', { x1, y1, x2, y2, class: 'pb-line' }, g)
-      }
-      const [x, y] = polar(cx, cy, mid, start + step * (i + 0.5))
-      const cell = svg('g', { class: 'pb-slot', 'data-icon': icons[i] ?? '' }, g)
-      svg('circle', { cx: x, cy: y, r: slot, class: 'pb-shape pb-line' }, cell)
-      const icon = ICONS[icons[i] ?? '']
-      if (icon) {
-        const size = slot * 1.15
-        svg(
-          'path',
-          {
-            d: icon,
-            class: 'pb-icon',
-            transform: `translate(${x - size / 2},${y - size / 2}) scale(${size / 24})`,
-          },
-          cell,
-        )
-      }
-      const title = svg('title', {}, cell)
-      title.textContent =
-        icons[i] === 'chat' ? 'Chat' : icons[i] === 'flask' ? 'Itens (em breve)' : ''
+    for (let i = 0; i < n; i++) {
+      if (i > 0)
+        svg += `<path class="divider" d="M ${pt(ri, a0 + step * i)} L ${pt(ro, a0 + step * i)}" />`
+      const [x, y] = xy(mid, a0 + step * (i + 0.5))
+      const icon = ICONS[icons[i] ?? ''] || ''
+      svg += `
+          <g class="slot" data-index="${i}" data-icon="${icons[i] || ''}" transform="translate(${x.toFixed(2)} ${y.toFixed(2)})">
+            <circle class="slot-bg" r="${slotR}" />
+            <g class="icon" transform="scale(${(slotR / 14).toFixed(3)})">${icon}</g>
+          </g>`
     }
+
+    this.place(cx - ro, cy - ro, ro * 2, ro * 2)
+    this.draw(
+      `${-ro} ${-ro} ${ro * 2} ${ro * 2}`,
+      `
+        <style>
+          .sector { fill: #2e3d36; fill-opacity: .82; stroke: #1a2420; stroke-width: 1.5; }
+          .rim { fill: none; stroke: #8fa39a; stroke-width: 2; opacity: .6; }
+          .divider { stroke: #8fa39a; stroke-width: 1.5; opacity: .6; }
+          .slot { pointer-events: auto; cursor: pointer; }
+          .slot-bg { fill: #ffffff; fill-opacity: .06; stroke: #cfe0d8; stroke-opacity: .35; stroke-width: 1.5; transition: fill-opacity .15s; }
+          .slot:hover .slot-bg { fill-opacity: .2; }
+          .icon { fill: none; stroke: #f2f6f4; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+          .icon circle { fill: #f2f6f4; }
+        </style>
+        ${svg}`,
+    )
+
+    this.shadowRoot!.querySelectorAll<SVGGElement>('.slot').forEach((el) => {
+      el.addEventListener('click', () =>
+        this.dispatchEvent(
+          new CustomEvent('pb-item', {
+            bubbles: true,
+            composed: true,
+            detail: { index: Number(el.dataset['index']), icon: el.dataset['icon'] },
+          }),
+        ),
+      )
+    })
   }
 }
 
-/** Evento da barra: ponteiro sobre o trilho (fração da barra, 0..1). */
-export interface PbTrackDetail {
-  type: 'enter' | 'move' | 'leave' | 'down' | 'up'
-  fraction: number
-  button: number
-}
-
-/**
- * Barra de força: moldura branca arredondada, trilho escuro, preenchimento azul (`value`, em
- * jardas de `max`) com divisões, zona PANGYA rosa à esquerda, faixa vermelha na ponta,
- * polegar cinza, jardas do meio e do máximo embaixo, "Max" em cima da ponta, o calibrador
- * (`target`, triângulo verde com as jardas) e o "Click" laranja (estado "returning").
- */
-export class PbBar extends PbPart {
-  static observedAttributes = [
-    'x',
-    'y',
-    'w',
-    'h',
-    'max',
-    'zone',
-    'zone-half',
-    'pangya',
-    'value',
-    'position',
-    'power',
-    'target',
-    'hover',
-    'stage',
-    'state',
-    'snap',
-    'auto',
-  ]
-  protected static override dynamic = [
-    'value',
-    'position',
-    'power',
-    'target',
-    'hover',
-    'stage',
-    'state',
-    'snap',
-    'auto',
-  ]
-  private parts: Record<string, SVGElement> = {}
-
-  /** Trilho em unidades de design. */
-  track() {
-    const x = this.num('x')
-    const y = this.num('y')
-    const w = this.num('w', 1000)
-    const h = this.num('h', 100)
-    const x0 = x + h * 0.42
-    const x1 = x + w - h * 0.2
-    return { x, y, w, h, x0, x1, top: y + h * 0.17, height: h * 0.66 }
+// <pb-bar>: barra de força no estilo Pangya.
+// Trilha: zona de impacto (escura + branca) | escala 0..max (azul) | estouro (vermelho).
+// Atributos:
+//   x, y, w, h   posição e tamanho (unidades de design)
+//   max          distância máxima do taco em yards (padrão 256)
+//   value        posição do cursor em yards (vazio = sem cursor)
+//   target       distância do alvo em yards (vazio = sem marcador)
+//   pad-left     espaço antes da trilha (onde o gauge encosta)
+export class PbBar extends PbElement {
+  static override get observedAttributes() {
+    return ['x', 'y', 'w', 'h', 'max', 'value', 'target', 'pad-left', 'power', 'stage', 'hover']
   }
 
-  /** Fração da barra → x de design. */
-  at(fraction: number) {
-    const t = this.track()
-    return t.x0 + (t.x1 - t.x0) * fraction
+  /** Jogo: posição do mouse na escala (0..1, pode passar dos limites). */
+  scaleAt(e: MouseEvent) {
+    const w = this.num('w', 1290),
+      h = this.num('h', 100)
+    const { s0, s1 } = pbBarGeometry(w, h, this.num('pad-left', 20))
+    return (this.local(e).x - s0) / (s1 - s0)
   }
 
-  /** Jardas → fração da barra. */
-  private fraction(attr: string) {
-    const max = this.num('max', 0)
-    if (!this.hasAttribute(attr) || this.getAttribute(attr) === '') return undefined
-    const value = this.num(attr)
-    return max > 0 ? value / max : value
-  }
+  override update() {
+    const x = this.num('x', 0),
+      y = this.num('y', 0)
+    const w = this.num('w', 1290),
+      h = this.num('h', 100)
+    const max = this.num('max', 256)
+    const value = this.num('value', NaN),
+      target = this.num('target', NaN)
 
-  protected draw(g: SVGGElement) {
-    const t = this.track()
-    const max = this.num('max', 0)
-    const zone = this.num('zone', 0.06)
-    const zoneHalf = this.num('zone-half', 0.035)
-    const pangya = this.num('pangya', 0.3)
-    const clip = nextId('pb-bar-clip')
-    const glow = nextId('pb-bar-fill')
-    g.setAttribute('class', 'pb-bar')
-    const defs = svg('defs', {}, g)
-    const clipPath = svg('clipPath', { id: clip }, defs)
-    svg(
-      'rect',
-      { x: t.x0, y: t.top, width: t.x1 - t.x0, height: t.height, rx: t.height / 2 },
-      clipPath,
+    // Geometria da trilha (proporções tiradas do jogo).
+    const { tx0, ty, th, tw, impactW, overW, s0, s1 } = pbBarGeometry(
+      w,
+      h,
+      this.num('pad-left', 20),
     )
-    const gradient = svg('linearGradient', { id: glow, x1: 0, y1: 0, x2: 0, y2: 1 }, defs)
-    svg('stop', { offset: 0, 'stop-color': '#bfeaff' }, gradient)
-    svg('stop', { offset: 0.45, class: 'pb-accent-stop' }, gradient)
-    svg('stop', { offset: 1, 'stop-color': '#0b6fb0' }, gradient)
+    const toX = (yd: number) => s0 + (Math.min(Math.max(yd, 0), max) / max) * (s1 - s0)
+    // Jogo: o cursor também anda à esquerda do 0 (volta para a zona de impacto).
+    const cursorX = (yd: number) => Math.max(tx0, s0 + (Math.min(yd, max) / max) * (s1 - s0))
+    const fmt = (n: number) => `${Number.isInteger(n) ? n : n.toFixed(1)}y`
 
-    // Moldura branca e trilho escuro.
-    svg(
-      'rect',
-      { x: t.x, y: t.y, width: t.w, height: t.h, rx: t.h / 2, class: 'pb-shape pb-thick pb-frame' },
-      g,
-    )
-    svg(
-      'rect',
-      {
-        x: t.x0,
-        y: t.top,
-        width: t.x1 - t.x0,
-        height: t.height,
-        rx: t.height / 2,
-        class: 'pb-rail',
-      },
-      g,
-    )
-    const inside = svg('g', { 'clip-path': `url(#${clip})` }, g)
-    this.parts['fill'] = svg(
-      'rect',
-      { x: t.x0, y: t.top, width: 0, height: t.height, fill: `url(#${glow})` },
-      inside,
-    )
-    // Divisões a cada 10% (a do meio mais forte).
+    // Marcações a cada 10% da escala.
+    let ticks = ''
     for (let i = 1; i < 10; i++) {
-      const x = this.at(i / 10)
-      svg(
-        'line',
-        {
-          x1: x,
-          y1: t.top,
-          x2: x,
-          y2: t.top + t.height,
-          class: i === 5 ? 'pb-div pb-div-half' : 'pb-div',
-        },
-        inside,
-      )
-    }
-    // Régua do calibrador (com o mouse em cima): marcas a cada 1%.
-    const ruler = svg('g', { class: 'pb-ruler' }, inside)
-    for (let i = 1; i < 100; i++) {
-      const x = this.at(i / 100)
-      const long = i % 5 === 0
-      svg(
-        'line',
-        { x1: x, y1: t.top, x2: x, y2: t.top + t.height * (long ? 0.5 : 0.28), class: 'pb-tick' },
-        ruler,
-      )
-    }
-    this.parts['ruler'] = ruler
-    // Zona PANGYA (rosa), com a faixa perfeita e a linha do centro.
-    const zx0 = this.at(zone - zoneHalf)
-    const zx1 = this.at(zone + zoneHalf)
-    this.parts['zone'] = svg(
-      'rect',
-      { x: zx0, y: t.top, width: zx1 - zx0, height: t.height, class: 'pb-zone' },
-      inside,
-    )
-    const px0 = this.at(zone - zoneHalf * pangya)
-    const px1 = this.at(zone + zoneHalf * pangya)
-    svg(
-      'rect',
-      { x: px0, y: t.top, width: px1 - px0, height: t.height, class: 'pb-pangya' },
-      inside,
-    )
-    svg(
-      'line',
-      {
-        x1: this.at(zone),
-        y1: t.top,
-        x2: this.at(zone),
-        y2: t.top + t.height,
-        class: 'pb-pangya-center',
-      },
-      inside,
-    )
-    // Faixa vermelha na ponta.
-    const ex = this.at(0.975)
-    svg('rect', { x: ex, y: t.top, width: t.x1 - ex, height: t.height, class: 'pb-end' }, inside)
-    // Força fixada (2º toque).
-    const power = svg('g', { class: 'pb-power' }, inside)
-    svg('line', { x1: 0, y1: t.top, x2: 0, y2: t.top + t.height }, power)
-    this.parts['powerText'] = text(power, '', {
-      x: 8,
-      y: t.top + t.height - 8,
-      class: 'pb-power-text',
-    })
-    this.parts['power'] = power
-    svg(
-      'rect',
-      {
-        x: t.x0,
-        y: t.top,
-        width: t.x1 - t.x0,
-        height: t.height,
-        rx: t.height / 2,
-        class: 'pb-rail-line',
-      },
-      g,
-    )
-    // Guia do mouse.
-    this.parts['guide'] = svg(
-      'line',
-      { y1: t.top - 4, y2: t.top + t.height + 4, class: 'pb-guide' },
-      g,
-    )
-
-    // Polegar cinza.
-    const thumbId = nextId('pb-thumb')
-    const thumbGradient = svg('linearGradient', { id: thumbId, x1: 0, y1: 0, x2: 1, y2: 0 }, defs)
-    svg('stop', { offset: 0, 'stop-color': '#8d939c' }, thumbGradient)
-    svg('stop', { offset: 0.45, 'stop-color': '#f2f4f6' }, thumbGradient)
-    svg('stop', { offset: 1, 'stop-color': '#9ea4ad' }, thumbGradient)
-    this.parts['thumb'] = svg(
-      'rect',
-      {
-        x: -9,
-        y: t.top - 9,
-        width: 18,
-        height: t.height + 18,
-        rx: 7,
-        fill: `url(#${thumbId})`,
-        class: 'pb-thumb pb-line',
-      },
-      g,
-    )
-
-    // Textos: "Max" em cima da ponta, jardas do meio e do máximo embaixo, "Callipers Z X".
-    text(g, 'Max', { x: t.x1 - 4, y: t.y - 10, class: 'pb-label pb-max', 'text-anchor': 'end' })
-    if (max > 0) {
-      text(g, `${Math.round(max / 2)}y`, {
-        x: this.at(0.5),
-        y: t.y + t.h + 34,
-        class: 'pb-label',
-        'text-anchor': 'middle',
-      })
-      text(g, `${Math.round(max)}y`, {
-        x: t.x1,
-        y: t.y + t.h + 34,
-        class: 'pb-label',
-        'text-anchor': 'end',
-      })
-    }
-    const calipers = svg('g', { class: 'pb-callipers' }, g)
-    const cy = t.y + t.h + 34
-    const cx = t.x + 160
-    text(calipers, 'Callipers', { x: cx, y: cy, class: 'pb-label pb-callipers-text' })
-    for (const [i, key] of ['Z', 'X'].entries()) {
-      const kx = cx + 132 + i * 40
-      svg(
-        'rect',
-        { x: kx, y: cy - 25, width: 32, height: 32, rx: 6, class: 'pb-shape pb-line' },
-        calipers,
-      )
-      text(calipers, key, { x: kx + 16, y: cy, class: 'pb-key', 'text-anchor': 'middle' })
+      const tx = toX((max * i) / 10)
+      ticks += `<line x1="${tx}" y1="${ty}" x2="${tx}" y2="${ty + th}" class="tick" />`
     }
 
-    // Calibrador: triângulo verde com as jardas.
-    const target = svg('g', { class: 'pb-target' }, g)
-    svg(
-      'path',
-      { d: `M-13,${t.y - 24} L13,${t.y - 24} L0,${t.y - 2} Z`, class: 'pb-target-mark' },
-      target,
-    )
-    this.parts['targetText'] = text(target, '', {
-      x: 0,
-      y: t.y - 32,
-      class: 'pb-label pb-target-text',
-      'text-anchor': 'middle',
-    })
-    this.parts['target'] = target
+    const cursor = Number.isNaN(value)
+      ? ''
+      : (() => {
+          const cx = cursorX(value),
+            cw = 18,
+            ch = th + 16
+          return `<rect class="cursor" x="${cx - cw / 2}" y="${ty - 8}" width="${cw}" height="${ch}" rx="3" />
+              <line class="cursor-grip" x1="${cx}" y1="${ty - 3}" x2="${cx}" y2="${ty + th + 3}" />`
+        })()
 
-    // "Click" laranja com a seta, em cima da zona de impacto.
-    const click = svg('g', { class: 'pb-click', transform: `translate(${this.at(zone)},0)` }, g)
-    text(click, 'Click', { x: 0, y: t.y - 32, class: 'pb-click-text', 'text-anchor': 'middle' })
-    svg(
-      'path',
-      { d: `M-11,${t.y - 26} L11,${t.y - 26} L0,${t.y - 6} Z`, class: 'pb-click-arrow' },
-      click,
-    )
-    this.parts['click'] = click
+    const marker = Number.isNaN(target)
+      ? ''
+      : (() => {
+          const mx = toX(target)
+          return `<line class="target-line" x1="${mx}" y1="${ty}" x2="${mx}" y2="${ty + th}" />
+              <path class="target-tri" d="M ${mx - 11} ${ty - 30} L ${mx + 11} ${ty - 30} L ${mx} ${ty - 6} Z" />
+              <text class="label target-text" x="${mx}" y="${ty - 38}" text-anchor="middle">${fmt(target)}</text>`
+        })()
 
-    // Leitura do mouse (régua).
-    const readout = svg('g', { class: 'pb-readout' }, g)
-    this.parts['readoutBox'] = svg('rect', { y: t.y - 66, height: 34, rx: 8 }, readout)
-    this.parts['readoutText'] = text(readout, '', { y: t.y - 41, 'text-anchor': 'middle' })
-    this.parts['readout'] = readout
+    // Jogo: força fixada (2º toque), "Click" na volta e a régua do calibrador.
+    const power = this.num('power', NaN)
+    const powerLine = Number.isNaN(power)
+      ? ''
+      : `<line class="power-line" x1="${toX(power)}" y1="${ty}" x2="${toX(power)}" y2="${ty + th}" />`
+    const zoneX = s0 - impactW * 0.14
+    const click =
+      this.getAttribute('stage') === 'returning'
+        ? `<g class="click"><text class="label click-text" x="${zoneX}" y="${ty - 30}" text-anchor="middle">Click</text>
+           <path class="click-arrow" d="M ${zoneX - 10} ${ty - 24} L ${zoneX + 10} ${ty - 24} L ${zoneX} ${ty - 6} Z" /></g>`
+        : ''
+    const hover = this.num('hover', NaN)
+    let ruler = ''
+    if (!Number.isNaN(hover)) {
+      for (let i = 1; i < 100; i++) {
+        if (i % 10 === 0) continue
+        const tx = toX((max * i) / 100)
+        ruler += `<line x1="${tx}" y1="${ty}" x2="${tx}" y2="${ty + th * (i % 5 ? 0.3 : 0.55)}" class="ruler" />`
+      }
+      const hx = toX(hover * max)
+      const text = `${(hover * 100).toFixed(1).replace('.', ',')}% · ${fmt(Math.round(hover * max * 10) / 10)}`
+      ruler += `<line class="guide" x1="${hx}" y1="${ty - 4}" x2="${hx}" y2="${ty + th + 4}" />
+        <text class="label readout" x="${hx}" y="${ty - 46}" text-anchor="middle">${text}</text>`
+    }
 
-    // Área do mouse (calibrador): o trilho todo.
-    const hit = svg(
-      'rect',
-      { x: t.x0 - 8, y: t.y, width: t.x1 - t.x0 + 16, height: t.h, class: 'pb-hit' },
-      g,
-    )
-    const send = (type: PbTrackDetail['type'], e: PointerEvent) => {
-      const { x } = this.designPoint(e)
-      const fraction = Math.min(1, Math.max(0, (x - t.x0) / (t.x1 - t.x0)))
-      this.dispatchEvent(
-        new CustomEvent<PbTrackDetail>('pb-track', {
-          detail: { type, fraction, button: e.button },
-        }),
-      )
-    }
-    hit.addEventListener('pointerenter', (e) => send('enter', e))
-    hit.addEventListener('pointermove', (e) => send('move', e))
-    hit.addEventListener('pointerleave', (e) => send('leave', e))
-    hit.addEventListener('pointerdown', (e) => {
-      if (e.button === 0) hit.setPointerCapture(e.pointerId)
-      send('down', e)
-    })
-    hit.addEventListener('pointerup', (e) => send('up', e))
-    hit.addEventListener('pointercancel', (e) => send('up', e))
-    hit.addEventListener('contextmenu', (e) => e.preventDefault())
-    const title = svg('title', {}, hit)
-    title.textContent =
-      'Calibrador: clique para pôr o triângulo (botão direito tira); X sobe, Z desce (Shift: 1%)'
-  }
+    this.place(x, y, w, h)
+    this.draw(
+      `0 0 ${w} ${h}`,
+      `
+      <defs>
+        <linearGradient id="frame" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#f4f6f8" /><stop offset="1" stop-color="#c9ced4" />
+        </linearGradient>
+        <linearGradient id="power" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#7fe6ff" /><stop offset=".35" stop-color="#1cc4f5" />
+          <stop offset="1" stop-color="#0784bf" />
+        </linearGradient>
+        <linearGradient id="over" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#c8344e" /><stop offset="1" stop-color="#7a1022" />
+        </linearGradient>
+        <linearGradient id="knob" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#9aa0a6" /><stop offset=".5" stop-color="#eef0f2" />
+          <stop offset="1" stop-color="#8a9096" />
+        </linearGradient>
+      </defs>
+      <style>
+        :host { pointer-events: auto; cursor: crosshair; }
+        .frame { fill: url(#frame); stroke: #8d949b; stroke-width: 1.5; }
+        .track-bg { fill: #0f2a30; stroke: #5d666e; stroke-width: 1.5; }
+        .tick { stroke: #0a6fa3; stroke-width: 1.5; }
+        .cursor { fill: url(#knob); stroke: #5b6168; stroke-width: 1.5; }
+        .cursor-grip { stroke: #6d737a; stroke-width: 1.5; }
+        .target-line { stroke: #8b5cf6; stroke-width: 3; }
+        .target-tri { fill: #f2f8ff; stroke: #1b5fa8; stroke-width: 2.5; stroke-linejoin: round; }
+        .label {
+          font: 800 30px 'Nunito', 'Arial Rounded MT Bold', sans-serif;
+          paint-order: stroke; stroke-linejoin: round;
+          fill: #2b2f33; stroke: #fff; stroke-width: 6;
+        }
+        .target-text { fill: #3dff6e; stroke: #0b3d17; stroke-width: 6; }
+        .power-line { stroke: #fff; stroke-width: 3; }
+        .click-text { fill: #ff9800; stroke: #5a2a00; font-style: italic; }
+        .click-arrow { fill: #ff9800; stroke: #5a2a00; stroke-width: 2; stroke-linejoin: round; }
+        .click { animation: bob .35s infinite alternate; }
+        @keyframes bob { to { transform: translateY(5px); } }
+        .ruler { stroke: rgba(255, 255, 255, .7); stroke-width: 1.2; }
+        .guide { stroke: #fff; stroke-width: 2; }
+        .readout { font-size: 24px; }
+      </style>
 
-  protected override update() {
-    const p = this.parts
-    if (!p['fill']) return
-    const t = this.track()
-    const max = this.num('max', 0)
-    const yards = (fraction: number, digits: number) =>
-      max > 0 ? `${(fraction * max).toFixed(digits)}y` : `${Math.round(fraction * 100)}%`
-    const value = Math.min(1, Math.max(0, this.fraction('value') ?? 0))
-    p['fill']!.setAttribute('width', String((t.x1 - t.x0) * value))
-    const position = this.hasAttribute('position') ? this.num('position') : value
-    p['thumb']!.setAttribute(
-      'transform',
-      `translate(${this.at(Math.min(1, Math.max(0, position)))},0)`,
+      <rect class="frame" x="0" y="0" width="${w}" height="${h}" />
+      <rect class="track-bg" x="${tx0}" y="${ty}" width="${tw}" height="${th}" />
+      <rect fill="#fff" x="${s0 - impactW * 0.28}" y="${ty}" width="${impactW * 0.28}" height="${th}" />
+      <rect fill="#e040fb" x="${s0 - 4}" y="${ty}" width="4" height="${th}" />
+      <rect fill="url(#power)" x="${s0}" y="${ty}" width="${s1 - s0}" height="${th}" />
+      <rect fill="url(#over)" x="${s1}" y="${ty}" width="${overW}" height="${th}" />
+      ${ticks}
+      ${ruler}
+      ${powerLine}
+      ${marker}
+      ${cursor}
+      ${click}
+      <text class="label" x="${toX(max / 2)}" y="${h * 0.8}" text-anchor="middle">${fmt(max / 2)}</text>
+      <text class="label" x="${s1}" y="${h * 0.8}" text-anchor="middle">${fmt(max)}</text>`,
     )
-    const power = this.fraction('power')
-    p['power']!.setAttribute('visibility', power === undefined ? 'hidden' : 'visible')
-    if (power !== undefined) {
-      p['power']!.setAttribute('transform', `translate(${this.at(power)},0)`)
-      p['powerText']!.textContent = yards(power, 0)
-    }
-    const target = this.fraction('target')
-    p['target']!.setAttribute('visibility', target === undefined ? 'hidden' : 'visible')
-    if (target !== undefined) {
-      p['target']!.setAttribute('transform', `translate(${this.at(Math.min(1, target))},0)`)
-      p['targetText']!.textContent = (this.hasAttribute('snap') ? '▶ ' : '') + yards(target, 1)
-    }
-    const hover = this.getAttribute('hover')
-    const hovering = hover !== null && hover !== ''
-    this.group.classList.toggle('pb-hovering', hovering)
-    p['guide']!.setAttribute('visibility', hovering ? 'visible' : 'hidden')
-    p['readout']!.setAttribute('visibility', hovering ? 'visible' : 'hidden')
-    if (hovering) {
-      const f = Number(hover)
-      const x = this.at(f)
-      p['guide']!.setAttribute('x1', String(x))
-      p['guide']!.setAttribute('x2', String(x))
-      const label = `${(f * 100).toFixed(1).replace('.', ',')}%${max > 0 ? ` · ${yards(f, 1)}` : ''}`
-      p['readoutText']!.textContent = label
-      p['readoutText']!.setAttribute('x', String(x))
-      const width = label.length * 13 + 20
-      p['readoutBox']!.setAttribute('x', String(x - width / 2))
-      p['readoutBox']!.setAttribute('width', String(width))
-    }
-    const stage = this.getAttribute('stage') ?? 'idle'
-    p['click']!.setAttribute(
-      'visibility',
-      stage === 'returning' && !this.hasAttribute('auto') ? 'visible' : 'hidden',
-    )
-    const state = this.getAttribute('state') ?? ''
-    for (const name of ['near', 'done', 'cancelled']) {
-      this.group.classList.toggle(`pb-${name}`, state.split(' ').includes(name))
-    }
-    this.group.classList.toggle('pb-auto', this.hasAttribute('auto'))
   }
 }
 
-/** Evento do mostrador: clique/arraste na bola (x, y de -1 a 1) ou duplo clique (reset). */
+/** Jogo: clique/arraste na bola do mostrador (x, y de -1 a 1 em relação à bola). */
 export interface PbImpactDetail {
   type: 'down' | 'move' | 'up' | 'reset'
   x: number
   y: number
 }
 
-/**
- * Mostrador redondo: aro (r), anel da força (entre `track` e `inner`, cheio em `value`%),
- * face com a bola do jogador (`ball` = imagem), o ponto de impacto (`spin`/`curve`), a %
- * (`value`), o "PangYa" com os PANGYAs seguidos (`streak`) e o power shot (`ps` = 0..2).
- */
-export class PbGauge extends PbPart {
-  static observedAttributes = [
-    'cx',
-    'cy',
-    'r',
-    'track',
-    'inner',
-    'value',
-    'ball',
-    'spin',
-    'curve',
-    'streak',
-    'ps',
-    'title',
-  ]
-  protected static override dynamic = ['value', 'ball', 'spin', 'curve', 'streak', 'ps', 'title']
-  private parts: Record<string, SVGElement> = {}
-
-  /** Centro e raio da bola na face. */
-  private ballCircle() {
-    const cx = this.num('cx')
-    const cy = this.num('cy')
-    const inner = this.num('inner', 100)
-    return { x: cx, y: cy - inner * 0.12, r: inner * 0.46 }
+// <pb-gauge>: anel principal no estilo Pangya (moldura branca, anel azul,
+// bola de vidro escura com a porcentagem e o ponto de spin).
+// Atributos: cx, cy, r (raio externo), track (raio do anel azul),
+// inner (raio interno da moldura), value (porcentagem exibida, padrão 100).
+export class PbGauge extends PbElement {
+  static override get observedAttributes() {
+    return ['cx', 'cy', 'r', 'track', 'inner', 'value', 'ball', 'spin', 'curve', 'streak', 'ps']
   }
 
-  protected draw(g: SVGGElement) {
-    const cx = this.num('cx')
-    const cy = this.num('cy')
-    const r = this.num('r', 150)
-    const track = this.num('track', r * 0.9)
-    const inner = this.num('inner', r * 0.85)
-    g.setAttribute('class', 'pb-gauge')
-    const defs = svg('defs', {}, g)
-    svg('circle', { cx, cy, r, class: 'pb-shape pb-thick' }, g)
-    // Anel da força.
-    const ring = (track + inner) / 2
-    svg('circle', { cx, cy, r: ring, class: 'pb-gauge-track', 'stroke-width': track - inner }, g)
-    this.parts['arc'] = svg(
-      'circle',
-      {
-        cx,
-        cy,
-        r: ring,
-        pathLength: 100,
-        'stroke-width': track - inner,
-        class: 'pb-gauge-value',
-        transform: `rotate(-90 ${cx} ${cy})`,
-      },
-      g,
-    )
-    svg('circle', { cx, cy, r: track, class: 'pb-outline pb-line' }, g)
-    svg('circle', { cx, cy, r: inner, class: 'pb-shape pb-line' }, g)
+  /** Raio da bola (unidades locais, centro em 0,0). */
+  ballRadius() {
+    const r = this.num('r', 157)
+    return this.num('inner', r * 0.85) * 0.72
+  }
 
-    // A bola do jogador (imagem) ou, sem ela, uma bola branca desenhada.
-    const b = this.ballCircle()
-    const clip = nextId('pb-ball-clip')
-    svg('circle', { cx: b.x, cy: b.y, r: b.r }, svg('clipPath', { id: clip }, defs))
-    const shade = nextId('pb-ball-shade')
-    const gradient = svg('radialGradient', { id: shade, cx: 0.4, cy: 0.35, r: 0.7 }, defs)
-    svg('stop', { offset: 0, 'stop-color': '#ffffff' }, gradient)
-    svg('stop', { offset: 0.6, 'stop-color': '#dfe6ee' }, gradient)
-    svg('stop', { offset: 1, 'stop-color': '#9aa8ba' }, gradient)
-    const ball = svg('g', { class: 'pb-ball' }, g)
-    svg('circle', { cx: b.x, cy: b.y, r: b.r, fill: `url(#${shade})` }, ball)
-    this.parts['image'] = svg(
-      'image',
-      {
-        x: b.x - b.r,
-        y: b.y - b.r,
-        width: b.r * 2,
-        height: b.r * 2,
-        'clip-path': `url(#${clip})`,
-        preserveAspectRatio: 'xMidYMid slice',
-      },
-      ball,
+  override update() {
+    const cx = this.num('cx', 0),
+      cy = this.num('cy', 0),
+      r = this.num('r', 157)
+    const track = this.num('track', r * 0.91),
+      inner = this.num('inner', r * 0.85)
+    const value = this.num('value', 100)
+    const ball = inner * 0.72
+    // Jogo: a bola do jogador (imagem), o ponto de impacto, os PANGYAs seguidos e o power shot.
+    const image = this.getAttribute('ball')
+    const dx = this.num('curve', 0) * ball * 0.4
+    const dy = this.num('spin', 0) * ball * 0.4
+    const streak = Math.round(this.num('streak', 0))
+    const ps = this.num('ps', 0) > 0
+    const ballFill = image
+      ? `<clipPath id="ball-clip"><circle r="${ball}" /></clipPath>
+         <image href="${image}" x="${-ball}" y="${-ball}" width="${ball * 2}" height="${ball * 2}"
+                clip-path="url(#ball-clip)" preserveAspectRatio="xMidYMid slice" />`
+      : `<circle r="${ball}" fill="url(#ball)" />`
+    const streakText =
+      streak > 0
+        ? `<text class="streak" y="${-inner * 0.8}" text-anchor="middle">PangYa${streak > 1 ? ` ×${streak}` : ''}</text>`
+        : ''
+    this.place(cx - r, cy - r, r * 2, r * 2)
+    this.draw(
+      `${-r} ${-r} ${r * 2} ${r * 2}`,
+      `
+      <defs>
+        <linearGradient id="bezel" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#ffffff" /><stop offset="1" stop-color="#c8cfd6" />
+        </linearGradient>
+        <radialGradient id="ball" cx=".42" cy=".35" r=".75">
+          <stop offset="0" stop-color="#5b6670" /><stop offset=".55" stop-color="#1a1f24" />
+          <stop offset="1" stop-color="#030405" />
+        </radialGradient>
+        <radialGradient id="dot" cx=".4" cy=".35" r=".7">
+          <stop offset="0" stop-color="#e6f7ff" /><stop offset=".45" stop-color="#3fb4ff" />
+          <stop offset="1" stop-color="#0b5fc2" />
+        </radialGradient>
+      </defs>
+      <style>
+        .pct {
+          font: 800 ${ball * 0.36}px 'Nunito', 'Arial Rounded MT Bold', sans-serif;
+          paint-order: stroke; stroke-linejoin: round;
+          fill: #f4fff6; stroke: #0d4a22; stroke-width: ${ball * 0.07};
+        }
+        .streak {
+          font: 800 ${ball * 0.3}px 'Nunito', 'Arial Rounded MT Bold', sans-serif;
+          paint-order: stroke; stroke-linejoin: round; font-style: italic;
+          fill: #ff5fc0; stroke: #4a0030; stroke-width: ${ball * 0.06};
+        }
+        .ball-hit { pointer-events: auto; cursor: crosshair; touch-action: none; }
+      </style>
+
+      <circle r="${r}" fill="url(#bezel)" stroke="#2a2f35" stroke-width="2" />
+      <circle r="${track}" fill="none" stroke="${ps ? '#c98a00' : '#1565c0'}" stroke-width="${(r - inner) * 0.62}" />
+      <circle r="${track}" fill="none" stroke="${ps ? '#ffd54f' : '#4fc3ff'}" stroke-width="${(r - inner) * 0.28}" />
+      <circle r="${inner}" fill="url(#bezel)" stroke="#8d969f" stroke-width="1.5" />
+
+      <circle r="${ball + 6}" fill="#e9eef2" stroke="#9aa3ab" stroke-width="2" />
+      ${ballFill}
+      <ellipse cx="${-ball * 0.1}" cy="${-ball * 0.55}" rx="${ball * 0.55}" ry="${ball * 0.28}" fill="#fff" opacity=".22" />
+
+      <line x1="${-inner + 8}" y1="0" x2="${-ball * 0.05}" y2="0" stroke="#2fd36b" stroke-width="5" stroke-linecap="round" />
+      <text class="pct" x="${ball * 0.45}" y="${ball * 0.13}" text-anchor="middle">${Math.round(value)}%</text>
+
+      <circle cx="${dx}" cy="${ball * 0.55 + dy}" r="${ball * 0.2}" fill="none" stroke="#3fb4ff" stroke-width="2" opacity=".55" />
+      <circle cx="${dx}" cy="${ball * 0.55 + dy}" r="${ball * 0.12}" fill="url(#dot)" />
+      ${streakText}
+      <circle class="ball-hit" r="${ball}" fill="transparent" />`,
     )
-    svg('line', { x1: b.x - b.r, y1: b.y, x2: b.x + b.r, y2: b.y, class: 'pb-cross' }, ball)
-    svg('line', { x1: b.x, y1: b.y - b.r, x2: b.x, y2: b.y + b.r, class: 'pb-cross' }, ball)
-    svg('circle', { cx: b.x, cy: b.y, r: b.r, class: 'pb-outline pb-line' }, ball)
-    this.parts['dot'] = svg('circle', { cx: b.x, cy: b.y, r: 8, class: 'pb-dot' }, ball)
-    const hit = svg('circle', { cx: b.x, cy: b.y, r: b.r, class: 'pb-hit pb-ball-hit' }, g)
-    const title = svg('title', {}, hit)
-    title.textContent =
-      'Ponto de impacto: clique ou arraste (spin e curva); duplo clique centraliza'
-    const send = (type: PbImpactDetail['type'], e: PointerEvent | MouseEvent) => {
-      const p = this.designPoint(e)
+    const hit = this.shadowRoot!.querySelector<SVGCircleElement>('.ball-hit')!
+    const send = (type: PbImpactDetail['type'], e: MouseEvent) => {
+      const p = this.local(e)
       this.dispatchEvent(
         new CustomEvent<PbImpactDetail>('pb-impact', {
-          detail: { type, x: (p.x - b.x) / b.r, y: (p.y - b.y) / b.r },
+          detail: { type, x: p.x / ball, y: p.y / ball },
         }),
       )
     }
     hit.addEventListener('pointerdown', (e) => {
-      hit.setPointerCapture(e.pointerId)
+      // A captura fica no próprio elemento (o desenho é refeito a cada mudança).
+      this.setPointerCapture(e.pointerId)
       send('down', e)
     })
-    hit.addEventListener('pointermove', (e) => send('move', e))
-    hit.addEventListener('pointerup', (e) => send('up', e))
     hit.addEventListener('dblclick', (e) => send('reset', e))
-
-    // Power shot: dois indicadores à direita da bola.
-    this.parts['ps1'] = svg('circle', { cx: b.x + b.r + 22, cy: b.y - 12, r: 8, class: 'pb-ps' }, g)
-    this.parts['ps2'] = svg('circle', { cx: b.x + b.r + 22, cy: b.y + 12, r: 8, class: 'pb-ps' }, g)
-    // "PangYa ×N" e a %.
-    this.parts['streak'] = text(g, '', {
-      x: cx,
-      y: cy - inner * 0.68,
-      class: 'pb-streak',
-      'text-anchor': 'middle',
-    })
-    this.parts['value'] = text(g, '', {
-      x: cx,
-      y: cy + inner * 0.6,
-      class: 'pb-value',
-      'text-anchor': 'middle',
-    })
-    this.parts['title'] = svg('title', {}, g)
   }
 
-  protected override update() {
-    const p = this.parts
-    if (!p['value']) return
-    const value = Math.min(100, Math.max(0, this.num('value')))
-    p['value']!.textContent = `${Math.round(value)}%`
-    p['arc']!.setAttribute('stroke-dasharray', `${value} 100`)
-    const ball = this.getAttribute('ball') ?? ''
-    if (ball) p['image']!.setAttribute('href', ball)
-    else p['image']!.removeAttribute('href')
-    const b = this.ballCircle()
-    p['dot']!.setAttribute('cx', String(b.x + this.num('curve') * b.r * 0.8))
-    p['dot']!.setAttribute('cy', String(b.y + this.num('spin') * b.r * 0.8))
-    const streak = Math.round(this.num('streak'))
-    p['streak']!.textContent = streak > 0 ? `PangYa${streak > 1 ? ` ×${streak}` : ''}` : ''
-    const ps = this.num('ps')
-    p['ps1']!.classList.toggle('pb-on', ps >= 1)
-    p['ps2']!.classList.toggle('pb-on', ps >= 2)
-    this.group.classList.toggle('pb-power-shot', ps > 0)
-    p['title']!.textContent = this.getAttribute('title') ?? ''
+  private listening = false
+  override connectedCallback() {
+    super.connectedCallback()
+    if (this.listening) return
+    this.listening = true
+    this.addEventListener('pointermove', (e) => {
+      if (!this.hasPointerCapture(e.pointerId)) return
+      const p = this.local(e)
+      const ball = this.ballRadius()
+      this.dispatchEvent(
+        new CustomEvent<PbImpactDetail>('pb-impact', {
+          detail: { type: 'move', x: p.x / ball, y: p.y / ball },
+        }),
+      )
+    })
+    this.addEventListener('pointerup', () =>
+      this.dispatchEvent(
+        new CustomEvent<PbImpactDetail>('pb-impact', { detail: { type: 'up', x: 0, y: 0 } }),
+      ),
+    )
   }
 }
 
-/** Aba (retângulo arredondado) com o texto e a setinha: o passo da barra. */
-export class PbTab extends PbPart {
-  static observedAttributes = ['x', 'y', 'w', 'h', 'radius', 'label', 'label-color']
-  protected static override dynamic = ['label', 'label-color']
-  private label: SVGTextElement | undefined
-  private arrow: SVGPathElement | undefined
-
-  protected draw(g: SVGGElement) {
-    const x = this.num('x')
-    const y = this.num('y')
-    const w = this.num('w', 140)
-    const h = this.num('h', 70)
-    g.setAttribute('class', 'pb-tab')
-    svg(
-      'rect',
-      { x, y, width: w, height: h, rx: this.num('radius', 10), class: 'pb-shape pb-thick' },
-      g,
-    )
-    this.label = text(g, '', {
-      x: x + (w - 24) / 2,
-      y: y + h * 0.64,
-      class: 'pb-tab-label',
-      'text-anchor': 'middle',
-      'font-size': h * 0.42,
-    })
-    const ax = x + w - 22
-    const ay = y + h / 2
-    this.arrow = svg(
-      'path',
-      {
-        d: `M${ax - 7},${ay - 11} L${ax + 8},${ay} L${ax - 7},${ay + 11} Z`,
-        class: 'pb-tab-arrow',
-      },
-      g,
-    )
+// <pb-tab>: aba azul arredondada (ex.: "Impact") com setinha para cima.
+// Atributos: x, y, w, h, radius, label.
+export class PbTab extends PbElement {
+  static override get observedAttributes() {
+    return ['x', 'y', 'w', 'h', 'radius', 'label']
   }
 
-  protected override update() {
-    if (!this.label || !this.arrow) return
-    this.label.textContent = this.getAttribute('label') ?? ''
-    const color = this.getAttribute('label-color')
-    this.label.style.fill = color ?? ''
-    this.arrow.style.fill = color ?? ''
+  override update() {
+    const x = this.num('x', 0),
+      y = this.num('y', 0)
+    const w = this.num('w', 100),
+      h = this.num('h', 40)
+    const rx = this.num('radius', 12)
+    const label = this.getAttribute('label') || ''
+    const ax = w - 20,
+      ay = h * 0.3
+    this.place(x, y, w, h)
+    this.draw(
+      `0 0 ${w} ${h}`,
+      `
+      <defs>
+        <linearGradient id="tab" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#5fb0f5" /><stop offset=".5" stop-color="#2c7fd6" />
+          <stop offset="1" stop-color="#1a5aa8" />
+        </linearGradient>
+      </defs>
+      <style>
+        .lbl {
+          font: 800 ${h * 0.36}px 'Nunito', 'Arial Rounded MT Bold', sans-serif;
+          paint-order: stroke; stroke-linejoin: round;
+          fill: #fff; stroke: #0b2f5c; stroke-width: ${h * 0.08};
+        }
+      </style>
+      <rect width="${w}" height="${h}" rx="${rx}" fill="url(#tab)" stroke="#0d3d75" stroke-width="2" />
+      <rect x="3" y="3" width="${w - 6}" height="${h * 0.4}" rx="${rx - 3}" fill="#fff" opacity=".15" />
+      <path d="M ${ax - 8} ${ay + 3} L ${ax} ${ay - 6} L ${ax + 8} ${ay + 3} Z M ${ax - 8} ${ay + 6} H ${ax + 8}"
+            fill="#fff" stroke="#fff" stroke-width="2.5" stroke-linejoin="round" />
+      <text class="lbl" x="${w / 2}" y="${h * 0.8}" text-anchor="middle">${label}</text>`,
+    )
   }
 }
 
-/** Soquete redondo (aro, miolo e texto): o taco, o power shot. */
-export class PbSocket extends PbPart {
-  static observedAttributes = ['cx', 'cy', 'r', 'inner', 'thick', 'label', 'label-color', 'title']
-  protected static override dynamic = ['label', 'label-color', 'title']
-  private label: SVGTextElement | undefined
-  private titleNode: SVGTitleElement | undefined
+// <pb-socket>: botão redondo preto com aro branco (taco "3W", botão de spin "−").
+// Atributos: cx, cy, r (externo), inner (raio do miolo preto),
+// thick (aro mais grosso), label (texto central), label-color.
+export class PbSocket extends PbElement {
+  static override get observedAttributes() {
+    return ['cx', 'cy', 'r', 'inner', 'thick', 'label', 'label-color']
+  }
 
-  protected draw(g: SVGGElement) {
-    const cx = this.num('cx')
-    const cy = this.num('cy')
-    const r = this.num('r', 40)
+  override update() {
+    const cx = this.num('cx', 0),
+      cy = this.num('cy', 0),
+      r = this.num('r', 40)
     const inner = this.num('inner', r * 0.75)
-    g.setAttribute('class', 'pb-socket')
-    svg(
-      'circle',
-      { cx, cy, r, class: `pb-shape ${this.hasAttribute('thick') ? 'pb-thick' : 'pb-line'}` },
-      g,
+    const label = this.getAttribute('label') || ''
+    const color = this.getAttribute('label-color') || '#fff'
+    const size = inner * (label.length === 1 ? 1.4 : 0.8)
+    const ring = this.hasAttribute('thick') ? 4 : 2.5
+    this.place(cx - r, cy - r, r * 2, r * 2)
+    this.draw(
+      `${-r} ${-r} ${r * 2} ${r * 2}`,
+      `
+      <defs>
+        <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#ffffff" /><stop offset="1" stop-color="#bcc4cc" />
+        </linearGradient>
+        <radialGradient id="core" cx=".4" cy=".3" r=".8">
+          <stop offset="0" stop-color="#3a3f45" /><stop offset="1" stop-color="#050505" />
+        </radialGradient>
+      </defs>
+      <style>
+        .lbl {
+          font: 900 ${size}px 'Nunito', 'Arial Rounded MT Bold', sans-serif;
+          paint-order: stroke; stroke-linejoin: round; stroke: #000; stroke-width: ${inner * 0.08};
+        }
+      </style>
+      <circle r="${r - ring / 2}" fill="url(#rim)" stroke="#1d2126" stroke-width="${ring}" />
+      <circle r="${inner}" fill="url(#core)" stroke="#59616a" stroke-width="1.5" />
+      <ellipse cy="${-inner * 0.5}" rx="${inner * 0.6}" ry="${inner * 0.28}" fill="#fff" opacity=".12" />
+      <text class="lbl" y="${size * 0.35}" text-anchor="middle" fill="${color}">${label}</text>`,
     )
-    svg('circle', { cx, cy, r: inner, class: 'pb-shape pb-line' }, g)
-    this.label = text(g, '', {
-      x: cx,
-      y: cy,
-      class: 'pb-socket-label',
-      'text-anchor': 'middle',
-      'dominant-baseline': 'central',
-      'font-size': inner * 0.92,
-    })
-    this.titleNode = svg('title', {}, g)
-  }
-
-  protected override update() {
-    if (!this.label || !this.titleNode) return
-    this.label.textContent = this.getAttribute('label') ?? ''
-    this.label.style.fill = this.getAttribute('label-color') ?? ''
-    this.titleNode.textContent = this.getAttribute('title') ?? ''
   }
 }
 

@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PowerBar</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Nunito:wght@800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        margin: 0;
+        padding: 40px 16px;
+        background: #fff;
+      }
+      power-bar {
+        max-width: 1620px;
+        margin: 0 auto;
+        /* Tema: troque aqui as cores e espessuras de todas as peças */
+        --pb-stroke: #111;
+        --pb-accent: #1aa3e8;
+        --pb-fill: #fff;
+        --pb-stroke-width: 1.4;
+        --pb-stroke-thick: 3.5;
+      }
+    </style>
+    <script src="components/pb-base.js"></script>
+    <script src="components/pb-gauge.js"></script>
+    <script src="components/pb-socket.js"></script>
+    <script src="components/pb-arc-panel.js"></script>
+    <script src="components/pb-rect.js"></script>
+    <script src="components/pb-bar.js"></script>
+  </head>
+  <body>
+    <!-- Coordenadas em unidades de design (1620 x 380). A ordem define a sobreposição. -->
+    <power-bar>
+      <pb-arc-panel
+        cx="177"
+        cy="210"
+        inner="157"
+        outer="214"
+        start="-70"
+        end="-8"
+        sections="2"
+        slot="17"
+        icons="flask,chat"
+      ></pb-arc-panel>
+      <pb-bar x="320" y="180" w="1290" h="100" max="256" value="195" target="249.6"></pb-bar>
+      <pb-gauge cx="177" cy="210" r="157" track="143" inner="133" value="100"></pb-gauge>
+      <pb-tab x="312" y="245" w="148" h="77" radius="12" label="Impact"></pb-tab>
+      <pb-socket cx="71" cy="94" r="61" inner="44" thick label="3W"></pb-socket>
+      <pb-socket cx="250" cy="330" r="40" inner="30" label="−" label-color="#2196f3"></pb-socket>
+    </power-bar>
+  </body>
+</html>
