@@ -1,5 +1,6 @@
 export * from './hole.ts'
 export * from './hole-data.ts'
 export * from './world.ts'
+export * from './calculator.ts'
 export * from './match.ts'
 export * from './protocol.ts'

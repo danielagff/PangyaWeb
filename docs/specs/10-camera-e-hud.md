@@ -100,6 +100,18 @@ Câmeras de jogo e HUD com as informações necessárias para mirar como no orig
 - **Sempre PANGYA** (desenvolvimento, só no modo sozinho — a sala não tem): tecla **P** liga
   e desliga (lembrado no navegador; "PANGYA · AUTO" na barra). Com ele, o marcador bate
   sozinho no centro da zona (2 toques bastam) e o 3º toque também sai perfeito.
+- **Calculadora** (desenvolvimento, só no modo sozinho): tecla **G**. `solveShot` em
+  `packages/game/src/calculator.ts` acha a mira e a força para a bola cair direto na cova
+  ("de dunk": tacada normal, bola no centro, impacto perfeito) com a física de verdade —
+  vento, desnível, terreno e a força do piso já sorteada — pelo método de Newton sobre o
+  primeiro toque no chão, e confere jogando a tacada inteira. Já deixa a mira, o taco (se
+  o escolhido não alcança, o primeiro mais longo que alcança), a bola no centro e o
+  calibrador na força exata: com o P, são só os 2 toques. Mostra "1W · força 98,29%
+  (226,1y) · mira 0,50° (2,0y) à direita do pin · entra de dunk"; avisa quando não alcança
+  (quanto falta), quando há obstáculo no caminho (a quantas jardas) e no green (putt ainda
+  não). Conferido no Blue Lagoon (bola no tee e em 392 pontos de fairway, rough, bunker e
+  areia, com vento sorteado): toda tacada que ela achou entrou na cova (320/320); o resto
+  era obstáculo no caminho (69) ou fora de alcance (3). Leva até ~50 ms.
 
 ## Problemas conhecidos
 

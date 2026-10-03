@@ -40,7 +40,11 @@ function reduce(state: MatchState, event: MatchEvent): MatchState   // puro, det
 - Penalidades implementadas (a confirmar no original): água +1 com a bola no último ponto
   seco da trajetória; O.B. +1 voltando para onde a tacada saiu; limite de 3× o par.
 - Força do piso sorteada entre `min` e `max` do property.xml (`power2`/`power3` ainda não
-  usados — verificar quando o jogo usa cada faixa).
+  usados — verificar quando o jogo usa cada faixa) **quando a bola para** (inteira, por quem
+  simulou — o servidor na sala): fica no estado (`HoleState.liePower`), aparece no HUD
+  ("Piso: rough 88%") e a tacada seguinte usa ela. Assim a força é conhecida antes de bater
+  (dá para calcular; a calculadora G usa a mesma). Ex. Blue Lagoon: fairway 95–100%, rough
+  85–95%, bunker 80–85%, tee 100%.
 - Vento sorteado no início de cada buraco (0–9 m, direção qualquer).
 - Fim do buraco: resultado (Birdie, Par…, Chip-in), cartão e botão "Próximo buraco"; o
   cartão segue pela URL (`&cartao=4:4,3:3`).

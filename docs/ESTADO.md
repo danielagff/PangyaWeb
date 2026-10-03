@@ -33,7 +33,7 @@ jogar com amigos, com o **PC do Daniel como servidor**. Não é vendido nem publ
 | Física                  | Voo portado do SuperSS-Dev, com a **barra sendo a distância real** (x% da barra cai a x% do alcance, no plano e sem vento); quique, rolagem e putt no terreno real; colisão com árvores/objetos pelas caixas `.pycb`; água, O.B., bunker.                                                                                                                                                                    |
 | Tacada                  | HUD embaixo como no original: taco na roda do mouse, power shot no Alt (2× = 2 PS), spin/curva clicando na bola do mostrador, força do personagem; barra sempre visível (3 toques, escala do taco, faixa PANGYA; deixar passar cancela; sem o pin); mira A/D precisa (toque = 0,1°).                                                                                                                         |
 | Câmera e cova           | O mouse nunca move a câmera; no voo A/D giram e S mostra de cima até a bola quase cair. Vista aérea (M ou 0) como no original: **linha vermelha até o X** (100% do taco) com a distância, pin com desnível (m) e distância; ↑/↓ andam pela linha, Shift+↑/↓ zoom suave, roda troca o taco, espaço volta à câmera normal; Delete+0 abre no X. Cova de verdade (a bola cai dentro), com a luz que puxa a bola. |
-| Ferramentas de teste    | **Calibrador** na barra de força (um ponteiro: clique põe, X sobe/Z desce 0,1%; no modo sozinho o 2º espaço usa a força dele) e **sempre PANGYA** (tecla P, só sozinho) para testar a física.                                                                                                                                                                                                                |
+| Ferramentas de teste    | **Calculadora** (tecla G: mira e força para cair na cova, com vento e desnível), **calibrador** na barra de força (um ponteiro: clique põe, X sobe/Z desce 0,1%; no modo sozinho o 2º espaço usa a força dele) e **sempre PANGYA** (tecla P). Tudo só no modo sozinho.                                                                                                                                       |
 | Força do personagem     | Escolhida no menu e na sala antes da partida (mostra quanto o 1W alcança); o servidor usa a força de cada jogador.                                                                                                                                                                                                                                                                                           |
 | Regras                  | Buraco completo (par, penalidades, chip-in), placar entre buracos.                                                                                                                                                                                                                                                                                                                                           |
 | Multiplayer             | Servidor no PC do anfitrião; sala com chat, escolha de personagem, curso e buracos; turnos (honra no tee, depois o mais longe do pin); placar; o servidor simula as tacadas.                                                                                                                                                                                                                                 |
@@ -46,7 +46,14 @@ jogar com amigos, com o **PC do Daniel como servidor**. Não é vendido nem publ
 
 ## Em andamento agora
 
-Última entrega (03/10/2026): **a barra de força é a distância de verdade** (decisão do
+Última entrega (03/10/2026): **calculadora (tecla G, só no modo sozinho)** — mira e força
+para a bola cair direto na cova, com vento, desnível e terreno; já deixa mira, taco e
+calibrador prontos (com o P, são só os 2 toques). No Blue Lagoon, toda tacada que ela achou
+entrou (320 de 320 casos; o resto era obstáculo no caminho ou fora de alcance). Para dar
+para calcular, a **força do piso agora é sorteada quando a bola para** e aparece no HUD
+("rough 88%"); a tacada seguinte usa ela.
+
+Antes (versão `905ab09`): **a barra de força é a distância de verdade** (decisão do
 Daniel). No plano, sem vento e com a bola no centro, x% da barra cai a x% do alcance do taco
 — pin a 115y com o 1W de 230y → 50% cai no pin. Vento, desnível, spin e curva mudam a partir
 daí. Conferido: nos buracos 2 e 6 do Blue Lagoon (par 3), a força certa contando o desnível
@@ -135,7 +142,9 @@ Regras de nomes de peças já confirmadas pelo Daniel (implementadas em
    — ainda não reproduzido.
 6. **Calibração final do quique e da rolagem** (spec 08), combinada para o fim: gravar
    tacadas reais e ajustar as constantes até ficar igual ao original.
-7. Depois: itens/cartas/caddies, mais modos de jogo, polimento visual.
+7. **Calculadora no green** (putt) e com spin/curva/especiais; hoje ela só faz a tacada
+   normal no ar.
+8. Depois: itens/cartas/caddies, mais modos de jogo, polimento visual.
 
 ## Decisões tomadas
 
@@ -148,6 +157,8 @@ Regras de nomes de peças já confirmadas pelo Daniel (implementadas em
 - **A barra de força é a distância real** (03/10/2026): não precisa ser igual ao original;
   precisa dar para calcular — no plano e sem vento, x% da barra cai a x% do alcance do taco,
   e vento, desnível, spin e curva mudam a partir daí.
+- **Força do piso conhecida antes de bater** (03/10/2026): sorteada quando a bola para e
+  mostrada no HUD, em vez de sorteada na hora da tacada — para dar para calcular.
 - **Não descompilar o GhostPro** (produto pago e fechado de outra pessoa). Ele só faz o voo,
   que já temos.
 - **Servidor autoritativo** no PC do anfitrião: o servidor simula as tacadas e manda o

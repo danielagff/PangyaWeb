@@ -1,6 +1,6 @@
 import type { SurfaceClass } from '@pangya/formats'
 import { describe, expect, it } from 'vitest'
-import { startHole } from './hole.ts'
+import { applyShot, startHole } from './hole.ts'
 import type { HoleData } from './hole-data.ts'
 import { describeShot, HoleWorld, sanitizeRequest } from './world.ts'
 import { decodeFrames, encodeFrames } from './protocol.ts'
@@ -83,6 +83,18 @@ describe('HoleWorld', () => {
     expect(Math.abs(shot.outcome.at.x)).toBeLessThan(5)
     expect(shot.groundPower).toBe(100)
     expect(describeShot(state.ball, shot)).toMatch(/^voo \d+\.\dy \+ rolagem/)
+  })
+
+  it('a força do piso sai sorteada quando a bola para e a tacada seguinte usa ela', () => {
+    const state = startHole(4, world.tee)
+    const shot = world.play(state, { club: '1W', percent: 1, aim: 0 }, calm, () => 0.25)
+    expect(shot.outcome).toMatchObject({ type: 'stop', surface: 'fairway' })
+    const power = (shot.outcome as { liePower: number }).liePower
+    expect(power).toBe(93) // faixa do fairway do teste: 90–100%, sorteio 0,25 (arredondado)
+    const next = applyShot(state, shot.outcome)
+    const request = { club: '5I' as const, percent: 0.8, aim: 0 }
+    // Sorteio novo ignorado: vale a força já sorteada.
+    expect(world.shotInput(next, request, calm, () => 0.99).ground).toBe(93)
   })
 
   it('a linha do tempo vai da batida ao fim, em quadros crescentes', () => {

@@ -3,6 +3,7 @@ import {
   HoleWorld,
   isPangya,
   loadHoleData,
+  solveShot,
   type ShotEvent,
   type HoleRef,
   type HoleState,
@@ -561,6 +562,7 @@ export class HoleView {
       if (key === 'KeyP' && this.devTools && !(e as KeyboardEvent).repeat) {
         this.setAutoPangya(!this.autoPangya)
       }
+      if (key === 'KeyG' && this.devTools && !(e as KeyboardEvent).repeat) this.runCalculator()
       if (key === 'KeyS' && this.flight && this.freeFlightCamera()) this.flightTop = !this.flightTop
       // Vista aérea: ↑/↓ andam pela linha da mira, Shift+↑/↓ = zoom (segurando, suave).
       if (['ArrowUp', 'ArrowDown', 'ShiftLeft', 'ShiftRight'].includes(key)) {
@@ -707,7 +709,9 @@ export class HoleView {
         ' · espaço: barra (3 toques) · clique na bola do mostrador: spin/curva' +
         ' · M ou 0: vista aérea (↑/↓ anda na linha, Shift+↑/↓ zoom, espaço volta;' +
         ' Delete+0: no X) · calibrador: clique na barra, Z desce, X sobe' +
-        (options.devTools ? ' (o 2º espaço usa a força dele) · P: sempre PANGYA' : '') +
+        (options.devTools
+          ? ' (o 2º espaço usa a força dele) · P: sempre PANGYA · G: calculadora (mira e força para cair na cova)'
+          : '') +
         ' · no voo: A/D gira, S de cima · T pisos · F névoa · C colisão'
       if (course.texturesMissing.length) {
         console.info('texturas não encontradas:', course.texturesMissing)
@@ -1264,6 +1268,58 @@ export class HoleView {
     this.beam.scale.set(scale, 1, scale)
   }
 
+  /**
+   * Tecla G (só sozinho): calculadora. Acha a mira e a força para a bola cair direto na cova
+   * (tacada normal, impacto perfeito) com o vento e o desnível de agora, e já deixa tudo
+   * pronto: mira, taco (se o escolhido não alcança), bola no centro e o calibrador na força
+   * — com o sempre PANGYA (P), é só dar os 2 toques de espaço.
+   */
+  private runCalculator() {
+    if (this.phase !== 'aim' || !this.controllable || !this.active || this.bar.active) return
+    const state = this.active.state
+    const current = this.panel.read()
+    const result = solveShot(this.world, state, this.wind, {
+      club: current.club,
+      powerShot: current.powerShot,
+      power: this.active.power ?? DEFAULT_POWER,
+    })
+    if ('reason' in result) {
+      const clubName = result.club === 'PT1' ? 'PT' : result.club
+      this.panel.showResult(
+        result.reason === 'putter'
+          ? '🧮 Calculadora: no green ainda não calcula (só tacadas no ar).'
+          : result.reason === 'outOfReach'
+            ? `🧮 Não alcança nem com o ${clubName}: faltam ${result.shortBy!.toFixed(1)}y (power shot?).`
+            : result.reason === 'obstacle'
+              ? `🧮 Obstáculo no caminho a ${result.obstacleAt!.toFixed(1)}y (C mostra as caixas).`
+              : '🧮 Não achei uma tacada que caia na cova daqui.',
+      )
+      return
+    }
+    this.panel.setClub(result.club)
+    this.panel.setImpact(0, 0)
+    this.panel.setPercent(result.percent)
+    this.bar.setCalibratorValue(result.percent)
+    const pinAim = this.world.aimAtPin(state.ball)
+    this.aim = result.aim
+    this.targetDirty = true
+    const model = this.ready.get(this.active.id)
+    if (model?.root.visible) void this.address(model)
+    const offset = (result.aim - pinAim) / DEG
+    const pin = this.world.distanceToPin(state.ball)
+    const side =
+      Math.abs(offset) < 0.005
+        ? 'mira no pin'
+        : `mira ${Math.abs(offset).toFixed(2)}° (${(pin * Math.tan(Math.abs(offset) * DEG)).toFixed(1)}y) à ${offset > 0 ? 'esquerda' : 'direita'} do pin`
+    const yards = (result.percent * this.world.shotRange(state, this.request())).toFixed(1)
+    const clubName = result.club === 'PT1' ? 'PT' : result.club
+    this.panel.showResult(
+      `🧮 ${clubName} · força ${(result.percent * 100).toFixed(2).replace('.', ',')}% (${yards}y) · ${side}` +
+        (result.holed ? ' · entra de dunk' : ` · cai a ${result.miss.toFixed(2)}y do pin`) +
+        (this.autoPangya ? '' : ' · acerte o PANGYA (ou P)'),
+    )
+  }
+
   /** Tecla P (só sozinho): impacto sempre PANGYA, para testar a física. */
   private setAutoPangya(on: boolean, announce = true) {
     this.autoPangya = on
@@ -1381,7 +1437,13 @@ export class HoleView {
     const kind = this.world.lieKind(state)
     const label = SURFACE_LABELS[kind as SurfaceKind] ?? kind
     const lie = state.lie === 'tee' ? undefined : this.world.surfaceAt(state.ball.x, state.ball.z)
-    const power = lie ? ` (${lie.power.min}–${lie.power.max}%)` : ''
+    // Força do piso já sorteada quando a bola parou (a tacada usa ela); senão, a faixa.
+    const power =
+      state.liePower !== undefined && state.lie !== 'tee'
+        ? ` ${state.liePower}%`
+        : lie
+          ? ` (${lie.power.min}–${lie.power.max}%)`
+          : ''
     const rise = unitsToMeters(this.world.cup.y - state.ball.y)
     const who = this.players.length > 1 ? `<strong>${p.name}</strong> · ` : ''
     this.hud.innerHTML =

@@ -328,6 +328,10 @@ export function createPowerBar(parent: HTMLElement = document.body) {
       max.textContent = yards(1)
       drawRuler()
     },
+    /** Põe o calibrador numa força exata (fração da barra; a calculadora usa). */
+    setCalibratorValue(value: number) {
+      setCalibrator(Math.min(1, Math.max(0, value)))
+    },
     /** Liga/desliga o 2º toque usar a força do calibrador. */
     setSnapToMark(on: boolean) {
       snap = on

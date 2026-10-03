@@ -193,7 +193,13 @@ export class HoleWorld {
    */
   shotInput(state: HoleState, request: ShotRequest, wind: Wind, random = Math.random): ShotInput {
     const lie = state.lie === 'tee' ? undefined : this.surfaceAt(state.ball.x, state.ball.z)
-    const ground = lie ? lie.power.min + random() * (lie.power.max - lie.power.min) : 100
+    // Força do piso: a já sorteada quando a bola parou (state.liePower); estado antigo
+    // sem ela, sorteia agora.
+    const ground =
+      state.lie === 'tee'
+        ? 100
+        : (state.liePower ??
+          (lie ? lie.power.min + random() * (lie.power.max - lie.power.min) : 100))
     const hit = this.grid.groundAt(state.ball.x, state.ball.z)
     const normal = hit && state.lie !== 'tee' ? this.grid.normalOf(hit.triangle) : undefined
     // Erro da barra: curva para o lado do erro (no putt, desvia a mira); fora da zona, perde força.
@@ -284,6 +290,27 @@ export class HoleWorld {
     }
   }
 
+  /**
+   * Onde a bola toca o chão primeiro, com vento e terreno (para a calculadora). `cup`: com a
+   * luz da cova (a bola que passa baixo por cima é puxada: `holed`). O piso do lugar (rough
+   * etc.) entra no meio da faixa de força dele.
+   */
+  flightLanding(state: HoleState, request: ShotRequest, wind: Wind, cup = false) {
+    const input = this.shotInput(state, request, wind, () => 0.5)
+    const flight = new FlightSimulator(input, state.ball).flyOverGround(
+      (x, z) => this.grid.groundAt(x, z)?.y,
+      -1000,
+      this.obstacles,
+      cup ? this.cup : undefined,
+    )
+    return {
+      at: flight.landing,
+      landed: flight.landed,
+      holed: flight.holed === true,
+      obstacle: flight.obstacle !== undefined,
+    }
+  }
+
   /** Alcance do HUD (jardas a 100%) para a tacada: taco, força do jogador, power shot, piso. */
   shotRange(state: HoleState, request: ShotRequest): number {
     if (CLUBS[request.club].category === 'putter') return PUTT_RANGE
@@ -333,6 +360,12 @@ export class HoleWorld {
       z: result.frames[n - 1]!,
     }
     const how = result.ground?.outcome ?? 'outOfBounds'
+    /** Força do piso onde a bola ficou, sorteada agora (inteira, na faixa do piso). */
+    const liePower = (at: Point) => {
+      const surface = this.surfaceAt(at.x, at.z)
+      if (!surface) return 100
+      return Math.round(surface.power.min + random() * (surface.power.max - surface.power.min))
+    }
     let outcome: ShotOutcome
     if (how === 'hole') outcome = { type: 'hole', at: this.cup }
     else if (how === 'water') {
@@ -342,9 +375,17 @@ export class HoleWorld {
         at: end,
         dropAt,
         dropSurface: this.surfaceAt(dropAt.x, dropAt.z)?.kind ?? 'rough',
+        liePower: liePower(dropAt),
       }
     } else if (how === 'outOfBounds') outcome = { type: 'outOfBounds', at: end }
-    else outcome = { type: 'stop', at: end, surface: result.ground?.surface ?? 'default' }
+    else {
+      outcome = {
+        type: 'stop',
+        at: end,
+        surface: result.ground?.surface ?? 'default',
+        liePower: liePower(end),
+      }
+    }
 
     const events: ShotEvent[] = [{ frame: 0, type: 'hit' }]
     if (result.hitObject) events.push({ frame: result.flightFrames - 1, type: 'obstacle' })

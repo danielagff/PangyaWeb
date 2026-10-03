@@ -14,11 +14,16 @@ export interface Point {
   z: number
 }
 
+/**
+ * `liePower`: força do piso onde a bola ficou (%), sorteada na faixa do piso por quem simulou
+ * (o servidor, na sala) quando a bola para — fica conhecida antes da próxima tacada (HUD e
+ * calculadora) e a próxima tacada usa ela.
+ */
 export type ShotOutcome =
-  | { type: 'stop'; at: Point; surface: string }
+  | { type: 'stop'; at: Point; surface: string; liePower?: number }
   | { type: 'hole'; at: Point }
   /** `dropAt`/`dropSurface`: onde a bola é recolocada (calculado por quem simulou). */
-  | { type: 'water'; at: Point; dropAt: Point; dropSurface: string }
+  | { type: 'water'; at: Point; dropAt: Point; dropSurface: string; liePower?: number }
   | { type: 'outOfBounds'; at: Point }
 
 export interface HoleState {
@@ -30,6 +35,11 @@ export interface HoleState {
   ball: Point
   /** Piso onde a bola está (tipo de superfície do property.xml; "tee" na saída). */
   lie: string
+  /**
+   * Força do piso onde a bola está (%), já sorteada (ver ShotOutcome); undefined = 100 no
+   * tee (ou estado antigo, sorteia na hora).
+   */
+  liePower?: number
   finished: boolean
   /** Como o buraco terminou. */
   result?: 'holed' | 'gaveUp'
@@ -65,12 +75,14 @@ export function applyShot(state: HoleState, outcome: ShotOutcome): HoleState {
     case 'stop':
       next.ball = outcome.at
       next.lie = outcome.surface
+      setLiePower(next, outcome.liePower)
       break
     case 'water':
       next.strokes++
       next.penalties++
       next.ball = outcome.dropAt
       next.lie = outcome.dropSurface
+      setLiePower(next, outcome.liePower)
       break
     case 'outOfBounds':
       next.strokes++
@@ -79,6 +91,12 @@ export function applyShot(state: HoleState, outcome: ShotOutcome): HoleState {
   }
   if (next.strokes >= next.maxStrokes) return { ...next, finished: true, result: 'gaveUp' }
   return next
+}
+
+/** Força do piso do lugar novo (sem ela, a próxima tacada sorteia). */
+function setLiePower(state: HoleState, power: number | undefined) {
+  if (power === undefined) delete state.liePower
+  else state.liePower = power
 }
 
 /** Nome do resultado (como no placar do jogo). */

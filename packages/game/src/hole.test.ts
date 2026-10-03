@@ -26,6 +26,24 @@ describe('regras do buraco', () => {
     expect(s).toMatchObject({ strokes: 2, penalties: 1, ball: at(140), lie: 'rough' })
   })
 
+  it('força do piso: sorteada quando a bola para e mantida no O.B.', () => {
+    let s = startHole(5, at(0))
+    s = applyShot(s, { type: 'stop', at: at(250), surface: 'rough', liePower: 88 })
+    expect(s.liePower).toBe(88)
+    s = applyShot(s, { type: 'outOfBounds', at: at(999) })
+    expect(s).toMatchObject({ ball: at(250), lie: 'rough', liePower: 88 })
+    s = applyShot(s, {
+      type: 'water',
+      at: at(300),
+      dropAt: at(290),
+      dropSurface: 'fairway',
+      liePower: 97,
+    })
+    expect(s).toMatchObject({ lie: 'fairway', liePower: 97 })
+    s = applyShot(s, { type: 'stop', at: at(320), surface: 'green' })
+    expect(s.liePower).toBeUndefined()
+  })
+
   it('O.B.: +1 e a bola volta para onde a tacada saiu', () => {
     let s = startHole(5, at(0))
     s = applyShot(s, { type: 'stop', at: at(250), surface: 'rough' })

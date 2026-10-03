@@ -156,6 +156,12 @@ export function createShotHud(onShoot: () => void) {
     setPercent(percent: number) {
       input.percent = Math.min(1, Math.max(0.01, percent))
     },
+    /** Ponto de impacto na bola (spin e curva, -1..1). */
+    setImpact(spin: number, curve: number) {
+      input.spin = spin
+      input.curve = curve
+      changed()
+    },
     /** Novo buraco/tacada: tira o power shot e centraliza o impacto. */
     resetShot() {
       input.powerShot = 'none'
