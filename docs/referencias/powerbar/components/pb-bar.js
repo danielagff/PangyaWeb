@@ -6,65 +6,46 @@
 //   value        posição do cursor em yards (vazio = sem cursor)
 //   target       distância do alvo em yards (vazio = sem marcador)
 //   pad-left     espaço antes da trilha (onde o gauge encosta)
-customElements.define(
-  'pb-bar',
-  class extends PbElement {
-    static get observedAttributes() {
-      return ['x', 'y', 'w', 'h', 'max', 'value', 'target', 'pad-left']
+customElements.define('pb-bar', class extends PbElement {
+  static get observedAttributes() { return ['x', 'y', 'w', 'h', 'max', 'value', 'target', 'pad-left']; }
+
+  update() {
+    const x = this.num('x', 0), y = this.num('y', 0);
+    const w = this.num('w', 1290), h = this.num('h', 100);
+    const max = this.num('max', 256);
+    const value = this.num('value', NaN), target = this.num('target', NaN);
+
+    // Geometria da trilha (proporções tiradas do jogo).
+    const tx0 = this.num('pad-left', 20), tx1 = w - 36;
+    const ty = h * 0.14, th = h * 0.28;
+    const tw = tx1 - tx0;
+    const impactW = tw * 0.1, overW = tw * 0.022;
+    const s0 = tx0 + impactW, s1 = tx1 - overW;      // início/fim da escala 0..max
+    const toX = (yd) => s0 + (Math.min(Math.max(yd, 0), max) / max) * (s1 - s0);
+    const fmt = (n) => `${Number.isInteger(n) ? n : n.toFixed(1)}y`;
+
+    // Marcações a cada 10% da escala.
+    let ticks = '';
+    for (let i = 1; i < 10; i++) {
+      const tx = toX((max * i) / 10);
+      ticks += `<line x1="${tx}" y1="${ty}" x2="${tx}" y2="${ty + th}" class="tick" />`;
     }
 
-    update() {
-      const x = this.num('x', 0),
-        y = this.num('y', 0)
-      const w = this.num('w', 1290),
-        h = this.num('h', 100)
-      const max = this.num('max', 256)
-      const value = this.num('value', NaN),
-        target = this.num('target', NaN)
+    const cursor = Number.isNaN(value) ? '' : (() => {
+      const cx = toX(value), cw = 18, ch = th + 16;
+      return `<rect class="cursor" x="${cx - cw / 2}" y="${ty - 8}" width="${cw}" height="${ch}" rx="3" />
+              <line class="cursor-grip" x1="${cx}" y1="${ty - 3}" x2="${cx}" y2="${ty + th + 3}" />`;
+    })();
 
-      // Geometria da trilha (proporções tiradas do jogo).
-      const tx0 = this.num('pad-left', 20),
-        tx1 = w - 36
-      const ty = h * 0.14,
-        th = h * 0.28
-      const tw = tx1 - tx0
-      const impactW = tw * 0.1,
-        overW = tw * 0.022
-      const s0 = tx0 + impactW,
-        s1 = tx1 - overW // início/fim da escala 0..max
-      const toX = (yd) => s0 + (Math.min(Math.max(yd, 0), max) / max) * (s1 - s0)
-      const fmt = (n) => `${Number.isInteger(n) ? n : n.toFixed(1)}y`
-
-      // Marcações a cada 10% da escala.
-      let ticks = ''
-      for (let i = 1; i < 10; i++) {
-        const tx = toX((max * i) / 10)
-        ticks += `<line x1="${tx}" y1="${ty}" x2="${tx}" y2="${ty + th}" class="tick" />`
-      }
-
-      const cursor = Number.isNaN(value)
-        ? ''
-        : (() => {
-            const cx = toX(value),
-              cw = 18,
-              ch = th + 16
-            return `<rect class="cursor" x="${cx - cw / 2}" y="${ty - 8}" width="${cw}" height="${ch}" rx="3" />
-              <line class="cursor-grip" x1="${cx}" y1="${ty - 3}" x2="${cx}" y2="${ty + th + 3}" />`
-          })()
-
-      const marker = Number.isNaN(target)
-        ? ''
-        : (() => {
-            const mx = toX(target)
-            return `<line class="target-line" x1="${mx}" y1="${ty}" x2="${mx}" y2="${ty + th}" />
+    const marker = Number.isNaN(target) ? '' : (() => {
+      const mx = toX(target);
+      return `<line class="target-line" x1="${mx}" y1="${ty}" x2="${mx}" y2="${ty + th}" />
               <path class="target-tri" d="M ${mx - 11} ${ty - 30} L ${mx + 11} ${ty - 30} L ${mx} ${ty - 6} Z" />
-              <text class="label target-text" x="${mx}" y="${ty - 38}" text-anchor="middle">${fmt(target)}</text>`
-          })()
+              <text class="label target-text" x="${mx}" y="${ty - 38}" text-anchor="middle">${fmt(target)}</text>`;
+    })();
 
-      this.place(x, y, w, h)
-      this.draw(
-        `0 0 ${w} ${h}`,
-        `
+    this.place(x, y, w, h);
+    this.draw(`0 0 ${w} ${h}`, `
       <defs>
         <linearGradient id="frame" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stop-color="#f4f6f8" /><stop offset="1" stop-color="#c9ced4" />
@@ -107,8 +88,6 @@ customElements.define(
       ${marker}
       ${cursor}
       <text class="label" x="${toX(max / 2)}" y="${h * 0.8}" text-anchor="middle">${fmt(max / 2)}</text>
-      <text class="label" x="${s1}" y="${h * 0.8}" text-anchor="middle">${fmt(max)}</text>`,
-      )
-    }
-  },
-)
+      <text class="label" x="${s1}" y="${h * 0.8}" text-anchor="middle">${fmt(max)}</text>`);
+  }
+});

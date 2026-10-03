@@ -2,25 +2,16 @@
 // bola de vidro escura com a porcentagem e o ponto de spin).
 // Atributos: cx, cy, r (raio externo), track (raio do anel azul),
 // inner (raio interno da moldura), value (porcentagem exibida, padrão 100).
-customElements.define(
-  'pb-gauge',
-  class extends PbElement {
-    static get observedAttributes() {
-      return ['cx', 'cy', 'r', 'track', 'inner', 'value']
-    }
+customElements.define('pb-gauge', class extends PbElement {
+  static get observedAttributes() { return ['cx', 'cy', 'r', 'track', 'inner', 'value']; }
 
-    update() {
-      const cx = this.num('cx', 0),
-        cy = this.num('cy', 0),
-        r = this.num('r', 157)
-      const track = this.num('track', r * 0.91),
-        inner = this.num('inner', r * 0.85)
-      const value = this.num('value', 100)
-      const ball = inner * 0.72
-      this.place(cx - r, cy - r, r * 2, r * 2)
-      this.draw(
-        `${-r} ${-r} ${r * 2} ${r * 2}`,
-        `
+  update() {
+    const cx = this.num('cx', 0), cy = this.num('cy', 0), r = this.num('r', 157);
+    const track = this.num('track', r * 0.91), inner = this.num('inner', r * 0.85);
+    const value = this.num('value', 100);
+    const ball = inner * 0.72;
+    this.place(cx - r, cy - r, r * 2, r * 2);
+    this.draw(`${-r} ${-r} ${r * 2} ${r * 2}`, `
       <defs>
         <linearGradient id="bezel" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stop-color="#ffffff" /><stop offset="1" stop-color="#c8cfd6" />
@@ -55,8 +46,6 @@ customElements.define(
       <text class="pct" x="${ball * 0.45}" y="${ball * 0.13}" text-anchor="middle">${Math.round(value)}%</text>
 
       <circle cy="${ball * 0.55}" r="${ball * 0.2}" fill="none" stroke="#3fb4ff" stroke-width="2" opacity=".55" />
-      <circle cy="${ball * 0.55}" r="${ball * 0.12}" fill="url(#dot)" />`,
-      )
-    }
-  },
-)
+      <circle cy="${ball * 0.55}" r="${ball * 0.12}" fill="url(#dot)" />`);
+  }
+});
