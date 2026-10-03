@@ -1,4 +1,4 @@
-# Envia os arquivos extraídos do jogo (assets/original) para repositórios PRIVADOS do
+﻿# Envia os arquivos extraídos do jogo (assets/original) para repositórios PRIVADOS do
 # GitHub, um por tipo (dados, sons, modelos, imagens), para o Claude poder ler na nuvem.
 # Grupo que passar do limite vira parte A, B, C… (pangyaweb-imagens-a, -b, …).
 # Uso: clique duas vezes em enviar-arquivos.cmd. Na próxima vez, só manda o que mudou.
@@ -121,10 +121,12 @@ foreach ($r in $repos) {
   # Já está no GitHub? (um envio interrompido deixa o pacote pronto aqui, sem ter subido)
   $local = git @git rev-parse --verify --quiet HEAD
   if (-not $local) { Write-Host '   Nenhum arquivo.'; continue }
+  # O ramo pode ter outro nome se um envio antigo parou entre o commit e o nome "main".
+  git @git branch -M main
   $remota = (git ls-remote $url refs/heads/main) -split '\s+' | Select-Object -First 1
   if ($remota -eq $local) { Write-Host '   Já está no GitHub (nada mudou).'; continue }
   Write-Host '   Enviando (a porcentagem aparece abaixo; na primeira vez o Windows pode pedir para entrar no GitHub)…'
-  git @git -c http.postBuffer=524288000 push --progress -u origin main
+  git @git -c http.postBuffer=524288000 push --progress -u origin HEAD:refs/heads/main
   if ($LASTEXITCODE -ne 0) { throw "O envio de $($r.Nome) falhou (veja a mensagem acima). Rode de novo: ele continua de onde parou." }
 }
 

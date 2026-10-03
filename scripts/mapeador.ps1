@@ -1,4 +1,4 @@
-# Abre o mapeador de personagens (animações e peças traduzidas, por categoria), separado
+﻿# Abre o mapeador de personagens (animações e peças traduzidas, por categoria), separado
 # do jogo, na porta 7778. Uso: clique duas vezes em mapeador.cmd.
 Set-Location (Split-Path $PSScriptRoot -Parent)
 . "$PSScriptRoot/comum.ps1"

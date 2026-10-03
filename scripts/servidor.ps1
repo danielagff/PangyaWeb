@@ -1,4 +1,4 @@
-# Liga o servidor da partida para jogar com amigos: o seu PC é o servidor e eles só
+﻿# Liga o servidor da partida para jogar com amigos: o seu PC é o servidor e eles só
 # precisam do navegador. Uso: clique duas vezes em servidor.cmd.
 #
 # - Mesma rede (Wi-Fi/cabo): os amigos abrem http://<seu IP>:7777 (aparece na tela).

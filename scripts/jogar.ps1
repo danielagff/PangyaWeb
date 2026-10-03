@@ -1,4 +1,4 @@
-# Atualiza o PangyaWeb e abre o jogo sozinho no navegador, sem passos manuais.
+﻿# Atualiza o PangyaWeb e abre o jogo sozinho no navegador, sem passos manuais.
 # Uso: clique duas vezes em jogar.cmd (na raiz do repositório).
 #   Opcional: jogar.cmd "round10_spring wind" pink 1   (curso, prefixo, buraco)
 param(

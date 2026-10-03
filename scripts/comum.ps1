@@ -1,4 +1,4 @@
-# Passos em comum dos scripts de um clique (jogar.ps1 e servidor.ps1).
+﻿# Passos em comum dos scripts de um clique (jogar.ps1 e servidor.ps1).
 $ErrorActionPreference = 'Stop'
 
 function Passo($texto) { Write-Host "`n==> $texto" -ForegroundColor Cyan }
