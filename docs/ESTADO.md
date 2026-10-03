@@ -112,6 +112,23 @@ Regras de nomes de peças já confirmadas pelo Daniel (implementadas em
 
 ## O que falta (em ordem)
 
+### Próximos ajustes pedidos pelo Daniel (03/10/2026, para fazer depois)
+
+- [ ] **Linha da vista aérea pulando em lotes** (vídeo de 03/10): ao girar a mira, a linha
+      vermelha sai do centro e volta aos pulos, em vez de acompanhar o movimento da câmera.
+      Suspeita: a linha e o X usam a mira exata e o recálculo da física a cada 0,12 s
+      (`LANDING_REFRESH`), enquanto a câmera gira com a mola (`aerialCam.yaw`). Desenhar a
+      linha e o X com o mesmo giro suavizado da câmera, e conferir os recálculos.
+- [ ] **Tirar a distância e a altura da barra de força**: o texto do pin em cima da barra
+      ("224y ↓3.7m", `setPin` em `power-bar.ts`), que agora aparece no marcador do pin.
+      Confirmar com o Daniel se a linha vermelha do pin na barra fica.
+- [ ] **Delete+0 com força maior que a distância do buraco** (a debater): se o X (100%)
+      passa do buraco, abrir a câmera do Delete+0 na **linha do buraco** em vez de no X.
+      "Na linha do buraco" ainda a definir com o Daniel (ex.: o ponto da linha da mira na
+      distância do pin).
+
+### Antes disso
+
 1. **Personagens**: aplicar as anotações do mapeador (impacto do swing, nomes, roupas),
    conferir a frente do modelo e a posição na bola com os personagens reais.
 2. **Habilidades do power shot** (tomahawk, spike, cobra): comandos ainda a definir pelo
