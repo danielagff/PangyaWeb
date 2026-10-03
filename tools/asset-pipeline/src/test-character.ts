@@ -113,8 +113,58 @@ function boxMesh(a: V3, b: V3, weightsOf: (y: number) => [number, number][]) {
   return mesh
 }
 
+/** Esfera (raio, anéis, fatias) presa a um osso, com UV de longitude/latitude. */
+function sphereMesh(radius: number, rings: number, slices: number) {
+  const points: { p: V3; u: number; v: number }[] = []
+  for (let i = 0; i <= rings; i++) {
+    const theta = (i / rings) * Math.PI
+    for (let j = 0; j <= slices; j++) {
+      const phi = (j / slices) * Math.PI * 2
+      const p: V3 = [
+        radius * Math.sin(theta) * Math.cos(phi),
+        radius * Math.cos(theta),
+        radius * Math.sin(theta) * Math.sin(phi),
+      ]
+      points.push({ p, u: j / slices, v: i / rings })
+    }
+  }
+  const mesh = new Writer().u32(points.length)
+  for (const { p } of points)
+    mesh
+      .f32(...p)
+      .u8(255)
+      .u8(0)
+      .u16(0)
+  const triangles: number[][] = []
+  for (let i = 0; i < rings; i++) {
+    for (let j = 0; j < slices; j++) {
+      const a = i * (slices + 1) + j
+      const b = a + slices + 1
+      triangles.push([a, b, a + 1], [a + 1, b, b + 1])
+    }
+  }
+  mesh.u32(triangles.length)
+  for (const tri of triangles) {
+    for (const i of tri) {
+      const { p, u, v } = points[i]!
+      mesh
+        .u32(i)
+        .f32(p[0] / radius, p[1] / radius, p[2] / radius)
+        .u8(1)
+        .f32(u, v)
+    }
+  }
+  for (let i = 0; i < triangles.length; i++) mesh.u8(0)
+  return mesh
+}
+
+/** PNG RGB em listras verticais de duas cores. */
+function stripes(width: number, height: number, a: V3, b: V3) {
+  return png(width, height, a, (x) => (Math.floor(x / 4) % 2 ? b : a))
+}
+
 /** PNG RGB xadrez simples (as "texturas" do boneco). */
-function png(width: number, height: number, rgb: V3) {
+function png(width: number, height: number, rgb: V3, colorAt?: (x: number, y: number) => V3) {
   const table = Array.from({ length: 256 }, (_, n) => {
     let c = n
     for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1
@@ -141,9 +191,9 @@ function png(width: number, height: number, rgb: V3) {
   const raw = Buffer.alloc((width * 3 + 1) * height)
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
-      const shade = (x + y) % 2 ? 1 : 0.85
+      const shade = colorAt ? 1 : (x + y) % 2 ? 1 : 0.85
       raw.set(
-        rgb.map((c) => c * shade),
+        (colorAt?.(x, y) ?? rgb).map((c) => c * shade),
         y * (width * 3 + 1) + 1 + x * 3,
       )
     }
@@ -328,9 +378,24 @@ export function installTestCharacter(log: (msg: string) => void = console.log) {
       .block('MESH', stick)
       .done(),
   )
+  // Bola de teste: esfera com textura listrada (laranja e branca), para o mostrador do HUD.
+  write('t_bola.png', stripes(16, 16, [255, 140, 0], [255, 255, 255]))
+  write(
+    't_ball.pet',
+    new Writer()
+      .block('VERS', version())
+      .block('TEXT', textBlock('t_bola.png'))
+      .block('BONE', clubBone)
+      .block('MESH', sphereMesh(0.07, 12, 16))
+      .done(),
+  )
   // Só sem a tabela real (no PC com o jogo extraído, clubs.json já existe e fica intacto).
   const data = resolve(convertedDir, 'data')
   mkdirSync(data, { recursive: true })
+  const balls = resolve(data, 'balls.json')
+  if (!existsSync(balls)) {
+    writeFileSync(balls, JSON.stringify([{ id: 1, name: 'テストボール', model: 't_ball' }]))
+  }
   const clubs = resolve(data, 'clubs.json')
   if (!existsSync(clubs))
     writeFileSync(

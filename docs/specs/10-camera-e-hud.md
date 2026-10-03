@@ -196,28 +196,26 @@ Câmeras de jogo e HUD com as informações necessárias para mirar como no orig
   areia, com vento sorteado): toda tacada que ela achou entrou na cova (320/320); o resto
   era obstáculo no caminho (69) ou fora de alcance (3). Leva até ~50 ms.
 
-- **HUD da tacada no visual do original** (04/10/2026, `shot-hud.ts`, `power-bar.ts`, CSS
-  `.shot-hud`/`.power-bar`): tudo numa caixa de design de **1620×380** escalada para a tela
-  (`hudScale`: cabe na largura e em 30% da altura, centralizada embaixo).
-  - Mostrador: bola (spin/curva), **% de força** (ao vivo subindo; a fixada depois),
-    **"PangYa ×N"** depois da batida com os PANGYAs seguidos; o **taco** num círculo no
-    canto de cima; **arco do lado** com os ícones (itens, chat — ainda só enfeite); círculo
-    pequeno embaixo com a força do personagem; os 2 indicadores de power shot ao lado da bola.
-  - **Aba do passo** embaixo-à-direita do mostrador: "Start" → "Power" → "Impact", com
-    setinha (cor muda por passo).
-  - Barra: moldura branca arredondada, trilho escuro, **preenchimento azul com divisões**
-    (10%, o meio mais forte), **zona PANGYA rosa** à esquerda, **faixa vermelha** na ponta,
-    **marcador cinza** (polegar), **jardas do meio e do máximo embaixo**, **"Max"** em cima
-    da ponta. Na volta, **"Click" laranja com seta** em cima da zona de impacto.
-  - **Calibrador**: triângulo verde em cima da barra com as jardas ("249.6y"); embaixo,
-    "Callipers" com as teclas **Z** e **X**.
-  - Durante o voo, **contadores no centro de baixo**: distância percorrida (branco) e até o
-    pin (vermelho), "54.71y". Quando a bola para: o **piso** ("Fairway", "Rough", "O.B.",
-    "Água"), **"Distance: 233.57y"** e **"Pin: …y"** (sem o pin quando emboca); some no
-    próximo começo da barra.
-  - Conferido na nuvem (Blue Lagoon de exemplo, 1600×900): passos, Click, calibrador,
-    contadores, parada e "PangYa ×2". Falta conferir com as imagens/vídeo do Daniel (cores e
-    tamanhos exatos) e trocar os ícones por imagens do jogo.
+- **HUD da tacada com os componentes do HTML de base do Daniel** (04/10/2026,
+  `hole/hud/pb-components.ts`): `<power-bar>` com `<pb-arc-panel>`, `<pb-bar>`,
+  `<pb-gauge>`, `<pb-tab>` e `<pb-socket>`, **as mesmas tags, atributos e coordenadas** do
+  HTML (1620 × 380; a ordem é a sobreposição) e o mesmo tema (`--pb-stroke` #111,
+  `--pb-accent` #1aa3e8, `--pb-fill` branco, traços 1,4 e 3,5, fonte Nunito 800). Os
+  arquivos `components/pb-*.js` do Daniel não vieram: as peças foram refeitas pelos
+  atributos (SVG). Com os originais, dá para trocar pelo desenho exato.
+  - `<pb-gauge>`: aro, anel da força (cheio na %), **a bola escolhida pelo jogador**
+    (`hud/ball-image.ts`: o `.pet` da bola desenhado uma vez num PNG; sem bola, uma branca),
+    o ponto de impacto (clique/arraste = spin e curva, duplo clique centraliza), a %,
+    "PangYa ×N" e os 2 indicadores de power shot.
+  - `<pb-bar>`: moldura branca, trilho escuro, azul com divisões, zona PANGYA rosa, faixa
+    vermelha, polegar cinza, "Max", jardas do meio/máximo, calibrador (triângulo verde com
+    as jardas), "Callipers Z X" e o "Click" laranja na volta. A lógica dos 3 toques
+    (`power-bar.ts`) só muda os atributos dele.
+  - `<pb-tab>`: o passo (Start/Power/Impact). `<pb-socket>`: o taco (3W) e o power shot
+    ("−", "1PS", "2PS"). `<pb-arc-panel>`: itens e chat (ainda só enfeite).
+  - Fora do SVG: contadores do voo e o quadro de quando a bola para (piso, "Distance", pin),
+    em cima da barra, e o texto de ajuda embaixo.
+  - `pnpm assets:teste` agora cria uma bola de teste (`t_ball`, listrada) para conferir.
 
 ## Problemas conhecidos
 

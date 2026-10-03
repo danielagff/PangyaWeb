@@ -303,315 +303,6 @@
   padding: 0;
 }
 
-/* Barra de força no visual do original (coordenadas na caixa de design do HUD, 1620×380). */
-.power-bar {
-  position: absolute;
-  left: 420px;
-  top: 160px;
-  width: 1160px;
-  height: 210px;
-  font:
-    800 22px/1.2 system-ui,
-    sans-serif;
-  color: #fff;
-  text-shadow: 0 2px 3px #000;
-  pointer-events: none;
-}
-.power-bar .track {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 64px;
-  height: 58px;
-  box-sizing: border-box;
-  background: linear-gradient(#10151f, #26303f 55%, #10151f);
-  border: 7px solid #fff;
-  border-radius: 29px;
-  box-shadow:
-    0 0 0 2px #3a4a63,
-    0 4px 10px rgba(0, 0, 0, 0.55),
-    inset 0 0 8px rgba(0, 0, 0, 0.8);
-  overflow: hidden;
-  pointer-events: auto;
-  cursor: crosshair;
-}
-/* Preenchimento azul com divisões a cada 10% (mais forte no meio). */
-.power-bar .fill {
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 0;
-  background: linear-gradient(#9fe3ff, #2f9cf0 45%, #1565c0);
-}
-.power-bar .ticks {
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(
-      90deg,
-      transparent calc(50% - 2px),
-      rgba(0, 20, 60, 0.6) 0 calc(50% + 2px),
-      transparent 0
-    ),
-    repeating-linear-gradient(
-      90deg,
-      transparent 0 calc(10% - 2px),
-      rgba(0, 20, 60, 0.35) calc(10% - 2px) 10%
-    );
-}
-/* Régua do calibrador: com o mouse em cima, marcas a cada 1% (maiores a cada 5%). */
-.power-bar .ruler {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  transition: opacity 0.15s;
-  background:
-    repeating-linear-gradient(
-        90deg,
-        transparent 0 calc(5% - 2px),
-        rgba(255, 255, 255, 0.7) calc(5% - 2px) 5%
-      )
-      top / 100% 55% no-repeat,
-    repeating-linear-gradient(
-        90deg,
-        transparent 0 calc(1% - 1px),
-        rgba(255, 255, 255, 0.4) calc(1% - 1px) 1%
-      )
-      top / 100% 30% no-repeat;
-}
-.power-bar.ruling .ruler {
-  opacity: 1;
-}
-/* Zona PANGYA (rosa) à esquerda, com a faixa da tacada perfeita e a linha do centro. */
-.power-bar .zone {
-  position: absolute;
-  z-index: 1;
-  top: 0;
-  bottom: 0;
-  background: linear-gradient(#ffb3d9, #ff4fa3 50%, #c2185b);
-}
-.power-bar .pangya {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  background: #ff80c0;
-  box-shadow: 0 0 10px #fff;
-}
-.power-bar .pangya::after {
-  content: '';
-  position: absolute;
-  left: 50%;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  margin-left: -1px;
-  background: #fff;
-}
-.power-bar.near .zone {
-  animation: pangya-blink 0.25s infinite alternate;
-}
-@keyframes pangya-blink {
-  to {
-    filter: brightness(1.5);
-  }
-}
-/* Faixa vermelha na ponta (o máximo). */
-.power-bar .end {
-  position: absolute;
-  z-index: 1;
-  top: 0;
-  bottom: 0;
-  right: 0;
-  width: 2.5%;
-  background: linear-gradient(#ff8a80, #e53935 50%, #b71c1c);
-}
-/* Força fixada (2º toque): linha branca com as jardas. */
-.power-bar .power {
-  position: absolute;
-  z-index: 2;
-  top: 0;
-  bottom: 0;
-  width: 4px;
-  margin-left: -2px;
-  background: #fff;
-  box-shadow: 0 0 6px #fff;
-}
-.power-bar .power span {
-  position: absolute;
-  bottom: 2px;
-  left: 8px;
-  font-size: 18px;
-  white-space: nowrap;
-}
-/* Marcador cinza (polegar). */
-.power-bar .marker {
-  position: absolute;
-  z-index: 3;
-  top: 1px;
-  bottom: 1px;
-  left: 0;
-  width: 16px;
-  margin-left: -8px;
-  box-sizing: border-box;
-  border: 2px solid #4a4f57;
-  border-radius: 6px;
-  background: linear-gradient(90deg, #8d939c, #eef0f3 45%, #9ea4ad);
-  box-shadow: 0 0 6px rgba(0, 0, 0, 0.7);
-}
-.power-bar .guide {
-  position: absolute;
-  z-index: 3;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  margin-left: -1px;
-  background: #fff;
-  opacity: 0.8;
-  pointer-events: none;
-}
-.power-bar .readout {
-  position: absolute;
-  z-index: 5;
-  top: -6px;
-  transform: translateX(-50%);
-  padding: 2px 10px;
-  font-size: 20px;
-  white-space: nowrap;
-  background: rgba(10, 30, 60, 0.85);
-  border: 2px solid #fff;
-  border-radius: 8px;
-}
-/* "Max" em cima da ponta; jardas do meio e do máximo embaixo. */
-.power-bar .max-tag {
-  position: absolute;
-  right: 6px;
-  top: 30px;
-  font-size: 26px;
-  font-style: italic;
-  color: #ffeb3b;
-}
-.power-bar .scale {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 126px;
-  height: 30px;
-  font-size: 26px;
-}
-.power-bar .scale .tag {
-  position: absolute;
-  top: 0;
-  white-space: nowrap;
-}
-.power-bar .scale .half {
-  left: 50%;
-  transform: translateX(-50%);
-}
-.power-bar .scale .max {
-  right: 0;
-}
-/* Calibrador: triângulo verde em cima da barra com as jardas; embaixo, "Callipers Z X". */
-.power-bar .mark {
-  position: absolute;
-  z-index: 4;
-  top: 8px;
-  height: 56px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-end;
-  transform: translateX(-50%);
-  color: #69f0ae;
-}
-.power-bar .mark span {
-  font-size: 24px;
-  white-space: nowrap;
-}
-.power-bar .mark[hidden],
-.power-bar .click[hidden] {
-  display: none;
-}
-.power-bar.snap .mark span::before {
-  content: '▶ ';
-}
-.power-bar .mark i {
-  width: 0;
-  height: 0;
-  border: 13px solid transparent;
-  border-bottom: 0;
-  border-top: 18px solid #2ecc71;
-  filter: drop-shadow(0 0 3px #000);
-}
-.power-bar .callipers {
-  position: absolute;
-  left: 80px;
-  top: 128px;
-  font-size: 22px;
-  color: #69f0ae;
-}
-.power-bar .callipers kbd {
-  display: inline-block;
-  min-width: 22px;
-  margin-left: 6px;
-  padding: 0 6px;
-  font: inherit;
-  color: #fff;
-  text-align: center;
-  background: #263238;
-  border: 2px solid #b0bec5;
-  border-radius: 6px;
-}
-/* "Click" laranja com a seta onde apertar (na volta, em cima da zona de impacto). */
-.power-bar .click {
-  position: absolute;
-  z-index: 5;
-  top: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  transform: translateX(-50%);
-  font-size: 30px;
-  font-style: italic;
-  color: #ff9800;
-  animation: click-bounce 0.35s infinite alternate;
-}
-.power-bar .click i {
-  width: 0;
-  height: 0;
-  border: 12px solid transparent;
-  border-bottom: 0;
-  border-top: 18px solid #ff9800;
-}
-@keyframes click-bounce {
-  to {
-    transform: translate(-50%, 6px);
-  }
-}
-/* Texto de ajuda / vez de outro jogador, embaixo de tudo. */
-.power-bar .label {
-  position: absolute;
-  left: 260px;
-  right: 120px;
-  top: 172px;
-  font-size: 20px;
-  text-align: center;
-  opacity: 0.9;
-}
-.power-bar.auto-pangya .zone::after {
-  content: 'AUTO';
-  position: absolute;
-  top: -30px;
-  left: 0;
-  font-size: 16px;
-  color: #ffeb3b;
-}
-.power-bar.done .track {
-  border-color: #ffeb3b;
-}
-.power-bar.cancelled .track {
-  border-color: #ef5350;
-  opacity: 0.6;
-}
-
 /* Rosa dos ventos: mostrador redondo com a seta azul e a força em metros. */
 .wind {
   position: fixed;
@@ -1166,7 +857,232 @@
   }
 }
 
-/* HUD da tacada (embaixo): caixa de design 1620×380 escalada para a tela (shot-hud.ts). */
+/* HUD da tacada: os componentes <power-bar> do HTML de base (hud/pb-components.ts). */
+power-bar {
+  display: block;
+  /* Tema: cores e espessuras de todas as peças (como no HTML de base). */
+  --pb-stroke: #111;
+  --pb-accent: #1aa3e8;
+  --pb-fill: #fff;
+  --pb-stroke-width: 1.4;
+  --pb-stroke-thick: 3.5;
+  font-family: Nunito, system-ui, sans-serif;
+  font-weight: 800;
+}
+power-bar .pb-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+power-bar text {
+  font-family: Nunito, system-ui, sans-serif;
+  font-weight: 800;
+  fill: var(--pb-stroke);
+  pointer-events: none;
+  user-select: none;
+}
+power-bar .pb-shape {
+  fill: var(--pb-fill);
+  stroke: var(--pb-stroke);
+}
+power-bar .pb-line,
+power-bar .pb-outline {
+  stroke: var(--pb-stroke);
+  stroke-width: var(--pb-stroke-width);
+}
+power-bar .pb-outline {
+  fill: none;
+}
+power-bar .pb-thick {
+  stroke-width: var(--pb-stroke-thick);
+}
+power-bar line.pb-line {
+  fill: none;
+}
+power-bar .pb-icon {
+  fill: none;
+  stroke: var(--pb-stroke);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+power-bar .pb-hit {
+  fill: transparent;
+  pointer-events: all;
+}
+power-bar .pb-accent-stop {
+  stop-color: var(--pb-accent);
+}
+/* Barra. */
+power-bar .pb-rail {
+  fill: #232b36;
+}
+power-bar .pb-rail-line {
+  fill: none;
+  stroke: var(--pb-stroke);
+  stroke-width: var(--pb-stroke-width);
+}
+power-bar .pb-div {
+  stroke: rgba(255, 255, 255, 0.45);
+  stroke-width: 2;
+}
+power-bar .pb-div-half {
+  stroke: rgba(255, 255, 255, 0.8);
+  stroke-width: 3;
+}
+power-bar .pb-ruler {
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+power-bar .pb-hovering .pb-ruler {
+  opacity: 1;
+}
+power-bar .pb-tick {
+  stroke: rgba(255, 255, 255, 0.6);
+  stroke-width: 1.5;
+}
+power-bar .pb-zone {
+  fill: #ff4fa3;
+}
+power-bar .pb-pangya {
+  fill: #ffb3da;
+}
+power-bar .pb-pangya-center {
+  stroke: #fff;
+  stroke-width: 2;
+}
+power-bar .pb-near .pb-zone {
+  animation: pb-blink 0.25s infinite alternate;
+}
+@keyframes pb-blink {
+  to {
+    fill: #ffd1e8;
+  }
+}
+power-bar .pb-end {
+  fill: #e53935;
+}
+power-bar .pb-power line {
+  stroke: #fff;
+  stroke-width: 4;
+}
+power-bar .pb-power-text {
+  font-size: 20px;
+  fill: #fff;
+}
+power-bar .pb-guide {
+  stroke: #fff;
+  stroke-width: 2;
+}
+power-bar .pb-label {
+  font-size: 28px;
+}
+power-bar .pb-max {
+  font-style: italic;
+}
+power-bar .pb-callipers-text {
+  font-size: 24px;
+}
+power-bar .pb-key {
+  font-size: 20px;
+}
+power-bar .pb-target-mark {
+  fill: #2ecc71;
+  stroke: var(--pb-stroke);
+  stroke-width: var(--pb-stroke-width);
+}
+power-bar .pb-target-text {
+  fill: #12a150;
+  font-size: 26px;
+}
+power-bar .pb-click {
+  animation: pb-click 0.35s infinite alternate;
+}
+@keyframes pb-click {
+  to {
+    translate: 0 6px;
+  }
+}
+power-bar .pb-click-text {
+  font-size: 30px;
+  font-style: italic;
+  fill: #ff9800;
+  stroke: var(--pb-stroke);
+  stroke-width: 1;
+}
+power-bar .pb-click-arrow {
+  fill: #ff9800;
+  stroke: var(--pb-stroke);
+  stroke-width: var(--pb-stroke-width);
+}
+power-bar .pb-readout rect {
+  fill: var(--pb-fill);
+  stroke: var(--pb-stroke);
+  stroke-width: var(--pb-stroke-width);
+}
+power-bar .pb-readout text {
+  font-size: 22px;
+}
+power-bar .pb-done .pb-frame {
+  stroke: #ffb300;
+}
+power-bar .pb-cancelled {
+  opacity: 0.6;
+}
+/* Mostrador. */
+power-bar .pb-gauge-track {
+  fill: none;
+  stroke: #e3edf6;
+}
+power-bar .pb-gauge-value {
+  fill: none;
+  stroke: var(--pb-accent);
+}
+power-bar .pb-power-shot .pb-gauge-value {
+  stroke: #ffb300;
+}
+power-bar .pb-ball-hit {
+  cursor: crosshair;
+  touch-action: none;
+}
+power-bar .pb-cross {
+  stroke: rgba(30, 60, 120, 0.35);
+  stroke-width: 1.5;
+}
+power-bar .pb-dot {
+  fill: #e53935;
+  stroke: #fff;
+  stroke-width: 3;
+}
+power-bar .pb-ps {
+  fill: var(--pb-fill);
+  stroke: var(--pb-stroke);
+  stroke-width: var(--pb-stroke-width);
+}
+power-bar .pb-ps.pb-on {
+  fill: #ffb300;
+}
+power-bar .pb-value {
+  font-size: 38px;
+}
+power-bar .pb-streak {
+  font-size: 28px;
+  font-style: italic;
+  fill: #ff3fa4;
+}
+power-bar .pb-tab-label {
+  font-style: italic;
+  fill: var(--pb-accent);
+}
+power-bar .pb-tab-arrow {
+  fill: var(--pb-accent);
+}
+power-bar .pb-socket-label {
+  fill: var(--pb-stroke);
+}
+
+/* HUD da tacada (embaixo): o <power-bar> escalado para a tela (shot-hud.ts). */
 .shot-hud {
   position: fixed;
   left: 0;
@@ -1174,7 +1090,8 @@
   bottom: 0;
   pointer-events: none;
   font:
-    800 14px/1.3 system-ui,
+    800 14px/1.3 Nunito,
+    system-ui,
     sans-serif;
   color: #fff;
   text-shadow: 0 1px 2px #000;
@@ -1183,241 +1100,31 @@
   margin: 0 16px 4px;
   min-height: 1.3em;
 }
-.shot-hud .frame {
+/* Largura: a tela, até 1620 px, e no máximo 30% da altura (1620 × 380). */
+.shot-hud .stage {
   position: relative;
+  width: min(100vw, 1620px, calc(30vh * 1620 / 380));
   margin: 0 auto;
-  overflow: hidden;
+  container-type: inline-size;
 }
-.shot-hud .box {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 1620px;
-  height: 380px;
-  transform-origin: 0 0;
-}
-/* Mostrador: aro azul, face escura com a bola, a % e o "PangYa". */
-.shot-hud .dial {
-  position: absolute;
-  left: 30px;
-  top: 30px;
-  width: 320px;
-  height: 320px;
-  box-sizing: border-box;
-  border-radius: 50%;
-  background: radial-gradient(circle at 50% 35%, #4d6fa8, #1c2c4f 70%);
-  border: 10px solid #2f8fe0;
-  box-shadow:
-    0 0 0 5px #0b2a50,
-    0 6px 16px rgba(0, 0, 0, 0.55);
-  pointer-events: auto;
-}
-.shot-hud .face {
-  position: absolute;
-  inset: 20px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 50% 30%, #2a3b5e, #0d1528 75%);
-  box-shadow: inset 0 0 14px rgba(0, 0, 0, 0.8);
-}
-.shot-hud .impact {
-  position: absolute;
-  left: 50%;
-  top: 52px;
-  width: 120px;
-  height: 120px;
-  margin-left: -60px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 40% 35%, #fff, #c9d3e2 60%, #8e9bb3);
-  box-shadow:
-    inset 0 0 8px rgba(0, 0, 0, 0.5),
-    0 0 10px rgba(255, 255, 255, 0.4);
-  cursor: crosshair;
-  touch-action: none;
-}
-.shot-hud .impact .cross {
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(
-      transparent calc(50% - 1px),
-      rgba(30, 60, 120, 0.5) 0 calc(50% + 1px),
-      transparent 0
-    ),
-    linear-gradient(
-      90deg,
-      transparent calc(50% - 1px),
-      rgba(30, 60, 120, 0.5) 0 calc(50% + 1px),
-      transparent 0
-    );
-  border-radius: 50%;
-}
-.shot-hud .impact .dot {
-  position: absolute;
-  width: 18px;
-  height: 18px;
-  margin: -9px 0 0 -9px;
-  border-radius: 50%;
-  background: #e53935;
-  border: 3px solid #fff;
-  box-shadow: 0 0 8px #e53935;
-}
-.shot-hud .percent {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 178px;
-  font-size: 40px;
-  line-height: 1;
-  text-align: center;
-}
-/* "PangYa" com o nº de PANGYAs seguidos, depois da batida. */
-.shot-hud .streak {
-  position: absolute;
-  left: 64px;
-  right: 0;
-  top: 16px;
-  font-size: 28px;
-  font-style: italic;
-  line-height: 1;
-  text-align: center;
-  color: #ff6ec7;
-  text-shadow:
-    0 0 6px #ff1493,
-    0 2px 2px #000;
-}
-.shot-hud .streak b {
-  color: #fff;
-}
-/* Power shot: dois indicadores (1 PS, 2 PS) à direita da bola. */
-.shot-hud .ps {
-  position: absolute;
-  left: calc(50% + 74px);
-  top: 88px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.shot-hud .ps span {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  border: 2px solid #fff;
-  background: #333;
-}
-.shot-hud .ps span.on {
-  background: #ffca28;
-  box-shadow: 0 0 8px #ffca28;
-}
-.shot-hud.power-shot .dial {
-  border-color: #ffca28;
-}
-/* Arco lateral com os ícones (itens, chat). */
-.shot-hud .arc {
-  position: absolute;
-  inset: -40px;
-  border-radius: 50%;
-  border: 36px solid transparent;
-  border-left-color: rgba(11, 42, 80, 0.92);
-  transform: rotate(-25deg);
-  pointer-events: none;
-}
-.shot-hud .arc .icon {
-  position: absolute;
-  display: grid;
-  place-items: center;
-  width: 46px;
-  height: 46px;
-  font-size: 24px;
-  text-shadow: none;
-  border-radius: 50%;
-  background: #1565c0;
-  border: 3px solid #fff;
-  transform: rotate(25deg);
-}
-.shot-hud .arc .icon:nth-child(1) {
-  left: -45px;
-  top: 92px;
-}
-.shot-hud .arc .icon:nth-child(2) {
-  left: -45px;
-  top: 172px;
-}
-/* Taco num círculo no canto de cima; força do personagem no círculo pequeno embaixo. */
-.shot-hud .club,
-.shot-hud .stat {
-  position: absolute;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  border: 5px solid #fff;
-}
-.shot-hud .club {
-  left: -26px;
-  top: -26px;
-  width: 104px;
-  height: 104px;
-  font-size: 38px;
-  background: radial-gradient(circle at 50% 35%, #333, #000);
-}
-.shot-hud .stat {
-  left: 50%;
-  bottom: -34px;
-  width: 64px;
-  height: 64px;
-  margin-left: -32px;
-  font-size: 26px;
-  background: #0d47a1;
-}
-.shot-hud.waiting .dial {
+.shot-hud.waiting power-bar .pb-gauge,
+.shot-hud.waiting power-bar .pb-tab {
   opacity: 0.6;
 }
-/* Aba do passo (Start → Power → Impact), embaixo-à-direita do mostrador. */
-.shot-hud .step {
+.shot-hud .bar-label {
   position: absolute;
-  left: 290px;
-  top: 300px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  height: 52px;
-  padding: 0 18px 0 46px;
-  font-size: 28px;
-  font-style: italic;
-  color: #0d47a1;
-  text-shadow: none;
-  background: linear-gradient(#fff, #cfe3ff);
-  border: 4px solid #2f8fe0;
-  border-radius: 0 26px 26px 0;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+  left: 30%;
+  right: 6%;
+  bottom: 1%;
+  font-size: 1.25cqw;
+  text-align: center;
 }
-.shot-hud .step i {
-  width: 0;
-  height: 0;
-  border: 11px solid transparent;
-  border-right: 0;
-  border-left: 16px solid #0d47a1;
-}
-.shot-hud[data-stage='rising'] .step {
-  color: #c2185b;
-}
-.shot-hud[data-stage='rising'] .step i {
-  border-left-color: #c2185b;
-}
-.shot-hud[data-stage='returning'] .step {
-  color: #e65100;
-}
-.shot-hud[data-stage='returning'] .step i {
-  border-left-color: #e65100;
-}
-.shot-hud.waiting .step {
-  opacity: 0.5;
-}
-/* Contadores do voo e quadro do fim da tacada, no centro de baixo. */
+/* Contadores do voo e quadro do fim da tacada, no centro, em cima da barra. */
 .shot-hud .counters,
 .shot-hud .stop {
   position: absolute;
   left: 50%;
-  top: 0;
+  bottom: 100%;
   transform: translateX(-50%);
   text-align: center;
   line-height: 1.05;
@@ -1427,19 +1134,19 @@
     0 3px 3px #000;
 }
 .shot-hud .counters .traveled {
-  font-size: 64px;
+  font-size: 4cqw;
 }
 .shot-hud .counters .to-pin,
 .shot-hud .stop .to-pin {
-  font-size: 40px;
+  font-size: 2.5cqw;
   color: #ff5252;
 }
 .shot-hud .stop .surface {
-  font-size: 36px;
+  font-size: 2.2cqw;
   color: #b9f6ca;
 }
 .shot-hud .stop .distance {
-  font-size: 52px;
+  font-size: 3.2cqw;
 }
 
 /* ---- Menu (título → personagem → curso) ---- */

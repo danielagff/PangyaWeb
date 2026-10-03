@@ -1047,6 +1047,7 @@ export class HoleView {
         this.panel.setPercent(percent)
       }
       this.panel.setPower(this.active.power ?? DEFAULT_POWER)
+      this.panel.setBall(this.active.ball)
       this.trailGeometry.setDrawRange(0, 0)
     }
     this.panel.setEnabled(this.controllable, this.controllable ? '' : `Vez de ${this.active.name}…`)

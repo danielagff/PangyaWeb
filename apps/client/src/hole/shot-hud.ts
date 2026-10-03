@@ -14,6 +14,15 @@
  */
 import { isPangya, PUTT_RANGE } from '@pangya/game'
 import { CLUB_IDS, type ClubId, type PowerShot, type SpecialShot } from '@pangya/physics'
+import {
+  definePbComponents,
+  type PbBar,
+  type PbGauge,
+  type PbImpactDetail,
+  type PbSocket,
+  type PbTab,
+} from './hud/pb-components.ts'
+import { ballImage } from './hud/ball-image.ts'
 import { createPowerBar, yardsText, type PowerBarStage } from './power-bar.ts'
 
 export { PUTT_RANGE }
@@ -37,20 +46,16 @@ export interface ShotHudInput {
 
 const clubLabel = (club: ClubId) => (club === 'PT1' ? 'PT' : club)
 
-/** Tamanho da caixa do HUD, em unidades de design. */
-export const HUD_DESIGN = { width: 1620, height: 380 }
-/** Altura máxima do HUD (fração da altura da tela). */
-const HUD_MAX_HEIGHT = 0.3
-
-/** Escala da caixa de design para a tela (cabe na largura e em HUD_MAX_HEIGHT da altura). */
-export const hudScale = (width: number, height: number) =>
-  Math.min(1, width / HUD_DESIGN.width, (height * HUD_MAX_HEIGHT) / HUD_DESIGN.height)
-
 /** Texto da aba do passo da barra. */
 const STEP_LABELS: Record<PowerBarStage, string> = {
   idle: 'Start',
   rising: 'Power',
   returning: 'Impact',
+}
+const STEP_COLORS: Record<PowerBarStage, string> = {
+  idle: '#1aa3e8',
+  rising: '#e91e63',
+  returning: '#ff9800',
 }
 
 /** Onde a bola parou, para o quadro do fim da tacada. */
@@ -64,68 +69,43 @@ export interface ShotStop {
 }
 
 export function createShotHud(onShoot: () => void) {
+  definePbComponents()
   const root = document.createElement('div')
   root.className = 'shot-hud'
+  // Mesmos componentes e coordenadas do HTML de base (unidades de design 1620 × 380; a
+  // ordem define a sobreposição).
   root.innerHTML = `
     <p class="result" aria-live="polite"></p>
-    <div class="frame">
-      <div class="box">
-        <div class="dial">
-          <div class="face">
-            <div class="streak" hidden>PangYa <b></b></div>
-            <div class="impact" title="Ponto de impacto: clique ou arraste (spin e curva); duplo clique centraliza">
-              <div class="cross"></div><div class="dot"></div>
-            </div>
-            <div class="percent">0%</div>
-            <div class="ps" title="Power shot (Alt: 1 toque = 1 PS, 2 toques rápidos = 2 PS)">
-              <span></span><span></span>
-            </div>
-          </div>
-          <div class="arc">
-            <span class="icon" title="Itens (em breve)">🎒</span>
-            <span class="icon" title="Chat">💬</span>
-          </div>
-          <div class="club" title="Taco (roda do mouse)">1W</div>
-          <div class="stat" title="Força do personagem">15</div>
-        </div>
-        <div class="step"><span>Start</span><i></i></div>
-        <div class="counters" hidden>
-          <div class="traveled"></div>
-          <div class="to-pin"></div>
-        </div>
-        <div class="stop" hidden>
-          <div class="surface"></div>
-          <div class="distance"></div>
-          <div class="to-pin"></div>
-        </div>
+    <div class="stage">
+      <div class="counters" hidden>
+        <div class="traveled"></div>
+        <div class="to-pin"></div>
       </div>
+      <div class="stop" hidden>
+        <div class="surface"></div>
+        <div class="distance"></div>
+        <div class="to-pin"></div>
+      </div>
+      <power-bar>
+        <pb-arc-panel cx="177" cy="210" inner="157" outer="214" start="-70" end="-8" sections="2" slot="17" icons="flask,chat"></pb-arc-panel>
+        <pb-bar x="320" y="180" w="1290" h="100" max="256" value="0"></pb-bar>
+        <pb-gauge cx="177" cy="210" r="157" track="143" inner="133" value="0"></pb-gauge>
+        <pb-tab x="312" y="245" w="148" h="77" radius="12" label="Start"></pb-tab>
+        <pb-socket cx="71" cy="94" r="61" inner="44" thick label="1W" title="Taco (roda do mouse)"></pb-socket>
+        <pb-socket class="ps-socket" cx="250" cy="330" r="40" inner="30" label="−" label-color="#2196f3" title="Power shot (Alt: 1 toque = 1 PS, 2 toques rápidos = 2 PS)"></pb-socket>
+      </power-bar>
+      <div class="bar-label"></div>
     </div>`
   document.body.appendChild(root)
-  const $ = <T extends HTMLElement>(selector: string) => root.querySelector(selector) as T
+  const $ = <T extends Element>(selector: string) => root.querySelector(selector) as T
   const result = $<HTMLParagraphElement>('.result')
-  const clubBox = $<HTMLDivElement>('.club')
-  const impact = $<HTMLDivElement>('.impact')
-  const dot = $<HTMLDivElement>('.dot')
-  const pips = [...root.querySelectorAll<HTMLSpanElement>('.ps span')]
-  const stat = $<HTMLDivElement>('.stat')
-  const frame = $<HTMLDivElement>('.frame')
-  const box = $<HTMLDivElement>('.box')
-  const percentBox = $<HTMLDivElement>('.percent')
-  const streakBox = $<HTMLDivElement>('.streak')
-  const step = $<HTMLSpanElement>('.step span')
+  const gauge = $<PbGauge>('pb-gauge')
+  const tab = $<PbTab>('pb-tab')
+  const clubSocket = $<PbSocket>('pb-socket:not(.ps-socket)')
+  const psSocket = $<PbSocket>('.ps-socket')
   const counters = $<HTMLDivElement>('.counters')
   const stop = $<HTMLDivElement>('.stop')
-  const bar = createPowerBar(box)
-
-  // A caixa de design (1620×380) escalada para caber embaixo da tela.
-  const fit = () => {
-    const scale = hudScale(window.innerWidth, window.innerHeight)
-    frame.style.width = `${HUD_DESIGN.width * scale}px`
-    frame.style.height = `${HUD_DESIGN.height * scale}px`
-    box.style.transform = `scale(${scale})`
-  }
-  window.addEventListener('resize', fit)
-  fit()
+  const bar = createPowerBar($<PbBar>('pb-bar'), $<HTMLDivElement>('.bar-label'))
 
   /** PANGYAs seguidos (nas tacadas deste jogador). */
   let streak = 0
@@ -134,20 +114,20 @@ export function createShotHud(onShoot: () => void) {
     stop.hidden = which !== 'stop'
   }
   bar.onUpdate(({ stage, position, power }) => {
-    step.textContent = STEP_LABELS[stage]
+    tab.setAttribute('label', STEP_LABELS[stage])
+    tab.setAttribute('label-color', STEP_COLORS[stage])
     root.dataset['stage'] = stage
     const shown = stage === 'rising' ? position : power
-    percentBox.textContent = `${Math.round(shown * 100)}%`
+    gauge.setAttribute('value', String(Math.round(shown * 1000) / 10))
     if (stage === 'rising' && position === 0) {
       // Nova tacada: some o "PangYa" e o quadro da tacada anterior.
-      streakBox.hidden = true
+      gauge.setAttribute('streak', '0')
       showInfo(undefined)
     }
   })
   bar.onFinish(({ impact }) => {
     streak = isPangya(impact) ? streak + 1 : 0
-    streakBox.hidden = streak === 0
-    streakBox.querySelector('b')!.textContent = streak > 1 ? `×${streak}` : ''
+    gauge.setAttribute('streak', String(streak))
   })
 
   const input: ShotHudInput = {
@@ -162,41 +142,34 @@ export function createShotHud(onShoot: () => void) {
   let lastAlt = 0
   const listeners: (() => void)[] = []
   const changed = () => {
-    clubBox.textContent = clubLabel(input.club)
-    dot.style.left = `${50 + input.curve * 40}%`
-    dot.style.top = `${50 + input.spin * 40}%`
+    clubSocket.setAttribute('label', clubLabel(input.club))
+    gauge.setAttribute('curve', String(input.curve))
+    gauge.setAttribute('spin', String(input.spin))
     const count = input.powerShot === 'two' ? 2 : input.powerShot === 'one' ? 1 : 0
-    pips.forEach((pip, i) => pip.classList.toggle('on', i < count))
+    gauge.setAttribute('ps', String(count))
+    psSocket.setAttribute('label', count ? `${count}PS` : '−')
     root.classList.toggle('power-shot', count > 0)
     listeners.forEach((l) => l())
   }
 
-  // Ponto de impacto: posição do clique dentro do círculo da bola.
+  // Ponto de impacto: clique/arraste na bola do mostrador; duplo clique centraliza.
   let aimingImpact = false
-  const setImpact = (e: PointerEvent) => {
-    const rect = impact.getBoundingClientRect()
-    let x = ((e.clientX - rect.left) / rect.width) * 2 - 1
-    let y = ((e.clientY - rect.top) / rect.height) * 2 - 1
-    const length = Math.hypot(x, y)
-    if (length > 1) {
-      x /= length
-      y /= length
+  gauge.addEventListener('pb-impact', (e) => {
+    const { type, x, y } = (e as CustomEvent<PbImpactDetail>).detail
+    if (!enabled) return
+    if (type === 'reset') {
+      input.spin = input.curve = 0
+      changed()
+      return
     }
-    input.curve = Math.round(x * 30) / 30
-    input.spin = Math.round(y * 30) / 30
-    changed()
-  }
-  impact.addEventListener('pointerdown', (e) => {
-    if (!enabled) return
-    aimingImpact = true
-    impact.setPointerCapture(e.pointerId)
-    setImpact(e)
-  })
-  impact.addEventListener('pointermove', (e) => aimingImpact && setImpact(e))
-  impact.addEventListener('pointerup', () => (aimingImpact = false))
-  impact.addEventListener('dblclick', () => {
-    if (!enabled) return
-    input.spin = input.curve = 0
+    if (type === 'down') aimingImpact = true
+    if (type === 'up') aimingImpact = false
+    if (!aimingImpact && type !== 'up') return
+    if (type === 'up') return
+    const length = Math.hypot(x, y)
+    const scale = length > 1 ? 1 / length : 1
+    input.curve = Math.round(x * scale * 30) / 30
+    input.spin = Math.round(y * scale * 30) / 30
     changed()
   })
 
@@ -224,6 +197,7 @@ export function createShotHud(onShoot: () => void) {
   window.addEventListener('keydown', onKey)
   window.addEventListener('keyup', onKeyUp)
   changed()
+  let shownBall: string | undefined
 
   return {
     bar,
@@ -259,9 +233,22 @@ export function createShotHud(onShoot: () => void) {
       input.spin = input.curve = 0
       changed()
     },
-    /** Força do personagem mostrada no mostrador. */
+    /** Força do personagem (na dica do mostrador). */
     setPower(power: number) {
-      stat.textContent = String(power)
+      gauge.setAttribute('title', `Força do personagem: ${power}`)
+    },
+    /** A bola do jogador (modelo do jogo) no mostrador; sem ela, a bola branca. */
+    setBall(model: string | undefined) {
+      shownBall = model
+      if (!model) {
+        gauge.removeAttribute('ball')
+        return
+      }
+      void ballImage(model).then((url) => {
+        if (shownBall !== model) return
+        if (url) gauge.setAttribute('ball', url)
+        else gauge.removeAttribute('ball')
+      })
     },
     /** Contadores do voo: distância percorrida (branco) e até o pin (vermelho), em jardas. */
     showFlight(traveled: number, toPin: number) {
@@ -292,7 +279,6 @@ export function createShotHud(onShoot: () => void) {
     dispose() {
       window.removeEventListener('keydown', onKey)
       window.removeEventListener('keyup', onKeyUp)
-      window.removeEventListener('resize', fit)
       bar.dispose()
       root.remove()
     },

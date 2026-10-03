@@ -52,7 +52,11 @@ um, copia o código já descriptografado da memória com o PE-sieve e manda para
 repositório privado `pangyaweb-dump`). Falta o Daniel rodar; depois analisar a cópia e achar
 as funções da câmera. Riscos: o jogo fechar rápido demais, GameGuard, código virtualizado.
 
-Última entrega (04/10/2026): **HUD da tacada no visual do original** (pelo vídeo do
+Última entrega (04/10/2026): **HUD com os componentes do HTML de base do Daniel** —
+`<power-bar>`, `<pb-arc-panel>`, `<pb-bar>`, `<pb-gauge>`, `<pb-tab>`, `<pb-socket>` com as
+mesmas coordenadas e tema (refeitos pelos atributos: os `components/pb-*.js` não vieram) e
+**a bola escolhida pelo jogador no mostrador** (o modelo do jogo desenhado num PNG).
+Antes: **HUD da tacada no visual do original** (pelo vídeo do
 tutorial e a imagem da barra 3W): caixa de design 1620×380 escalada para a tela; mostrador
 com a bola, a % de força, "PangYa ×N" (PANGYAs seguidos), o taco no círculo de cima, arco com
 ícones e a força embaixo; aba do passo "Start/Power/Impact"; barra com moldura branca,
