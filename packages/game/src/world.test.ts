@@ -119,10 +119,15 @@ describe('HoleWorld', () => {
     expect(world.play(state, request, calm).outcome.type).toBe('hole')
   })
 
-  it('fora do terreno é O.B.', () => {
+  it('fora do terreno é O.B. e volta ao último ponto válido do caminho', () => {
     const state = startHole(4, world.tee)
     const shot = world.play(state, { club: '1W', percent: 1, aim: Math.PI / 2 }, calm)
     expect(shot.outcome.type).toBe('outOfBounds')
+    if (shot.outcome.type !== 'outOfBounds') return
+    const drop = shot.outcome.dropAt!
+    expect(world.surfaceAt(drop.x, drop.z)).toBeDefined()
+    // Longe da saída (andou pelo caminho), não de volta ao tee.
+    expect(Math.hypot(drop.x - state.ball.x, drop.z - state.ball.z)).toBeGreaterThan(10)
   })
 
   it('predictLanding cai perto de onde a tacada real pousa sem vento', () => {

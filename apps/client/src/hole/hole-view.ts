@@ -134,6 +134,9 @@ const FREE_CAMERA_UNTIL_LANDING = 0.8
  * mostra a sombra) e o quanto ela escurece. O terreno do curso é desenhado sem luz (luz
  * assada do jogo), por isso não recebe sombra direto.
  */
+/** Espaço durante a tacada: quantas vezes mais rápido ela passa (como no original). */
+const FAST_FORWARD = 2
+
 const CHARACTER_SHADOW = { size: 26, opacity: 0.5, lift: 0.04, sun: [45, 55, 25] as const }
 
 const SHOT_CAMERA = {
@@ -161,7 +164,11 @@ type ShotCameraMode = 'chase' | 'sky' | 'high' | 'side'
  * fica a `distance` alturas do personagem, a `up` altura do chão, olhando a `lookHeight`.
  */
 const CELEBRATION = {
-  wait: 1.6,
+  /** Vendo a cova: no mínimo `wait` s e até as moedas caírem e sumirem (no máximo `waitMax`). */
+  wait: 2.5,
+  waitMax: 7,
+  /** Pose final na tela antes do placar (s). */
+  hold: 1.5,
   fromCup: 3,
   distance: 1.7,
   up: 0.55,
@@ -176,7 +183,8 @@ const CELEBRATION = {
  */
 const NEAR_CUP_SLOW = {
   normal: { radius: 3.0, speed: 0.3, ease: 0.3 },
-  holeIn: { radius: 1.5, speed: 0.1, ease: 0.1 },
+  // A bola que entra vai em ritmo constante (como no vídeo do original, a pedido do Daniel).
+  holeIn: { radius: 1.5, speed: 1, ease: 0.1 },
   height: 2,
 }
 /**
@@ -196,6 +204,8 @@ const EFFECTS = {
 const SWING_STRONG_PERCENT = 0.7
 /** Moedas (pangs) que saem da bola no PANGYA e da cova quando a bola entra. */
 /** Moedas saindo da cova por resultado (hole in one/albatross é o "albatross"). */
+/** Moedas da cova: saem baixas, abertas e devagar, caem e somem com calma (vídeo do original). */
+const CUP_COINS = { speed: 0.55, coneDegrees: 35, timeScale: 0.7, spread: 0.9 }
 const PANG_COINS: Partial<Record<Reaction, number>> = {
   albatross: 40,
   eagle: 30,
@@ -581,6 +591,8 @@ export class HoleView {
         playhead: number
         /** Velocidade atual (1 = normal; menos perto da cova, NEAR_CUP_SLOW). */
         slow: number
+        /** Espaço durante o voo: a tacada passa mais rápido (FAST_FORWARD), sem pular. */
+        speed: number
         /** A bola entra na cova nesta tacada. */
         holed: boolean
         /** Putt (câmera baixa e perto, sem câmera de queda). */
@@ -1318,7 +1330,9 @@ export class HoleView {
       return
     }
     if (this.flight) {
-      this.flight.start = -Infinity
+      // Como no original: o espaço só acelera a tacada (2×); não pula para o fim.
+      this.flight.speed = FAST_FORWARD
+      this.panel.setEnabled(false, '')
       return
     }
     // Espaço apertado para pular a animação logo quando ela acaba não vira nova tacada.
@@ -1769,7 +1783,7 @@ export class HoleView {
     this.shotForward = aimDirection(aim ?? this.aim)
     this.target.visible = false
     this.greenGrid.visible = false
-    this.panel.setEnabled(false, 'Espaço: pular animação')
+    this.panel.setEnabled(false, 'Espaço: acelerar')
     const player = this.players.find((p) => p.id === playerId)
     if (player) this.ballOf(player, this.players.length > 1)
     this.flightYaw = 0
@@ -1791,6 +1805,7 @@ export class HoleView {
         index: 0,
         playhead: 0,
         slow: 1,
+        speed: 1,
         holed: events.some((e) => e.type === 'hole'),
         putt,
         tee: player?.state.lie === 'tee',
@@ -2029,7 +2044,7 @@ export class HoleView {
     // Pangs saindo da cova, pela felicidade do resultado (hole in one > eagle > … > bogey).
     const coins = PANG_COINS[reactionForScore(strokes, par)] ?? 0
     if (coins > 0) {
-      this.pangs.burst(this.cupScene().add(new Vector3(0, 0.5, 0)), coins)
+      this.pangs.burst(this.cupScene().add(new Vector3(0, 0.5, 0)), coins, CUP_COINS)
       setTimeout(() => void this.sounds.play('pang'), 150)
     }
     if (strokes - par <= -1) void this.sounds.play('galleryWow')
@@ -2186,17 +2201,17 @@ export class HoleView {
       const cut = f.stage !== 'arrival'
       f.stage = 'arrival'
       if (cut) this.cutCamera(this.arrivalPosition(f, forward))
-      else if (camera.position.distanceTo(focus) > a.far) {
+      else if (!f.endsAtCup && camera.position.distanceTo(focus) > a.far) {
         // A bola rolou para longe: vai atrás dela devagar.
         const along = this.travel(f, focus, forward, 25)
         this.moveCamera(focus, this.behind(focus, along, a.back, a.up), a.follow)
       }
       // Entre a bola e onde ela vai (o chão sempre na tela, mesmo com a bola lá no alto).
+      // Indo para a cova: depois de cair, a câmera fica parada olhando a cova e a bola rola
+      // até ela num movimento constante (sem a câmera seguir a bola).
       const ground = f.endsAtCup ? this.cupScene() : f.landingAt
       look(
-        f.index < f.landing
-          ? ground.clone().lerp(focus, 0.5)
-          : focus.clone().lerp(ground, f.endsAtCup ? 0.4 : 0),
+        f.index < f.landing ? ground.clone().lerp(focus, 0.5) : f.endsAtCup ? ground : focus,
         cut,
       )
       return
@@ -2313,7 +2328,10 @@ export class HoleView {
    */
   async celebrate(playerId: string, strokes: number, par: number) {
     const sleep = (s: number) => new Promise((r) => setTimeout(r, s * 1000))
+    // Vendo a cova até as moedas caírem e sumirem.
     await sleep(CELEBRATION.wait)
+    const until = performance.now() + (CELEBRATION.waitMax - CELEBRATION.wait) * 1000
+    while (this.pangs.active && performance.now() < until) await sleep(0.2)
     const model = this.ready.get(playerId)
     const name = model && reactionMotion(model.motions, reactionForScore(strokes, par))
     if (!model || !name) return
@@ -2342,6 +2360,8 @@ export class HoleView {
       await sleep(Math.min(duration, CELEBRATION.seconds))
       const ending = reactionEnding(model.motions, name)
       if (ending && this.cinematic) model.play(ending, true, 0.2)
+      // A pose final fica um pouco antes do placar (sem pressa, como no original).
+      await sleep(CELEBRATION.hold)
       return
     }
     // Altura pelo esqueleto (a caixa do modelo inteiro inclui o taco e sobras).
@@ -2362,6 +2382,7 @@ export class HoleView {
     await sleep(Math.min(duration, CELEBRATION.seconds))
     const ending = reactionEnding(model.motions, name)
     if (ending && this.cinematic) model.play(ending, true, 0.2)
+    await sleep(CELEBRATION.hold)
   }
 
   /** Câmeras animadas do personagem (data/camera_path/<personagem>_cam.apet). */
@@ -2547,7 +2568,7 @@ export class HoleView {
       else if (elapsed > 0) {
         const step = Math.min(dt, elapsed)
         f.slow += (this.nearCupSpeed(f) - f.slow) * Math.min(1, step / this.nearCupEase(f))
-        f.playhead += (step * BALL_PLAYBACK_SPEED * f.slow) / STEP_TIME
+        f.playhead += (step * BALL_PLAYBACK_SPEED * f.slow * f.speed) / STEP_TIME
       }
       const exact = Math.min(f.playhead, count - 1)
       const index = Math.min(Math.floor(exact), count - 1)

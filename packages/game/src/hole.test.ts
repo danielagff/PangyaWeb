@@ -44,11 +44,23 @@ describe('regras do buraco', () => {
     expect(s.liePower).toBeUndefined()
   })
 
-  it('O.B.: +1 e a bola volta para onde a tacada saiu', () => {
+  it('O.B. sem ponto de volta (estado antigo): +1 e a bola fica onde a tacada saiu', () => {
     let s = startHole(5, at(0))
     s = applyShot(s, { type: 'stop', at: at(250), surface: 'rough' })
     s = applyShot(s, { type: 'outOfBounds', at: at(999) })
     expect(s).toMatchObject({ strokes: 3, penalties: 1, ball: at(250), lie: 'rough' })
+  })
+
+  it('O.B.: +1 e a bola volta ao último ponto válido', () => {
+    let s = startHole(5, at(0))
+    s = applyShot(s, {
+      type: 'outOfBounds',
+      at: at(999),
+      dropAt: at(410),
+      dropSurface: 'rough',
+      liePower: 90,
+    })
+    expect(s).toMatchObject({ strokes: 2, penalties: 1, ball: at(410), lie: 'rough', liePower: 90 })
   })
 
   it('desiste ao atingir o limite de tacadas', () => {

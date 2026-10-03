@@ -25,6 +25,8 @@ import type { HoleData } from './hole-data.ts'
 export const PUTT_RANGE = 30
 
 const WATER = new Set(['water', 'waterPass'])
+/** Quanto a bola recua da borda da água/do mapa ao voltar (unidades; 3,2 = 1 jarda). */
+const DROP_BACK = 3.2
 
 /** O que o jogador escolhe para uma tacada (o resto vem do buraco e do servidor). */
 export interface ShotRequest {
@@ -335,13 +337,27 @@ export class HoleWorld {
     return { x, y: this.grid.groundAt(x, z)?.y ?? state.ball.y, z }
   }
 
-  /** Onde recolocar a bola que caiu na água: último ponto da trajetória sobre chão seco. */
-  private waterDrop(frames: Float32Array, fallback: Point): Point {
+  /**
+   * Onde recolocar a bola que foi para a água ou para fora do mapa (O.B.): o último ponto da
+   * trajetória sobre chão válido (seco e dentro do mapa), recuado um pouco da borda.
+   */
+  private lastValidPoint(frames: Float32Array, fallback: Point): Point {
+    const valid = (x: number, z: number) => {
+      const surface = this.surfaceAt(x, z)
+      return surface !== undefined && !WATER.has(surface.kind)
+    }
     for (let i = frames.length / 3 - 1; i >= 0; i--) {
       const x = frames[i * 3]!
       const z = frames[i * 3 + 2]!
-      const surface = this.surfaceAt(x, z)
-      if (surface && !WATER.has(surface.kind)) return this.onGround({ x, y: 0, z })
+      if (!valid(x, z)) continue
+      // Recua pela trajetória até DROP_BACK da borda (se o caminho ali também for válido).
+      for (let j = i - 1; j >= 0; j--) {
+        const bx = frames[j * 3]!
+        const bz = frames[j * 3 + 2]!
+        if (!valid(bx, bz)) break
+        if (Math.hypot(bx - x, bz - z) >= DROP_BACK) return this.onGround({ x: bx, y: 0, z: bz })
+      }
+      return this.onGround({ x, y: 0, z })
     }
     return fallback
   }
@@ -368,17 +384,16 @@ export class HoleWorld {
     }
     let outcome: ShotOutcome
     if (how === 'hole') outcome = { type: 'hole', at: this.cup }
-    else if (how === 'water') {
-      const dropAt = this.waterDrop(result.frames, state.ball)
+    else if (how === 'water' || how === 'outOfBounds') {
+      const dropAt = this.lastValidPoint(result.frames, state.ball)
       outcome = {
-        type: 'water',
+        type: how,
         at: end,
         dropAt,
         dropSurface: this.surfaceAt(dropAt.x, dropAt.z)?.kind ?? 'rough',
         liePower: liePower(dropAt),
       }
-    } else if (how === 'outOfBounds') outcome = { type: 'outOfBounds', at: end }
-    else {
+    } else {
       outcome = {
         type: 'stop',
         at: end,
@@ -422,8 +437,8 @@ export function describeShot(from: Point, shot: PlayedShot): string {
       : `${total.toFixed(1)}y`
   const endings: Record<ShotOutcome['type'], string> = {
     hole: '⛳ NA COVA!',
-    water: '💧 Água! +1 de penalidade',
-    outOfBounds: '🚫 O.B.! +1 de penalidade, volta para onde bateu',
+    water: '💧 Água (O.B.)! +1 de penalidade, volta ao último ponto válido',
+    outOfBounds: '🚫 O.B.! +1 de penalidade, volta ao último ponto válido',
     stop: '',
   }
   const pangya = shot.impact === undefined ? '' : isPangya(shot.impact) ? '✨ PANGYA! · ' : ''

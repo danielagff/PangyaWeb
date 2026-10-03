@@ -68,7 +68,20 @@ function drawnCoin() {
 /** A moeda do jogo (coin.pet), ou undefined sem o arquivo. */
 const loadCoin = () => loadPetObject('coin.pet', { center: true, color: 0xffcc33 })
 
+/** Opções de uma leva de moedas (a da cova sai mais baixa, aberta e devagar). */
+export interface BurstOptions {
+  /** Velocidade de saída (fração da do .spr). */
+  speed?: number
+  /** Abertura do cone (graus). */
+  coneDegrees?: number
+  /** Ritmo do movimento (1 = o do .spr; menos = mais devagar). */
+  timeScale?: number
+  /** Tempo (s) em que as moedas vão saindo. */
+  spread?: number
+}
+
 interface Coin {
+  timeScale: number
   object: Object3D
   velocity: Vector3
   age: number
@@ -99,14 +112,16 @@ export class PangBurst {
   }
 
   /** Solta `count` moedas em `at` (cena). */
-  burst(at: Vector3, count: number) {
+  burst(at: Vector3, count: number, options: BurstOptions = {}) {
     void this.preload()
     this.landedBurst = false
-    const cone = (COIN.coneDegrees * Math.PI) / 180
+    const cone = ((options.coneDegrees ?? COIN.coneDegrees) * Math.PI) / 180
+    const timeScale = options.timeScale ?? 1
+    const spread = options.spread ?? COIN.spread
     for (let i = 0; i < count; i++) {
       const tilt = Math.random() * cone
       const around = Math.random() * Math.PI * 2
-      const speed = COIN.speed * FPS
+      const speed = COIN.speed * FPS * (options.speed ?? 1) * (0.85 + Math.random() * 0.3)
       const velocity = new Vector3(
         Math.sin(tilt) * Math.cos(around),
         Math.cos(tilt),
@@ -134,9 +149,10 @@ export class PangBurst {
       const spin = (((Math.random() * 2 - 1) * COIN.spinDegrees * Math.PI) / 180) * FPS
       const [shortest, longest] = COIN.life as [number, number]
       this.coins.push({
+        timeScale,
         object,
         velocity,
-        age: (-i / Math.max(1, count - 1)) * COIN.spread,
+        age: (-i / Math.max(1, count - 1)) * spread,
         life: shortest + Math.random() * (longest - shortest),
         spin,
         ...(sprite && { sprite }),
@@ -146,9 +162,10 @@ export class PangBurst {
     }
   }
 
-  update(dt: number) {
-    const frames = dt * FPS
+  update(realDt: number) {
     for (const coin of this.coins) {
+      const dt = realDt * coin.timeScale
+      const frames = dt * FPS
       coin.age += dt
       const { object } = coin
       object.visible = coin.age >= 0

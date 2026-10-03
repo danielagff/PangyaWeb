@@ -22,9 +22,13 @@ export interface Point {
 export type ShotOutcome =
   | { type: 'stop'; at: Point; surface: string; liePower?: number }
   | { type: 'hole'; at: Point }
-  /** `dropAt`/`dropSurface`: onde a bola é recolocada (calculado por quem simulou). */
+  /**
+   * Água e fora do mapa (O.B.): +1 e a bola volta ao último ponto válido da trajetória
+   * (`dropAt`/`dropSurface`, calculados por quem simulou). Sem `dropAt` (estado antigo), a
+   * bola fica onde a tacada saiu.
+   */
   | { type: 'water'; at: Point; dropAt: Point; dropSurface: string; liePower?: number }
-  | { type: 'outOfBounds'; at: Point }
+  | { type: 'outOfBounds'; at: Point; dropAt?: Point; dropSurface?: string; liePower?: number }
 
 export interface HoleState {
   par: number
@@ -87,6 +91,11 @@ export function applyShot(state: HoleState, outcome: ShotOutcome): HoleState {
     case 'outOfBounds':
       next.strokes++
       next.penalties++
+      if (outcome.dropAt) {
+        next.ball = outcome.dropAt
+        next.lie = outcome.dropSurface ?? state.lie
+        setLiePower(next, outcome.liePower)
+      }
       break
   }
   if (next.strokes >= next.maxStrokes) return { ...next, finished: true, result: 'gaveUp' }
