@@ -79,8 +79,25 @@ Câmeras de jogo e HUD com as informações necessárias para mirar como no orig
   de câmera, a lista das tabelas dentro do `pangya_<região>.iff` e as palavras "camera",
   "cam_", "카메라", "연출" (direção de cena), "시점" (ponto de vista), "리플레이" dentro das
   tabelas e dos arquivos de dados. Esperando o Daniel rodar.
+- **Câmeras animadas do jogo** (`character/camera-path.ts`, achadas com os arquivos que o
+  Daniel subiu): `data/camera_path/<personagem>_cam.apet` (`a_def_cam.apet`…) é um esqueleto
+  DummyRoot → Camera01 no espaço do personagem, com um movimento por cena: cada comemoração
+  (`알바홀인승리포즈`, `이글승리포즈`, `버디승리포즈`, `세이브파승리포즈`, `보기실격실망포즈`,
+  `더블보기실망포즈`) em **4 versões** (`_01`…`_04`), em pedaços seguidos (`-1`, `-2`) até o
+  quadro parado `…끝`, com a mesma duração da pose; também o 2º power shot (`우드파워샷2_0N`),
+  a entrada (`등장모션`) e as versões com item. A rotação é gravada invertida (como nos ossos)
+  e a câmera olha pelo −Y do osso, com o "para cima" no +Z (conferido em 5 câmeras). Lente
+  de 45° na vertical (padrão do Direct3D; bate com o vídeo). `grandprix_cam.apet` (7
+  câmeras) e `memorial_cam.apet` são do Grand Prix e da máquina de prêmios.
+- **Câmera lenta perto da cova** (`NEAR_CUP_SLOW`, do `improve_ingame_play.lua` do jogo,
+  `near_holecup_present`): a menos de 3 unidades da cova, rente ao chão, a reprodução anda a
+  30% (em 0,3 s); se a bola vai entrar, a menos de 1,5 unidade, a 10% (em 0,1 s). O jogo
+  também tem linhas para backspin e tacadas especiais e um modo de câmera
+  (`slow_camerawork_index`) que fica no programa.
 - **Comemoração** (`celebrate`): depois de embocar, 1,6 s vendo a cova (moedas) e corta para o
-  personagem perto da cova, de frente para a câmera (enquadrado pela altura do esqueleto),
+  personagem perto da cova, sem o taco, com a **câmera animada do jogo** para aquela pose
+  (uma das 4 versões, sorteada; sem o arquivo, uma câmera parada de frente, enquadrada pela
+  altura do esqueleto),
   fazendo a pose do resultado; depois fica na pose final ("…끝") com o quadro do fim do
   buraco por cima.
 - Barra de força no estilo do original: escala de jardas (meio e máximo do taco), zona de

@@ -10,7 +10,7 @@ import {
   type Point,
   type ShotRequest,
 } from '@pangya/game'
-import type { SurfaceKind } from '@pangya/formats'
+import { readPet, type SurfaceKind } from '@pangya/formats'
 import {
   CUP_DEPTH,
   dropIntoCup,
@@ -54,6 +54,13 @@ import {
 } from 'three'
 import { courseMusicEvent, scoreSound, scoreVoice, soundEvent } from '../audio/sound-events.ts'
 import { sound, type SoundLibrary } from '../audio/sounds.ts'
+import {
+  CAMERA_PATH_FOV,
+  CAMERA_PATH_FPS,
+  CameraPath,
+  cameraPathName,
+  type CameraSegment,
+} from '../character/camera-path.ts'
 import { categoryOfClub, clubModelFor } from '../character/clubs.ts'
 import {
   golfMotions,
@@ -71,7 +78,7 @@ import {
 
 import { courseName } from '../menu/courses.ts'
 import { BALL_PLAYBACK_SPEED } from '../settings.ts'
-import { browserFiles } from './assets.ts'
+import { browserFiles, findAsset, tryFetchBytes } from './assets.ts'
 import { aimDirection, toScene } from './coords.ts'
 import { buildCourseScene, SKY_RADIUS, type CourseScene } from './course-scene.ts'
 import { buildGreenGrid } from './green-grid.ts'
@@ -142,6 +149,17 @@ const CELEBRATION = {
   up: 0.55,
   lookHeight: 0.55,
   seconds: 4.5,
+}
+/**
+ * Câmera lenta perto da cova, do próprio jogo (data/lua_script/improve_ingame_play.lua,
+ * `near_holecup_present`): a bola a menos de `radius` (unidades) da cova, rente ao chão
+ * (`height`), anda a `speed` da velocidade normal, chegando a ela em `ease` s. `holeIn` vale
+ * quando a bola vai entrar (o jogo também tem linhas para backspin e tacadas especiais).
+ */
+const NEAR_CUP_SLOW = {
+  normal: { radius: 3.0, speed: 0.3, ease: 0.3 },
+  holeIn: { radius: 1.5, speed: 0.1, ease: 0.1 },
+  height: 2,
 }
 /** Moedas (pangs) que saem da bola no PANGYA e da cova quando a bola entra. */
 const PANG_COINS = { pangya: 12, powerShot: 18, hole: 24 }
@@ -415,7 +433,14 @@ export class HoleView {
   /** Depois da tacada a câmera fica parada até a próxima vez (sem zoom no fim). */
   private cameraHold = false
   /** Câmera fixa da comemoração (posição e para onde olha). */
-  private cinematic: { position: Vector3; look: Vector3 } | undefined
+  private cinematic:
+    | { position: Vector3; look: Vector3 }
+    | { path: CameraPath; segment: CameraSegment; model: CharacterModel; started: number }
+    | undefined
+  /** Câmeras animadas de cada personagem (arquivo <personagem>_cam.apet), já carregadas. */
+  /** Abertura normal da câmera (a comemoração usa a das câmeras do jogo). */
+  private readonly baseFov: number
+  private readonly cameraPaths = new Map<CharacterModel, Promise<CameraPath | undefined>>()
   /** A bola entrou: a luz da cova some. */
   private cupHidden = false
   private readonly keys = new Set<string>()
@@ -489,8 +514,13 @@ export class HoleView {
         powerShot: PowerShot | undefined
         /** Quadro em que a bola toca o chão pela primeira vez. */
         landing: number
-        /** Quadro mostrado agora. */
+        /** Quadro mostrado agora e o ponto exato (fracionário) da reprodução. */
         index: number
+        playhead: number
+        /** Velocidade atual (1 = normal; menos perto da cova, NEAR_CUP_SLOW). */
+        slow: number
+        /** A bola entra na cova nesta tacada. */
+        holed: boolean
         /** Putt (câmera baixa e perto, sem câmera de queda). */
         putt: boolean
         /** Onde a bola estava (cena) e o ponto da primeira queda. */
@@ -540,6 +570,7 @@ export class HoleView {
     )
     this.renderer = renderer
     this.camera = camera
+    this.baseFov = camera.fov
     this.scene = scene
     this.course = course
     this.status = status
@@ -912,7 +943,7 @@ export class HoleView {
     this.phase = 'aim'
     this.readyAt = performance.now()
     this.cameraHold = false
-    this.cinematic = undefined
+    this.endCinematic()
     this.cupHidden = false
     const state = this.active.state
     this.showCharacter(this.active)
@@ -1541,6 +1572,9 @@ export class HoleView {
         powerShot,
         landing,
         index: 0,
+        playhead: 0,
+        slow: 1,
+        holed: events.some((e) => e.type === 'hole'),
         putt,
         from: this.frameAt(frames, 0),
         landingAt: this.frameAt(frames, landing),
@@ -1587,6 +1621,20 @@ export class HoleView {
         ? ['chase', 'high']
         : ['chase', 'sky', 'high', 'side']
     return modes[Math.floor(Math.random() * modes.length)]!
+  }
+
+  /** Velocidade da reprodução onde a bola está agora: lenta perto da cova (NEAR_CUP_SLOW). */
+  private nearCupSpeed(f: NonNullable<HoleView['flight']>) {
+    const slow = f.holed ? NEAR_CUP_SLOW.holeIn : NEAR_CUP_SLOW.normal
+    const i = Math.min(Math.floor(f.playhead), f.frames.length / 3 - 1) * 3
+    const cup = this.world.cup
+    const near = Math.hypot(f.frames[i]! - cup.x, f.frames[i + 2]! - cup.z) < slow.radius
+    const low = f.frames[i + 1]! - cup.y < NEAR_CUP_SLOW.height
+    return near && low ? slow.speed : 1
+  }
+
+  private nearCupEase(f: NonNullable<HoleView['flight']>) {
+    return (f.holed ? NEAR_CUP_SLOW.holeIn : NEAR_CUP_SLOW.normal).ease
   }
 
   /** A câmera livre do voo vale até pouco antes de a bola cair. */
@@ -1992,8 +2040,22 @@ export class HoleView {
     model.root.position.copy(spot)
     // O modelo olha para -X no próprio espaço: virado para a câmera.
     model.root.rotation.y = Math.atan2(toward.z, -toward.x)
+    // A câmera animada do jogo para essa pose (uma das 4 versões, sorteada); sem ela, uma
+    // câmera parada de frente.
+    const path = await this.cameraPathOf(model)
+    const segment = path && (path.segment(name) ?? path.segment(name.replace(/0?\d+$/, '')))
     const duration = model.play(name, false, 0.15)
     model.update(0)
+    model.clubVisible = false
+    if (path && segment) {
+      this.cinematic = { path, segment, model, started: performance.now() }
+      this.camera.fov = CAMERA_PATH_FOV
+      this.camera.updateProjectionMatrix()
+      await sleep(Math.min(duration, CELEBRATION.seconds))
+      const ending = reactionEnding(model.motions, name)
+      if (ending && this.cinematic) model.play(ending, true, 0.2)
+      return
+    }
     // Altura pelo esqueleto (a caixa do modelo inteiro inclui o taco e sobras).
     model.root.updateMatrixWorld(true)
     let top = -Infinity
@@ -2012,6 +2074,55 @@ export class HoleView {
     await sleep(Math.min(duration, CELEBRATION.seconds))
     const ending = reactionEnding(model.motions, name)
     if (ending && this.cinematic) model.play(ending, true, 0.2)
+  }
+
+  /** Câmeras animadas do personagem (data/camera_path/<personagem>_cam.apet). */
+  private cameraPathOf(model: CharacterModel) {
+    let path = this.cameraPaths.get(model)
+    if (!path) {
+      path = findAsset(cameraPathName(model.entry.skeleton), '')
+        .then((file) => (file ? tryFetchBytes(file) : undefined))
+        .then((bytes) => (bytes ? new CameraPath(readPet(bytes, 'apet')) : undefined))
+        .catch(() => undefined)
+      this.cameraPaths.set(model, path)
+    }
+    return path
+  }
+
+  /** Câmera da comemoração neste quadro: a animada do jogo ou a parada de frente. */
+  private placeCinematic() {
+    const c = this.cinematic!
+    const camera = this.camera
+    if ('position' in c) {
+      camera.position.copy(c.position)
+      camera.lookAt(c.look)
+      return
+    }
+    const { segment } = c
+    const frame = Math.min(
+      segment.end,
+      segment.start + ((performance.now() - c.started) / 1000) * CAMERA_PATH_FPS,
+    )
+    const pose = c.path.pose(frame)
+    if (!pose) return
+    // Do espaço do personagem (com o Z invertido dele) para a cena.
+    const space = c.model.space
+    space.updateMatrixWorld(true)
+    const at = pose.position.clone().applyMatrix4(space.matrixWorld)
+    const target = pose.position.clone().add(pose.forward).applyMatrix4(space.matrixWorld)
+    camera.position.copy(at)
+    camera.up.copy(pose.up.transformDirection(space.matrixWorld))
+    camera.lookAt(target)
+  }
+
+  /** Fim da comemoração: câmera normal (para cima = +Y, abertura do jogo). */
+  private endCinematic() {
+    if (!this.cinematic) return
+    for (const model of this.ready.values()) model.clubVisible = true
+    this.cinematic = undefined
+    this.camera.up.set(0, 1, 0)
+    this.camera.fov = this.baseFov
+    this.camera.updateProjectionMatrix()
   }
 
   /**
@@ -2049,7 +2160,15 @@ export class HoleView {
       // a bola é desenhada entre dois pontos, pelo tempo exato do quadro — sem isso ela anda
       // aos trancos (uns quadros repetem a posição, outros pulam) e a câmera treme junto.
       // Tocada um pouco mais devagar que a física (BALL_PLAYBACK_SPEED).
-      const exact = Math.max(0, (elapsed * BALL_PLAYBACK_SPEED) / STEP_TIME)
+      // Perto da cova, câmera lenta (NEAR_CUP_SLOW): a reprodução anda quadro a quadro.
+      const f = this.flight
+      if (skipped) f.playhead = count - 1
+      else if (elapsed > 0) {
+        const step = Math.min(dt, elapsed)
+        f.slow += (this.nearCupSpeed(f) - f.slow) * Math.min(1, step / this.nearCupEase(f))
+        f.playhead += (step * BALL_PLAYBACK_SPEED * f.slow) / STEP_TIME
+      }
+      const exact = Math.min(f.playhead, count - 1)
       const index = Math.min(Math.floor(exact), count - 1)
       const between = index < count - 1 ? exact - index : 0
       if (elapsed >= 0) this.playEvents(index, skipped)
@@ -2126,8 +2245,7 @@ export class HoleView {
       this.placeCamera(this.ballPosition(), 0.12)
       this.placeTarget() // depois da câmera: na vista aérea usa o giro dela deste quadro
     } else if (this.cinematic) {
-      this.camera.position.copy(this.cinematic.position)
-      this.camera.lookAt(this.cinematic.look)
+      this.placeCinematic()
     } else if (!this.debugFreeze && !this.cameraHold) {
       this.placeCamera(this.ballPosition(), 0.08)
     }

@@ -60,7 +60,7 @@ Efeitos sonoros e música tocando nos eventos certos.
 - Música de cada curso: o cliente não tem tabela curso → música (o `Course.iff` não tem);
   usamos a da **trilha oficial** (pangya.wiki, "Pangya Online Original Soundtrack";
   `COURSE_TRACKS`): Blue Lagoon/Blue Water/Blue Moon = Daydream e Frog, Pink Wind/Wind
-  Hill/Sepia Wind = Breeze e Spring, Wiz Wiz/West Wiz = Bunny e Shiny, White Wiz =
+  Hill/Sepia Wind = Breeze (`samba3.mp3`, pelo `bgmlist.lua` do jogo) e Spring, Wiz Wiz/West Wiz = Bunny e Shiny, White Wiz =
   Snowscape e Winter Ride, Silvia Cannon = Navy Blue e Rising Sun, Shining Sand = Somewhere
   e Nowhere, Ice Cannon = Crystal Waver e Happy Flight, Deep Inferno = Volcano e Vermilion,
   Ice Spa = Crystal Lake e Fade Into White, Lost Seaway, Eastern Valley (e River), Wiz City

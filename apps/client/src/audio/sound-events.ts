@@ -149,16 +149,17 @@ export const musicEventId = (round: string) => `music:${round}`
 
 /**
  * Músicas de cada curso na trilha oficial (pangya.wiki, "Pangya Online Original Soundtrack"),
- * pelo nome do arquivo em data/sound/bgm. Chave: nome do curso só com letras.
+ * pelo nome do arquivo em data/sound/bgm (o data/lua_script/bgmlist.lua do jogo liga nome e
+ * arquivo: "Breeze" é samba3.mp3). Chave: nome do curso só com letras.
  */
 const COURSE_TRACKS: Record<string, string[]> = {
   bluelagoon: ['daydream', 'frog'],
   bluewater: ['daydream', 'frog'],
   bluemoon: ['daydream', 'frog'],
-  pinkwind: ['breeze', 'spring'],
-  springwind: ['breeze', 'spring'],
-  windhill: ['breeze', 'spring'],
-  sepiawind: ['breeze', 'spring'],
+  pinkwind: ['samba3', 'spring'],
+  springwind: ['samba3', 'spring'],
+  windhill: ['samba3', 'spring'],
+  sepiawind: ['samba3', 'spring'],
   wizwiz: ['bunny', 'shiny'],
   westwiz: ['bunny', 'shiny'],
   whitewiz: ['snowscape', 'winter ride'],

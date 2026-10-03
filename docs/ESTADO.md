@@ -46,7 +46,14 @@ jogar com amigos, com o **PC do Daniel como servidor**. Não é vendido nem publ
 
 ## Em andamento agora
 
-Última entrega (04/10/2026): **`enviar-arquivos.cmd`**: manda `assets/original` para
+Última entrega (04/10/2026): **câmeras originais das comemorações** — lidas dos arquivos
+do jogo que o Daniel subiu (`data/camera_path/<personagem>_cam.apet`): cada pose (hole in
+one, eagle, birdie, par, bogey, double bogey) toca com a câmera animada do jogo, uma das 4
+versões sorteada, sem o taco na mão; **câmera lenta perto da cova** com os números do
+próprio jogo (`improve_ingame_play.lua`); música "Breeze" = `samba3.mp3` (`bgmlist.lua`).
+Testado na nuvem com os personagens reais (Azer, Kaz), sem texturas.
+
+Antes: **`enviar-arquivos.cmd`**: manda `assets/original` para
 repositórios **privados** do GitHub, um por tipo (dados, sons, modelos, imagens; os que
 passam de 900 MB viram parte A, B…), para o Claude ler os arquivos do jogo na nuvem. Testado
 com repositórios locais. Também: a **câmera do jogo é animada** (`.apet` com um osso

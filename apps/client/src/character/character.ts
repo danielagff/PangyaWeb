@@ -340,6 +340,16 @@ export class CharacterModel {
     this.mixer = new AnimationMixer(this.inner)
   }
 
+  /** Mostra/esconde o taco na mão (nas comemorações ele some, como no jogo). */
+  set clubVisible(visible: boolean) {
+    if (this.club) this.club.object.visible = visible
+  }
+
+  /** Espaço do Pangya dentro do personagem (com o Z invertido): o das câmeras animadas. */
+  get space(): Object3D {
+    return this.inner
+  }
+
   get motionNames() {
     return [...this.clips.keys()]
   }
