@@ -107,6 +107,23 @@ Câmeras de jogo e HUD com as informações necessárias para mirar como no orig
   com uma das 4 câmeras do jogo (`우드파워샷2_0N`) até a bola sair; o taco acerta em 45% do
   movimento (`POWER_SHOT_TWO.impact`, estimado — o jogo não guarda o quadro). O 1º power
   shot e os de ferro ainda usam o swing normal.
+- **Efeitos do jogo** (`effects/spr.ts` lê, `effects/effect-system.ts` toca): `.seq` diz em
+  que ms solta qual spray (`.spr`), de onde e com que velocidade; o `.spr` é o sistema de
+  partículas (textura com quadros ou modelo .pet, mistura aditiva, cor/transparência e
+  tamanho pela idade, quantas e quando, velocidade num cone, gravidade, gravidade de ponto,
+  atrito, chão com quique, giro, rastro `Tail`), mais tremida de câmera (`Add_Quake`, só no
+  desenho) e clarão branco (`Add_Flash`). Unidades: ms (ou quadros "f" a 30/s), graus "d",
+  "%", velocidades por quadro. Ainda ignorados: Dist_Limit, CamOffset, Add_Bubble, Add_Wind,
+  Vol_Core, Lighting. Tocam: `pangya_shot.seq` no PANGYA, `nomal_shot.seq` na batida boa,
+  `hole_in_eff.seq` quando a bola entra. As texturas têm o prefixo no nome (`[`, `~`) e a
+  transparência num `_mask.jpg` (o carregador agora acha `_mask.png` e `_mask.jpg`).
+  `__debugEffect(nome, altura, velocidade)` toca um efeito na bola (testes; velocidade < 1 =
+  câmera lenta).
+- **Letreiro da batida** (`hole/impact-text.ts`): a folha `data/2d/font/[impact_x3.png` (Bad,
+  PangYa, Power Spin, Power Curve, Tomahawk, Max, Super PangYa, Cobra, Spike, Power
+  Tomahawk/Cobra/Spike); mostra "PangYa" no PANGYA e "Bad" na errada, por cima da barra.
+- O `holeineffect.lua` (raios, sol, anel, clarão e "+10") é do evento de pontos de hole in
+  one (2012), não a tela normal do hole in one: ficou de fora.
 - **Comemoração** (`celebrate`): depois de embocar, 1,6 s vendo a cova (moedas) e corta para o
   personagem perto da cova, sem o taco, com a **câmera animada do jogo** para aquela pose
   (uma das 4 versões, sorteada; sem o arquivo, uma câmera parada de frente, enquadrada pela

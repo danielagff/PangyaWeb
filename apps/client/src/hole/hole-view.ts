@@ -84,6 +84,8 @@ import { aimDirection, toScene } from './coords.ts'
 import { buildCourseScene, SKY_RADIUS, type CourseScene } from './course-scene.ts'
 import { buildGreenGrid } from './green-grid.ts'
 import type { PowerBar } from './power-bar.ts'
+import { EffectSystem } from '../effects/effect-system.ts'
+import { ImpactText } from './impact-text.ts'
 import { PangBurst } from './pang-burst.ts'
 import { loadPetObject } from './pet-object.ts'
 import { createShotHud, type ShotHud } from './shot-hud.ts'
@@ -170,6 +172,12 @@ const NEAR_CUP_SLOW = {
 const POWER_SHOT_TWO = { motion: '우드샷파워2', camera: '우드파워샷2', impact: 0.45 }
 /** Entrada do personagem no começo do buraco (movimento e cena das câmeras). */
 const ENTRANCE = '등장모션'
+/** Efeitos do jogo (data/effect/renewal/*.seq). */
+const EFFECTS = {
+  pangya: 'pangya_shot.seq',
+  normal: 'nomal_shot.seq',
+  holeIn: 'hole_in_eff.seq',
+}
 /** Força da barra (0..1) a partir da qual o swing usa o som forte ("_s"). */
 const SWING_STRONG_PERCENT = 0.7
 /** Moedas (pangs) que saem da bola no PANGYA e da cova quando a bola entra. */
@@ -441,6 +449,12 @@ export class HoleView {
   private readonly trailGeometry = new BufferGeometry()
   private readonly ray = new Raycaster()
   private readonly pangs = new PangBurst()
+  /** Efeitos do jogo (.seq/.spr): brilho da batida, cova… */
+  private readonly effects = new EffectSystem()
+  /** Letreiro da batida (PangYa, Bad) com a imagem do jogo. */
+  private readonly impactText = new ImpactText()
+  /** Clarão branco dos efeitos (Add_Flash). */
+  private readonly flashBox = document.createElement('div')
   /** Para onde a câmera olha (suavizado) nas câmeras da tacada. */
   private readonly lookPoint = new Vector3()
   /** Depois da tacada a câmera fica parada até a próxima vez (sem zoom no fim). */
@@ -650,6 +664,14 @@ export class HoleView {
     trail.frustumCulled = false
     scene.add(trail)
     scene.add(this.pangs.root)
+    scene.add(this.effects.root)
+    for (const name of Object.values(EFFECTS)) this.effects.preload(name)
+    this.flashBox.className = 'effect-flash'
+    document.body.appendChild(this.flashBox)
+    this.elements.push(this.flashBox)
+    document.body.appendChild(this.impactText.element)
+    this.elements.push(this.impactText.element)
+    this.impactText.preload()
     this.pangs.groundAt = (x, z) => this.world.grid.groundAt(x, -z)?.y
     this.pangs.onLand = () => void this.sounds.play('pangDrop')
     void this.pangs.preload()
@@ -798,6 +820,16 @@ export class HoleView {
         ...dropIntoCup({ x: cup.x + 0.3, y: cup.y, z: cup.z + 0.1 }, cup),
       ])
       void this.animateShot(this.active.id, frames, {})
+    }
+    // Depuração: toca um efeito do jogo (.seq) na bola da vez.
+    // (`lift`: acima da bola; `speed`: velocidade do tempo dos efeitos, < 1 = câmera lenta.)
+    ;(
+      window as unknown as {
+        __debugEffect: (name: string, lift?: number, speed?: number) => Promise<boolean>
+      }
+    ).__debugEffect = (name, lift = 0, speed = 1) => {
+      this.effects.timeScale = speed
+      return this.effects.play(name, this.ballPosition().add(new Vector3(0, lift, 0)))
     }
     ;(window as unknown as { __debugScene: Scene }).__debugScene = scene
     ;(window as unknown as { __debug: () => unknown }).__debug = () => ({
@@ -1727,6 +1759,7 @@ export class HoleView {
         case 'hit':
           this.playHit(flight, character)
           this.hitPangs(flight)
+          this.hitEffect(flight)
           break
         case 'bounce':
           void sounds.playNamed(this.surfaceSound(e.surface, 'boundSound'), 'bounce')
@@ -1760,12 +1793,25 @@ export class HoleView {
           void sounds.play('cup')
           void sounds.play('applause')
           this.cupHidden = true
+          void this.effects.play(EFFECTS.holeIn, this.cupScene())
           this.pangs.burst(this.cupScene().add(new Vector3(0, 0.5, 0)), PANG_COINS.hole)
           setTimeout(() => void sounds.play('pang'), 250)
           break
         }
       }
     }
+  }
+
+  /** Brilho da batida saindo da bola: o do PANGYA ou o da batida boa (não no putt). */
+  private hitEffect(flight: NonNullable<HoleView['flight']>) {
+    if (flight.putt) return
+    const { impact } = flight
+    const pangya = impact === undefined || isPangya(impact)
+    const missed = impact !== undefined && Math.abs(impact) > 1
+    if (pangya) void this.impactText.show('pangya')
+    else if (missed) void this.impactText.show('bad')
+    if (pangya) void this.effects.play(EFFECTS.pangya, flight.from)
+    else if (!missed) void this.effects.play(EFFECTS.normal, flight.from)
   }
 
   /** PANGYA (fora do putt) ou power shot: pangs saindo da bola, com o som das moedas. */
@@ -2118,6 +2164,7 @@ export class HoleView {
     for (const [id, other] of this.ready) other.root.visible = id === playerId
     model.root.visible = true
     this.pangs.clear()
+    this.effects.clear()
     model.root.position.copy(spot)
     // O modelo olha para -X no próprio espaço: virado para a câmera.
     model.root.rotation.y = Math.atan2(toward.z, -toward.x)
@@ -2387,12 +2434,18 @@ export class HoleView {
     }
     for (const model of this.ready.values()) if (model.root.visible) model.update(dt)
     this.pangs.update(dt)
+    this.effects.update(dt)
+    this.flashBox.style.opacity = String(this.effects.flash)
     this.updateOverlay()
     this.updateAimReadout()
     this.beamMaterial.opacity = 0.4 + 0.08 * Math.sin(now / 300)
     this.fitBeam()
     this.course.update(this.camera)
+    // Tremida dos efeitos só no desenho (as câmeras seguem do lugar certo no próximo quadro).
+    const shake = this.effects.shake
+    this.camera.position.add(shake)
     this.renderer.render(this.scene, this.camera)
+    this.camera.position.sub(shake)
   }
 
   /** Mostra um quadro no centro da tela (fim do buraco/partida). */
@@ -2406,6 +2459,8 @@ export class HoleView {
   }
 
   dispose() {
+    this.impactText.dispose()
+    this.effects.clear()
     this.sounds.stopAmbient()
     this.flight?.done()
     this.flight = undefined

@@ -46,7 +46,9 @@ jogar com amigos, com o **PC do Daniel como servidor**. Não é vendido nem publ
 
 ## Em andamento agora
 
-Última entrega (04/10/2026): **entrada do personagem** no começo do buraco e **2º power
+Última entrega (04/10/2026): **efeitos do jogo** — leitor e motor de partículas dos
+`.seq`/`.spr` originais (brilho do PANGYA e da batida boa, efeito da bola na cova, tremida e
+clarão) e o letreiro "PangYa"/"Bad" da folha de imagens do jogo. Antes: **entrada do personagem** no começo do buraco e **2º power
 shot** com as câmeras animadas do jogo. Antes: **bolas do jogo** — escolha na tela do personagem (lista da
 tabela Ball.iff com nomes traduzidos e prévia 3D girando), a bola do jogo desenhada na
 partida (`data/ball/<modelo>.pet`) e no online cada um vê a bola dos outros. Ainda só muda

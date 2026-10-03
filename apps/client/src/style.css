@@ -1636,3 +1636,32 @@
   display: block;
   margin: 4px auto 0;
 }
+
+/* Clarão dos efeitos do jogo (Add_Flash), por cima da cena. */
+.effect-flash {
+  position: fixed;
+  inset: 0;
+  background: #fff;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* Letreiro da batida (PangYa, Bad…): a folha do jogo, por cima da barra. */
+.impact-text {
+  position: fixed;
+  left: 50%;
+  bottom: 120px;
+  transform: translateX(-50%) scale(0.4);
+  opacity: 0;
+  background-repeat: no-repeat;
+  pointer-events: none;
+  z-index: 6;
+  transition:
+    transform 0.18s cubic-bezier(0.2, 1.6, 0.4, 1),
+    opacity 0.3s;
+}
+.impact-text.show {
+  transform: translateX(-50%) scale(1);
+  opacity: 1;
+}

@@ -94,8 +94,11 @@ export class TextureLibrary {
       this.missing.add(name)
       return undefined
     }
-    // Máscara de transparência opcional "<nome>_mask.png": o vermelho vira o alfa.
-    const maskPath = await findAsset(`${stem(name)}_mask.png`, this.round)
+    // Máscara de transparência opcional "<nome>_mask.png" (ou .jpg, como nos efeitos): o
+    // vermelho vira o alfa.
+    const maskPath =
+      (await findAsset(`${stem(name)}_mask.png`, this.round)) ??
+      (await findAsset(`${stem(name)}_mask.jpg`, this.round))
     const maskBytes = maskPath ? await tryFetchBytes(maskPath) : undefined
     if (maskBytes) {
       const mask = await decodeImage(maskBytes, image)
