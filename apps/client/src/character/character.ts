@@ -10,7 +10,14 @@
  * Animação: tempo em segundos (30 quadros/s, os "motions" usam quadros); cada osso tem
  * posição, rotação (quaternion x,y,z,w gravado invertido) e escala locais ao pai.
  */
-import { boneWorldMatrix, petToSubMeshes, readPet, type Mat4x3, type Pet } from '@pangya/formats'
+import {
+  boneWorldMatrix,
+  petToSubMeshes,
+  readPet,
+  type FrameCommand,
+  type Mat4x3,
+  type Pet,
+} from '@pangya/formats'
 import {
   AnimationClip,
   AnimationMixer,
@@ -37,6 +44,13 @@ import {
 } from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import type { MotionInfo } from './motions.ts'
+import {
+  chainNext,
+  eventsBetween,
+  motionEvents,
+  shotFrame,
+  type MotionEvent,
+} from './motion-events.ts'
 import { ASSET_BASE, tryFetchBytes } from '../hole/assets.ts'
 import { TextureLibrary } from '../hole/textures.ts'
 
@@ -322,6 +336,16 @@ export class CharacterModel {
 
   /** Movimentos do .apet (nome e quadros), para escolher pelo nome real. */
   motions: MotionInfo[] = []
+  /** Eventos dos quadros (FRAM) de cada movimento. */
+  events = new Map<string, MotionEvent[]>()
+  /** Chamado a cada evento de quadro do movimento tocando (sons, passos, efeitos…). */
+  onEvent: ((command: FrameCommand, model: CharacterModel) => void) | undefined
+  /** Movimento pedido no último `play` (na espera encadeada, o atual pode ser o seguinte). */
+  requested: string | undefined
+  /** Na espera encadeada (준비 → 디폴트 → 준비), o próximo ao acabar o atual. */
+  private chainTo: string | undefined
+  /** Tempo do movimento já percorrido pelos eventos. */
+  private eventTime = -1
 
   /** Cabeça do taco na postura de preparação (espaço de `root`), medida por `address`. */
   addressHead: Vector3 | undefined
@@ -342,8 +366,10 @@ export class CharacterModel {
 
   /** Mostra/esconde o taco na mão (nas comemorações ele some, como no jogo). */
   set clubVisible(visible: boolean) {
+    this.clubShown = visible
     if (this.club) this.club.object.visible = visible
   }
+  private clubShown = true
 
   /** Espaço do Pangya dentro do personagem (com o Z invertido): o das câmeras animadas. */
   get space(): Object3D {
@@ -393,10 +419,23 @@ export class CharacterModel {
     return this.current?.getClip().name
   }
 
-  /** Toca um movimento (a partir de `from` segundos); devolve a duração (s). */
+  /**
+   * Toca um movimento (a partir de `from` segundos); devolve a duração (s). Em laço, se o
+   * jogo encadeia o movimento com outro (a espera 준비 → 디폴트), toca a corrente.
+   */
   play(name: string | undefined, loop = true, fade = 0.2, from = 0): number {
+    this.requested = name
+    return this.start(name, loop, fade, from)
+  }
+
+  private start(name: string | undefined, loop: boolean, fade: number, from: number): number {
     const clip = name ? this.clips.get(name) : undefined
-    if (!clip) return 0
+    if (!clip || !name) return 0
+    this.chainTo = loop ? chainNext(this.motions, name) : undefined
+    if (this.chainTo) loop = false
+    this.eventTime = from > 0 ? from : -1
+    // Taco escondido por um evento do movimento anterior volta a aparecer.
+    this.clubByEvent(true)
     const action = this.mixer.clipAction(clip)
     action.reset()
     action.time = from
@@ -429,6 +468,37 @@ export class CharacterModel {
 
   update(dt: number) {
     this.mixer.update(dt)
+    const action = this.current
+    if (!action) return
+    const name = action.getClip().name
+    const duration = action.getClip().duration
+    // Eventos dos quadros percorridos (no laço, a volta passa pelo fim e recomeça).
+    if (this.onEvent && dt > 0) {
+      const list = this.events.get(name)
+      const now = action.time
+      const fired =
+        now >= this.eventTime
+          ? eventsBetween(list, this.eventTime, now)
+          : [...eventsBetween(list, this.eventTime, duration), ...eventsBetween(list, -1, now)]
+      for (const e of fired) for (const c of e.commands) this.onEvent(c, this)
+      this.eventTime = now
+    }
+    if (this.chainTo && action.time >= duration - 1e-4) this.start(this.chainTo, true, 0.2, 0)
+  }
+
+  /** Posição na cena de um osso pelo nome do jogo (ex.: "Bip01 L Toe0"); undefined se não há. */
+  bonePosition(name: string): Vector3 | undefined {
+    const wanted = name.trim().toLowerCase()
+    const i = this.rig.pet.bones.findIndex((b) => b.name.trim().toLowerCase() === wanted)
+    const bone = this.rig.bones[i]
+    if (!bone) return undefined
+    this.root.updateMatrixWorld(true)
+    return bone.getWorldPosition(new Vector3())
+  }
+
+  /** Esconde/mostra o taco pelos eventos da animação (*hideclub / *showclub). */
+  clubByEvent(visible: boolean) {
+    if (this.club) this.club.object.visible = visible && this.clubShown
   }
 
   /** Ponto mais baixo do taco na pose atual (a cabeça), no espaço de `root`. */
@@ -537,7 +607,10 @@ export class CharacterModel {
       ;(bones[hand] ?? this.inner).add(group)
       object = group
     }
-    if (object) this.club = { path, object }
+    if (object) {
+      object.visible = this.clubShown
+      this.club = { path, object }
+    }
   }
 
   static async load(entry: CharacterEntry, parts = entry.defaults): Promise<CharacterModel> {
@@ -571,11 +644,11 @@ export class CharacterModel {
     const clips = apet ? buildClips(apet, skeletonPet, rest) : new Map<string, AnimationClip>()
     const model = new CharacterModel(entry, clips)
     model.rig = { pet: skeletonPet, bones, restWorld, textures }
-    model.motions = (apet?.motions ?? []).map(({ name, frameStart, frameEnd }) => ({
-      name,
-      frameStart,
-      frameEnd,
-    }))
+    model.events = apet ? motionEvents(apet.motions, apet.frameEvents) : new Map()
+    model.motions = (apet?.motions ?? []).map(({ name, frameStart, frameEnd, next }) => {
+      const shot = shotFrame(model.events.get(name))
+      return { name, frameStart, frameEnd, next, ...(shot !== undefined && { shot }) }
+    })
     for (const [i, b] of skeletonPet.bones.entries()) {
       if (b.parent < 0 || b.parent >= bones.length) model.inner.add(bones[i]!)
     }

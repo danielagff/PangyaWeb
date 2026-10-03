@@ -155,7 +155,9 @@ export function simulateGround(
       const dz = p.z - input.cup.z
       if (Math.hypot(dx, dz) < k.cupRadius && len(v) < k.cupMaxSpeed && p.y <= ground.y + 0.5) {
         // Desliza até o centro e cai dentro da cova.
-        frames.push(...dropIntoCup(p, input.cup))
+        const n = frames.length
+        const before = n >= 6 ? { x: frames[n - 6]!, y: frames[n - 5]!, z: frames[n - 4]! } : p
+        frames.push(...dropIntoCup(p, input.cup, 4, before))
         p = cupBottom(input.cup)
         return finish({ type: 'hole', at: { ...input.cup } })
       }

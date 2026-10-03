@@ -52,6 +52,8 @@ const MAX_PARTICLES = 1500
 
 const decoder = new TextDecoder('euc-kr')
 const textures = new TextureLibrary('')
+/** Quanto tempo um .spr tocado sozinho continua soltando partículas (ms). */
+const SINGLE_SPRAY_MS = 2000
 
 async function readText(name: string) {
   const path = await findAsset(name, '')
@@ -129,7 +131,8 @@ export class EffectSystem {
 
   /** Toca a sequência `seqName` (arquivo .seq) no ponto `at` da cena. */
   async play(seqName: string, at: Vector3) {
-    const seq = await this.seq(seqName)
+    // Um .spr sozinho (os eventos *fx dos movimentos) vira uma sequência de um spray.
+    const seq = /\.spr$/i.test(seqName) ? await this.single(seqName) : await this.seq(seqName)
     if (!seq) return false
     this.running.push({ seq, at: at.clone(), age: 0, next: 0, emitters: [] })
     return true
@@ -144,6 +147,24 @@ export class EffectSystem {
         await Promise.all(def.events.map((e) => this.spray(e.file)))
         return def
       })
+      this.seqs.set(name, seq)
+    }
+    return seq
+  }
+
+  private single(name: string): Promise<SeqDef | undefined> {
+    let seq = this.seqs.get(name)
+    if (!seq) {
+      seq = this.spray(name).then((spray) =>
+        spray
+          ? {
+              events: [
+                { time: 0, file: name, position: [0, 0, 0], velocity: [0, 0, 0], attached: false },
+              ],
+              stop: SINGLE_SPRAY_MS,
+            }
+          : undefined,
+      )
       this.seqs.set(name, seq)
     }
     return seq

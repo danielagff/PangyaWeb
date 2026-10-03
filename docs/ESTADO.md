@@ -46,7 +46,14 @@ jogar com amigos, com o **PC do Daniel como servidor**. Não é vendido nem publ
 
 ## Em andamento agora
 
-Última entrega (04/10/2026): **tacos do jogo** — na tela do personagem, os 121 conjuntos da
+Última entrega (04/10/2026): **ajustes do Daniel** — moedas só quando a bola cai na cova
+(mais moedas quanto melhor: hole in one 40 … bogey 6; double bogey nenhuma); o personagem
+lê os **eventos dos quadros (FRAM)** das animações: sons e passos dos movimentos, efeitos
+nos ossos, taco escondido, e o quadro exato do impacto; espera com variação (준비 → 디폴트);
+sons da barra como no jogo (2º toque good/best timing, 3º toque no toque), swing de madeira
+drive_s/tee_s pelo PANGYA, troca de taco (`클럽교체`), bola voando (`공날아가기`); bola caindo
+na cova sem tranco (curva com a velocidade que ela trazia, sem câmera lenta dentro da cova,
+quique no fundo). Antes: **tacos do jogo** — na tela do personagem, os 121 conjuntos da
 tabela ClubSet.iff com o ícone da loja do jogo (leitor de `.tga` novo em `@pangya/formats`) e
 os atributos; a força total é a do personagem (Character.iff) + a dos tacos, como no jogo, e
 o campo de força é preenchido sozinho. Na partida o personagem segura o taco do conjunto
@@ -229,8 +236,8 @@ Regras de nomes de peças já confirmadas pelo Daniel (implementadas em
 1. **1 personagem 100%** (qual: o Daniel escolhe): o Daniel anota no catálogo o que é cada
    animação; com isso, usar todas as que o jogo usa (entrada, tacadas de cada taco, power
    shot, erros, putts, comemorações e decepções de cada resultado, chat), o **quadro exato do
-   impacto**, a roupa padrão, a frente do modelo e a posição na bola. Ler o bloco **FRAM**
-   (troca de rosto e esconder/mostrar o taco por quadro).
+   impacto** (já vem do FRAM), a roupa padrão, a frente do modelo e a posição na bola. Do
+   FRAM falta usar a troca de rosto (`*ptex`) e `*hidebone`.
 2. **1 mapa 100%** (qual e o que falta: o Daniel diz). Já se sabe: faltam os **bichos do
    cenário** (gaivotas, borboletas, toupeira, golfinho, caranguejo — `HoleData.npcs`, spec 06).
 3. **Habilidades do power shot** (tomahawk, spike, cobra): comandos ainda a definir pelo

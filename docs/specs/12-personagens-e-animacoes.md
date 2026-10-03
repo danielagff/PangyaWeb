@@ -32,6 +32,16 @@ e mascotes.
 
 ## Progresso
 
+- **Eventos dos quadros (FRAM)** (`readPet` → `frameEvents`, `parseFrameCommands`,
+  `character/motion-events.ts`): cada evento é `quadro + texto` (EUC-KR) com comandos
+  `*snd("nome")`, `*stepsnd()`, `*fx("@pose" "arq.spr" "osso"…)`, `*shot`, `*swing`,
+  `*tail`, `*hideclub`/`*showclub`, `*ptex(...)`, `*hidebone`, `*ball_dist 5.4 *grip_pos
+  -0.02` (fim do 준비). Na partida: sons do personagem (ex. `f-점프`, `발자국_green`,
+  `i_whoosh2`), passos pelo piso, efeitos nos ossos (os que dependem de item, `&id`/`#…`,
+  ficam de fora), taco escondido/mostrado, e o **quadro exato do impacto** (`*shot`) no swing
+  e no 2º power shot. Falta: `*ptex` (rosto), `*hidebone`, `*tail`, `*ball_dist`.
+- **Espera encadeada**: o jogo liga `<taco>샷준비` (8 s) → `<taco>샷디폴트` (a variação) →
+  `준비` pelo campo "próximo"; o personagem toca a corrente em vez de um laço só.
 - **Reações pelo resultado** (`reactionMotion`, pedido do Daniel: "de bogey a HIO o personagem
   comemora com base na felicidade"): hole in one/albatross `알바홀인승리포즈`, eagle
   `이글승리포즈`, birdie `버디승리포즈`, par uma das `세이브파승리포즈`/`2`/`02` (sorteada),
@@ -77,9 +87,9 @@ e mascotes.
   e duração (ex.: 우드샷 0–78, 우드샷헛스윙 0–121, 파 0–170, 버디 0–138, 홀인원 0–150); a cadeia
   "끝" = trecho final, ligado pelo campo "próximo movimento"; o bloco **FRAM** do `.apet`
   (comandos por quadro: `ptex(...)` troca a textura do rosto, `hideclub`/`showclub`,
-  `hidebone`/`showbone`) — ainda não lido por nós; a lista de comandos de chat
+  `hidebone`/`showbone`) — **lido desde 10/2026** (ver Progresso); a lista de comandos de chat
   ([lounge action commands](https://pangya.community/t/lounge-action-commands-list/428)).
-  Nenhuma fonte diz o quadro do impacto do swing.
+  O quadro do impacto do swing está no próprio FRAM (`*shot`).
 
 ## Critérios de aceite
 

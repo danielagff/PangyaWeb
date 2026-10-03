@@ -56,13 +56,14 @@ const event = (
 })
 
 export const SOUND_EVENTS: SoundEvent[] = [
-  // Swing do jogo (data/sound/new): "_s" forte e "_w" fraco (pela força da barra); os
-  // antigos "스윙_wood/_iron/_putt" ficam de reserva.
-  event('swingTee', 'Tacada', 'Batida da saída (madeira no tee)', [
+  // Swing do jogo (data/sound/new). Madeira (1W/2W/3W): PANGYA = swing_drive_s, sem
+  // PANGYA = swing_tee_s (mapeado pelo Daniel no jogo). Ferro/wedge: "_s" forte e "_w"
+  // fraco (pela força da barra). Os antigos "스윙_wood/_iron/_putt" ficam de reserva.
+  event('swingTee', 'Tacada', 'Batida de madeira sem PANGYA', [
     /^swing_tee_[sw]\./,
     /^스윙_wood\./,
   ]),
-  event('swingWood', 'Tacada', 'Batida de madeira (fora do tee)', [
+  event('swingWood', 'Tacada', 'Batida de madeira com PANGYA', [
     /^swing_drive_[sw]\./,
     /^스윙_wood\./,
   ]),
@@ -86,8 +87,12 @@ export const SOUND_EVENTS: SoundEvent[] = [
     [/^shot_best_timing/, /^(팡야|pangya)\./, /^(팡야|pangya)/, /(팡야|pangya)/],
     'pangya',
   ),
-  event('timingGood', 'Tacada', 'Timing bom (sem PANGYA)', [/^shot_good_timing/]),
+  // Barra: o 2º toque fixa a força (good_timing; na força máxima do taco, best_timing).
+  event('powerSet', 'Tacada', 'Força marcada na barra (2º toque)', [/^shot_good_timing/]),
+  event('powerMax', 'Tacada', 'Força máxima do taco na barra', [/^shot_best_timing/]),
+  event('timingGood', 'Tacada', 'Timing normal (3º toque, sem PANGYA)', [/^shot_normal_timing/]),
   event('timingBad', 'Tacada', 'Timing ruim', [/^shot_bad_timing/]),
+  event('clubChange', 'Tacada', 'Troca de taco', [/^클럽교체/]),
   event('powerShot', 'Tacada', 'Batida com power shot (junto com a batida)', [
     /^swing_powershot_effect/,
     /^powershot_club_effect/,
@@ -98,7 +103,7 @@ export const SOUND_EVENTS: SoundEvent[] = [
   event(
     'pang',
     'Tacada',
-    'Pangs ganhos (moedas saindo na boa tacada)',
+    'Pangs ganhos (moedas saindo da cova)',
     [/^pang_coin_emit/, /^아이템획득\(팡\)/, /^팡_/, /coin/],
     'coins',
   ),
@@ -111,6 +116,8 @@ export const SOUND_EVENTS: SoundEvent[] = [
     'miss',
   ),
   event('bar', 'Tacada', 'Barra de força (cada toque)', [/^(파워게이지|게이지|gauge|bar)/]),
+  // data/sound/ball/ball_pass/공날아가기1-3 ("bola voando").
+  event('ballFly', 'Bola', 'Bola voando depois da batida', [/^공날아가기/]),
   event('bounce', 'Bola', 'Quique (piso sem som no property.xml)', [], 'bounce'),
   event('roll', 'Bola', 'Rolando (piso sem som no property.xml)', [], 'roll'),
   event(

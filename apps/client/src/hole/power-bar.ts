@@ -49,6 +49,8 @@ export interface PowerBarOptions {
   label?: string
   /** Marcador passou da zona sem o 3º toque: tacada cancelada. */
   onCancel?: () => void
+  /** Força fixada (2º toque ou chegou ao máximo): fração da barra. */
+  onPower?: (power: number) => void
 }
 
 const IDLE_LABEL = 'Espaço: começar · roda do mouse: taco · Alt: power shot'
@@ -140,6 +142,7 @@ export function createPowerBar(parent: HTMLElement = document.body) {
   let idleText = ''
   let finish: ((result: PowerBarResult) => void) | undefined
   let cancelled: (() => void) | undefined
+  let powered: ((power: number) => void) | undefined
   /** Impacto sempre perfeito (desenvolvimento: testar a física). */
   let autoPangya = false
   /** Ponto da régua sob o mouse (fração da barra), undefined = mouse fora. */
@@ -275,6 +278,7 @@ export function createPowerBar(parent: HTMLElement = document.body) {
     powerMark.hidden = false
     stage = 'returning'
     started = now
+    powered?.(power)
     label.textContent = autoPangya
       ? `${percentText(power)} ${yards(power)} · sempre PANGYA: o impacto sai sozinho`
       : `${percentText(power)} ${yards(power)} · espaço no PANGYA (rosa)`
@@ -361,6 +365,7 @@ export function createPowerBar(parent: HTMLElement = document.body) {
       clearTimeout(resetTimer)
       finish = onDone
       cancelled = options.onCancel
+      powered = options.onPower
       stage = 'rising'
       started = performance.now()
       power = 0

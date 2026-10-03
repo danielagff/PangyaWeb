@@ -12,6 +12,10 @@ export interface MotionInfo {
   name: string
   frameStart: number
   frameEnd: number
+  /** Movimento seguinte (o jogo encadeia, ex.: 준비 → 디폴트). */
+  next?: string
+  /** Quadro (desde o começo) em que o taco acerta a bola: evento `*shot` do FRAM. */
+  shot?: number
 }
 
 export type ClubCategory = 'wood' | 'iron' | 'wedge' | 'putter'
@@ -56,7 +60,13 @@ export function golfMotions(motions: MotionInfo[], club: ClubCategory): GolfMoti
   const duration = swing ? (swing.frameEnd - swing.frameStart) / FPS : 0
   let top = 0
   let impact = duration * 0.55
-  if (swing && backswing && backswing.frameStart === swing.frameStart) {
+  if (swing?.shot !== undefined) {
+    // O quadro exato do jogo (*shot); o topo do backswing continua pelo movimento dele.
+    if (backswing && backswing.frameStart === swing.frameStart) {
+      top = (backswing.frameEnd - swing.frameStart) / FPS
+    }
+    impact = swing.shot / FPS
+  } else if (swing && backswing && backswing.frameStart === swing.frameStart) {
     const topFrame = backswing.frameEnd
     top = (topFrame - swing.frameStart) / FPS
     impact = top + ((swing.frameEnd - topFrame) / FPS) * IMPACT_AFTER_TOP

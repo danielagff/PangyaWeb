@@ -24,6 +24,7 @@ function terrain(): Pet {
     animations: [],
     motions: [],
     collisions: [],
+    frameEvents: [],
   }
 }
 

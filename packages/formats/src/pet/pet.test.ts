@@ -63,6 +63,21 @@ function samplePet() {
         .f32(-1, -2, -3, 1, 2, 3),
     )
     .block('FANM', new Writer().u32(1).u8(0).fixed('face_smile.png', 32).fixed('face', 32))
+    .block(
+      'FRAM',
+      new Writer()
+        .u32(2)
+        .u32(5)
+        .u32(6)
+        .bytes(new TextEncoder().encode('*shot'))
+        .u8(0)
+        .bytes(new Uint8Array(12))
+        .u32(9)
+        .u32(7)
+        .bytes(new TextEncoder().encode('*swing'))
+        .u8(0)
+        .bytes(new Uint8Array(12)),
+    )
     .block('XXXX', new Writer().u32(123)) // bloco desconhecido é ignorado
     .done()
 }
@@ -99,6 +114,13 @@ describe('readPet', () => {
 
   it('lê as texturas de rosto (FANM)', () => {
     expect(pet.faceAnimations).toEqual([{ group: 0, name: 'face_smile.png', material: 'face' }])
+  })
+
+  it('lê os eventos dos quadros (FRAM)', () => {
+    expect(pet.frameEvents).toEqual([
+      { frame: 5, text: '*shot' },
+      { frame: 9, text: '*swing' },
+    ])
   })
 
   it('compõe a matriz de mundo pela cadeia de ossos', () => {

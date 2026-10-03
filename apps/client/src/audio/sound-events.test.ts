@@ -269,6 +269,10 @@ describe('sons: nomes reais do cliente JP (diagnóstico de 03/10/2026)', () => {
       'data/sound/new/shot_best_timing.wav',
       'data/sound/new/shot_good_timing.wav',
       'data/sound/new/shot_bad_timing.wav',
+      'data/sound/new/shot_normal_timing.wav',
+      'data/sound/클럽교체.wav',
+      'data/sound/ball/ball_pass/공날아가기1.wav',
+      'data/sound/ball/ball_pass/공날아가기2.wav',
       'data/sound/new/pang_coin_emit.wav',
       'data/sound/new/pang_coin_drop.wav',
       'data/sound/new/ball_fall_into_water.wav',
@@ -292,7 +296,14 @@ describe('sons: nomes reais do cliente JP (diagnóstico de 03/10/2026)', () => {
       'data/sound/new/swing_miss_wood.wav',
     ])
     expect(of('pangya')).toEqual(['data/sound/new/shot_best_timing.wav'])
-    expect(of('timingGood')).toEqual(['data/sound/new/shot_good_timing.wav'])
+    expect(of('powerSet')).toEqual(['data/sound/new/shot_good_timing.wav'])
+    expect(of('powerMax')).toEqual(['data/sound/new/shot_best_timing.wav'])
+    expect(of('timingGood')).toEqual(['data/sound/new/shot_normal_timing.wav'])
+    expect(of('clubChange')).toEqual(['data/sound/클럽교체.wav'])
+    expect(of('ballFly')).toEqual([
+      'data/sound/ball/ball_pass/공날아가기1.wav',
+      'data/sound/ball/ball_pass/공날아가기2.wav',
+    ])
     expect(of('pang')).toEqual(['data/sound/new/pang_coin_emit.wav'])
     expect(of('pangDrop')).toEqual(['data/sound/new/pang_coin_drop.wav'])
     expect(of('water')).toEqual(['data/sound/new/ball_fall_into_water.wav'])

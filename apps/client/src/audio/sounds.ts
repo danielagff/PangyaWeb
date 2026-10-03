@@ -219,18 +219,23 @@ export class SoundLibrary {
   /** Toca um arquivo pelo nome (sons dos pisos); sem ele, o evento `fallback`. */
   async playNamed(name: string | undefined, fallback: string, volume = 1) {
     if (this.muted) return
-    if (name) {
-      const stem = name.replace(/\.[^.]+$/, '')
-      for (const candidate of [name, `${stem}.wav`, `${stem}.ogg`, `${stem}.mp3`]) {
-        const path = await findAsset(candidate, this.round)
-        const buffer = path && this.audio() && (await this.load(path))
-        if (buffer) {
-          this.start(buffer, 'effects', volume)
-          return
-        }
+    if (name && (await this.playFile(name, volume))) return
+    await this.play(fallback, volume)
+  }
+
+  /** Toca um arquivo pelo nome (com ou sem extensão), achado no índice; false se não há. */
+  async playFile(name: string, volume = 1): Promise<boolean> {
+    if (this.muted) return false
+    const stem = name.replace(/\.(wav|ogg|mp3)$/i, '')
+    for (const candidate of [name, `${stem}.wav`, `${stem}.ogg`, `${stem}.mp3`]) {
+      const path = await findAsset(candidate, this.round)
+      const buffer = path && this.audio() && (await this.load(path))
+      if (buffer) {
+        this.start(buffer, 'effects', volume)
+        return true
       }
     }
-    await this.play(fallback, volume)
+    return false
   }
 
   /** Voz do personagem (código de VOICE_CODES: py, bi, par…); sem voz, nada. */

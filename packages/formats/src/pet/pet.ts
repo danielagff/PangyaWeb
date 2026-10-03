@@ -87,6 +87,16 @@ export interface PetFaceAnimation {
   material: string
 }
 
+/**
+ * Evento de um quadro da animação (bloco FRAM do .apet): texto com comandos do jogo, ex.
+ * `*snd("f-점프")`, `*shot`, `*swing`, `*fx("@pose" "DustSmall.spr" "Bip01 L Toe0")`,
+ * `*hideclub`, `*stepsnd()`. `frame` é o quadro absoluto (o mesmo dos motions).
+ */
+export interface PetFrameEvent {
+  frame: number
+  text: string
+}
+
 export interface Pet {
   version: { major: number; minor: number }
   textures: PetTexture[]
@@ -100,6 +110,7 @@ export interface Pet {
   animations: PetBoneAnimation[]
   motions: PetMotion[]
   collisions: PetCollision[]
+  frameEvents: PetFrameEvent[]
 }
 
 const IDENTITY: Mat4x3 = [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0]
@@ -137,6 +148,7 @@ export function readPet(bytes: Uint8Array, kind: PetKind = 'pet'): Pet {
     animations: [],
     motions: [],
     collisions: [],
+    frameEvents: [],
   }
   const file = new BinaryReader(bytes)
 
@@ -179,7 +191,22 @@ export function readPet(bytes: Uint8Array, kind: PetKind = 'pet'): Pet {
         }
         break
       }
-      // SMTL, FRAM, EXTR: ainda não usados
+      case 'FRAM': {
+        // Por evento: quadro, tamanho do texto, texto (EUC-KR) e 12 bytes (sempre zero).
+        const count = b.u32()
+        for (let i = 0; i < count && b.remaining >= 8; i++) {
+          const frame = b.u32()
+          const length = b.u32()
+          if (length > b.remaining) break
+          const raw = b.bytesN(length)
+          const end = raw.indexOf(0)
+          const text = new TextDecoder('euc-kr').decode(end === -1 ? raw : raw.subarray(0, end))
+          b.skip(Math.min(12, b.remaining))
+          pet.frameEvents.push({ frame, text: text.trim() })
+        }
+        break
+      }
+      // SMTL, EXTR: ainda não usados
     }
   }
 

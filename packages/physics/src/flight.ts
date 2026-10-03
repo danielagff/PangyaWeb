@@ -453,7 +453,7 @@ export class FlightSimulator {
         const at = beamCapture(previous.position, this.state.position, cup)
         if (at) {
           // Puxada pela luz: vai até a cova e cai lá dentro.
-          frames.push(...dropIntoCup(at, cup, CUP_BEAM.pullFrames))
+          frames.push(...dropIntoCup(at, cup, CUP_BEAM.pullFrames, previous.position))
           this.state.position = V.from(cupBottom(cup))
           return { ...this.result(frames), landed: true, holed: true }
         }

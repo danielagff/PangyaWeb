@@ -21,6 +21,13 @@ Efeitos sonoros e música tocando nos eventos certos.
 
 ## Progresso
 
+- **Barra e batida como no jogo** (mapeado pelo Daniel): 2º toque = `shot_good_timing` (na
+  força máxima do taco, `shot_best_timing`); 3º toque na hora do toque: PANGYA =
+  `shot_best_timing`, normal = `shot_normal_timing`, errado = `shot_bad_timing`. Madeira:
+  PANGYA = `swing_drive_s`, sem = `swing_tee_s`; ferro/wedge `swing_normal_s/_w` pela força.
+  Troca de taco = `클럽교체`; bola voando = `ball/ball_pass/공날아가기1-3`; moedas
+  (`pang_coin_emit`) só quando a bola cai na cova, mais moedas quanto melhor o resultado.
+  Sons dos movimentos pelos eventos do FRAM (spec 12).
 - A física marca o quadro de cada evento (quique, rolagem, colisão, água, cova…); o
   `HoleWorld` monta a linha do tempo da tacada (`PlayedShot.events`), que também vai pela
   rede no multiplayer.
