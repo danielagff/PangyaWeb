@@ -5,7 +5,13 @@
  */
 import { readIffArchive, readPet } from '@pangya/formats'
 import { loadCatalog } from './character/character.ts'
-import { CAMERA_NAME, DATA_FILE, extensionCounts, findCameraMarkers } from './camera-search.ts'
+import {
+  CAMERA_NAME,
+  CURIOUS_FILE,
+  DATA_FILE,
+  extensionCounts,
+  findCameraMarkers,
+} from './camera-search.ts'
 import { ASSET_BASE, assetNames, assetPaths, findAsset, tryFetchBytes } from './hole/assets.ts'
 
 /** Arquivos de dados lidos por dentro na busca da câmera (no máximo) e o tamanho máximo. */
@@ -148,6 +154,8 @@ async function cameraSection(paths: string[], log: (line?: string) => void) {
   )
   const named = paths.filter((p) => CAMERA_NAME.test(p))
   log(`\nnomes com cara de câmera (${named.length}): ${named.slice(0, 300).join(' | ')}`)
+  const curious = paths.filter((p) => CURIOUS_FILE.test(p))
+  log(`\nsequências, scripts e outros (${curious.length}): ${curious.slice(0, 700).join(' | ')}`)
   // As tabelas do jogo ficam dentro de pangya_<região>.iff (um zip): o nome e o tamanho de
   // cada uma, e as palavras de câmera dentro delas.
   for (const archive of paths.filter((p) => /(^|\/)pangya_\w+\.iff$/i.test(p))) {

@@ -9,7 +9,11 @@ export const CAMERA_NAME =
   /(camera|(^|[/_.-])cam([/_.\d-]|$)|cinema|replay|카메라|연출|시점|리플레이)/i
 
 /** Arquivos de dados onde vale procurar por dentro (tabelas, textos, scripts). */
-export const DATA_FILE = /\.(iff|xml|ini|txt|lua|cfg|csv|dat|bin|scr|def|tbl|json)$/i
+export const DATA_FILE =
+  /\.(iff|xml|ini|txt|lua|cfg|csv|dat|bin|scr|def|tbl|json|seq|mot|ani|ase|fx|h|talk|db)$/i
+
+/** Tipos pouco conhecidos que podem ter câmera (sequências, scripts…): lista os nomes. */
+export const CURIOUS_FILE = /\.(seq|lua|mot|ani|ase|fx|h|def|ini|db|talk|bin)$/i
 
 interface Marker {
   label: string
