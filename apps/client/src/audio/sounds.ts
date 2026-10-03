@@ -1,54 +1,131 @@
 /**
- * Sons do jogo: arquivos do cliente original quando existem (os nomes dos sons de cada
- * piso vêm do <curso>_property.xml), e sons sintetizados com Web Audio quando não — o
- * jogo nunca fica mudo. Tecla V liga/desliga.
+ * Sons do jogo (um por página: `sound`). Cada momento do jogo é um evento de
+ * sound-events.ts; o arquivo vem da escolha do Daniel no mapeador (tela "Sons"), do nome
+ * achado sozinho ou, sem nenhum, de um som sintetizado com Web Audio — o jogo nunca fica
+ * mudo. Os pisos usam os .wav do property.xml (bound_sound / roll_sound).
+ *
+ * Três volumes (música, efeitos, vozes) e o geral, lembrados no navegador; tecla V liga e
+ * desliga tudo.
  */
-import { assetNames, findAsset, tryFetchBytes } from '../hole/assets.ts'
+import { assetPaths, findAsset, tryFetchBytes } from '../hole/assets.ts'
+import {
+  audioFiles,
+  emptyChoices,
+  resolveEvent,
+  resolveVoice,
+  SOUND_EVENTS,
+  voiceFiles,
+  type SoundCategory,
+  type SoundChoices,
+  type SoundEvent,
+  type SynthSound,
+} from './sound-events.ts'
 
-export type SynthSound = 'hit' | 'pangya' | 'bounce' | 'roll' | 'wood' | 'water' | 'cup' | 'miss'
+export type { SynthSound }
 
-/**
- * Padrões para achar, entre os arquivos extraídos, os sons que não vêm do property.xml.
- * Os nomes reais do cliente ainda não foram conferidos (verificar com a extração completa);
- * o primeiro arquivo que casar é usado e aparece no console.
- */
-const FILE_PATTERNS: Partial<Record<SynthSound, RegExp>> = {
-  hit: /^(ball_?)?(shot|impact|hit|swing)[^/]*\.(wav|ogg|mp3)$/i,
-  pangya: /pangya[^/]*\.(wav|ogg|mp3)$/i,
-  cup: /(cup|hole_?in|컵|홀인)[^/]*\.(wav|ogg|mp3)$/i,
-  water: /(water|splash|물)[^/]*\.(wav|ogg|mp3)$/i,
+export interface Volumes {
+  master: number
+  music: number
+  effects: number
+  voices: number
+}
+
+const VOLUME_KEY = 'pangyaweb.volume'
+const MUTE_KEY = 'pangyaweb.mudo'
+const DEFAULT_VOLUMES: Volumes = { master: 0.8, music: 0.45, effects: 1, voices: 1 }
+const MUSIC_FADE = 1.2
+
+function readVolumes(): Volumes {
+  try {
+    const saved = JSON.parse(localStorage.getItem(VOLUME_KEY) ?? '{}') as Partial<Volumes>
+    const out = { ...DEFAULT_VOLUMES }
+    for (const key of Object.keys(out) as (keyof Volumes)[]) {
+      const v = saved[key]
+      if (typeof v === 'number' && v >= 0 && v <= 1) out[key] = v
+    }
+    return out
+  } catch {
+    return { ...DEFAULT_VOLUMES }
+  }
 }
 
 function readMuted() {
   try {
-    return localStorage.getItem('pangyaweb.mudo') === '1'
+    return localStorage.getItem(MUTE_KEY) === '1'
   } catch {
     return false
   }
 }
 
+/** Escolha dos sons gravada pelo mapeador (sons.json no servidor). */
+export async function loadSoundChoices(): Promise<SoundChoices> {
+  try {
+    const response = await fetch('/api/sons', { cache: 'no-store' })
+    if (!response.ok) return emptyChoices()
+    const data = (await response.json()) as Partial<SoundChoices>
+    return { events: data.events ?? {}, voices: data.voices ?? {} }
+  } catch {
+    return emptyChoices()
+  }
+}
+
+const pick = <T>(list: T[]) => list[Math.floor(Math.random() * list.length)]
+
 export class SoundLibrary {
+  /** Pasta do curso aberto (os sons dos pisos procuram nela primeiro). */
+  round = ''
+  muted = readMuted()
+  readonly volumes = readVolumes()
   private context: AudioContext | undefined
   private master: GainNode | undefined
+  private readonly gains = new Map<SoundCategory, GainNode>()
   private readonly buffers = new Map<string, Promise<AudioBuffer | undefined>>()
-  private readonly matched = new Map<SynthSound, Promise<string | undefined>>()
-  muted = readMuted()
+  private choices: Promise<SoundChoices> | undefined
+  private files: Promise<string[]> | undefined
+  private voice_: AudioBufferSourceNode | undefined
+  private musicNow: { id: string; source: AudioBufferSourceNode; gain: GainNode } | undefined
+  private musicWanted: string | undefined
 
-  constructor(private readonly round: string) {
+  constructor() {
+    if (typeof window === 'undefined') return
     // O navegador só libera áudio depois de uma interação do usuário.
-    const unlock = () => void this.audio()?.resume()
+    const unlock = () => void this.context?.resume()
     window.addEventListener('keydown', unlock)
     window.addEventListener('pointerdown', unlock)
+  }
+
+  /** Lê de novo a escolha do mapeador (depois de mudar na tela "Sons"). */
+  reloadChoices(choices?: SoundChoices) {
+    this.choices = Promise.resolve(choices ?? loadSoundChoices())
   }
 
   toggleMute() {
     this.muted = !this.muted
     try {
-      localStorage.setItem('pangyaweb.mudo', this.muted ? '1' : '0')
+      localStorage.setItem(MUTE_KEY, this.muted ? '1' : '0')
     } catch {
       // sem armazenamento: só não lembra
     }
+    this.applyVolumes()
     return this.muted
+  }
+
+  setVolume(which: keyof Volumes, value: number) {
+    this.volumes[which] = Math.min(1, Math.max(0, value))
+    try {
+      localStorage.setItem(VOLUME_KEY, JSON.stringify(this.volumes))
+    } catch {
+      // sem armazenamento: vale só nesta página
+    }
+    this.applyVolumes()
+  }
+
+  private applyVolumes() {
+    if (!this.context || !this.master) return
+    const now = this.context.currentTime
+    this.master.gain.setTargetAtTime(this.muted ? 0 : this.volumes.master, now, 0.05)
+    for (const [category, gain] of this.gains)
+      gain.gain.setTargetAtTime(this.volumes[category], now, 0.05)
   }
 
   private audio() {
@@ -56,8 +133,13 @@ export class SoundLibrary {
       try {
         this.context = new AudioContext()
         this.master = this.context.createGain()
-        this.master.gain.value = 0.6
         this.master.connect(this.context.destination)
+        for (const category of ['effects', 'voices', 'music'] as SoundCategory[]) {
+          const gain = this.context.createGain()
+          gain.connect(this.master)
+          this.gains.set(category, gain)
+        }
+        this.applyVolumes()
       } catch {
         return undefined
       }
@@ -65,66 +147,168 @@ export class SoundLibrary {
     return this.context
   }
 
-  private load(name: string): Promise<AudioBuffer | undefined> {
-    const key = name.toLowerCase()
-    let buffer = this.buffers.get(key)
+  private soundFiles() {
+    this.files ??= assetPaths().then(audioFiles)
+    return this.files
+  }
+
+  private soundChoices() {
+    this.choices ??= loadSoundChoices()
+    return this.choices
+  }
+
+  /** Decodifica um arquivo pelo caminho no índice (guardado para as próximas vezes). */
+  private load(path: string): Promise<AudioBuffer | undefined> {
+    let buffer = this.buffers.get(path)
     if (!buffer) {
       buffer = (async () => {
         const context = this.audio()
-        if (!context) return undefined
-        const stem = name.replace(/\.[^.]+$/, '')
-        for (const candidate of [name, `${stem}.wav`, `${stem}.ogg`, `${stem}.mp3`]) {
-          const path = await findAsset(candidate, this.round)
-          const bytes = path && (await tryFetchBytes(path))
-          if (bytes) return context.decodeAudioData(bytes.slice().buffer)
-        }
-        return undefined
+        const bytes = context && (await tryFetchBytes(path))
+        return bytes ? context.decodeAudioData(bytes.slice().buffer) : undefined
       })().catch(() => undefined)
-      this.buffers.set(key, buffer)
+      this.buffers.set(path, buffer)
     }
     return buffer
   }
 
-  private fileFor(sound: SynthSound): Promise<string | undefined> {
-    let found = this.matched.get(sound)
-    if (!found) {
-      const pattern = FILE_PATTERNS[sound]
-      found = pattern
-        ? assetNames().then((names) => {
-            const name = names.find((n) => pattern.test(n))
-            if (name) console.info(`som "${sound}": ${name}`)
-            return name
-          })
-        : Promise.resolve(undefined)
-      this.matched.set(sound, found)
-    }
-    return found
+  /** Arquivos do evento (escolhidos, achados ou nenhum) — para tocar e para o mapeador. */
+  async filesFor(sound: SoundEvent) {
+    return resolveEvent(sound, await this.soundChoices(), await this.soundFiles())
   }
 
-  /** Toca o arquivo `file` (se existir) ou o som sintetizado `fallback`. */
-  async play(fallback: SynthSound, file?: string, volume = 1) {
-    if (this.muted) return
-    const context = this.audio()
-    if (!context || !this.master) return
-    const name = file || (await this.fileFor(fallback))
-    const buffer = name ? await this.load(name) : undefined
+  private start(buffer: AudioBuffer, category: SoundCategory, volume: number) {
+    const context = this.audio()!
     const gain = context.createGain()
     gain.gain.value = volume
-    gain.connect(this.master)
-    if (buffer) {
-      const source = context.createBufferSource()
-      source.buffer = buffer
-      source.connect(gain)
-      source.start()
-      return
+    gain.connect(this.gains.get(category)!)
+    const source = context.createBufferSource()
+    source.buffer = buffer
+    source.connect(gain)
+    source.start()
+    return source
+  }
+
+  /** Toca o evento (id de SOUND_EVENTS ou o próprio evento). */
+  async play(which: string | SoundEvent, volume = 1) {
+    if (this.muted) return
+    const sound = typeof which === 'string' ? SOUND_EVENTS.find((e) => e.id === which) : which
+    const context = this.audio()
+    if (!sound || !context) return
+    const { files, source } = await this.filesFor(sound)
+    const path = pick(files)
+    const buffer = path && (await this.load(path))
+    if (buffer) this.start(buffer, sound.category, volume)
+    else if (source === 'synth' && sound.synth)
+      synth(context, this.gains.get('effects')!, sound.synth, volume)
+  }
+
+  /** Toca um arquivo pelo nome (sons dos pisos); sem ele, o evento `fallback`. */
+  async playNamed(name: string | undefined, fallback: string, volume = 1) {
+    if (this.muted) return
+    if (name) {
+      const stem = name.replace(/\.[^.]+$/, '')
+      for (const candidate of [name, `${stem}.wav`, `${stem}.ogg`, `${stem}.mp3`]) {
+        const path = await findAsset(candidate, this.round)
+        const buffer = path && this.audio() && (await this.load(path))
+        if (buffer) {
+          this.start(buffer, 'effects', volume)
+          return
+        }
+      }
     }
-    synth(context, gain, fallback)
+    await this.play(fallback, volume)
+  }
+
+  /** Voz do personagem (código de VOICE_CODES: py, bi, par…); sem voz, nada. */
+  async voice(characterId: string | undefined, code: string) {
+    if (this.muted || !characterId || !this.audio()) return
+    const voices = voiceFiles(await this.soundFiles())
+    const { prefix } = resolveVoice(characterId, await this.soundChoices(), [...voices.keys()])
+    const path = prefix && pick(voices.get(prefix)?.get(code) ?? [])
+    const buffer = path && (await this.load(path))
+    if (!buffer) return
+    // Uma fala por vez.
+    try {
+      this.voice_?.stop()
+    } catch {
+      // já tinha acabado
+    }
+    this.voice_ = this.start(buffer, 'voices', 1)
+  }
+
+  /** Música em laço (troca com fade); undefined para. */
+  async music(sound: SoundEvent | undefined) {
+    this.musicWanted = sound?.id
+    if (this.musicNow?.id === sound?.id) return
+    const context = this.audio()
+    if (!context) return
+    this.stopMusic()
+    if (!sound) return
+    const { files } = await this.filesFor(sound)
+    const path = pick(files)
+    const buffer = path && (await this.load(path))
+    if (!buffer || this.musicWanted !== sound.id) return
+    const gain = context.createGain()
+    gain.gain.setValueAtTime(0.0001, context.currentTime)
+    gain.gain.exponentialRampToValueAtTime(1, context.currentTime + MUSIC_FADE)
+    gain.connect(this.gains.get('music')!)
+    const source = context.createBufferSource()
+    source.buffer = buffer
+    source.loop = true
+    source.connect(gain)
+    source.start()
+    this.musicNow = { id: sound.id, source, gain }
+  }
+
+  private stopMusic() {
+    const now = this.musicNow
+    if (!now || !this.context) return
+    this.musicNow = undefined
+    const t = this.context.currentTime
+    now.gain.gain.setTargetAtTime(0.0001, t, MUSIC_FADE / 4)
+    now.source.stop(t + MUSIC_FADE)
+  }
+
+  /** Toca um arquivo qualquer (prévia no mapeador), parando a prévia anterior. */
+  private preview: AudioBufferSourceNode | undefined
+  async previewFile(path: string) {
+    const context = this.audio()
+    if (!context) return
+    void context.resume()
+    const buffer = await this.load(path)
+    try {
+      this.preview?.stop()
+    } catch {
+      // já tinha acabado
+    }
+    if (!buffer) return undefined
+    // Direto na saída: a prévia toca mesmo com o jogo mudo (V) ou com volume baixo.
+    const source = context.createBufferSource()
+    source.buffer = buffer
+    source.connect(context.destination)
+    source.start()
+    this.preview = source
+    return buffer.duration
+  }
+
+  stopPreview() {
+    try {
+      this.preview?.stop()
+    } catch {
+      // já tinha acabado
+    }
   }
 }
 
+/** Os sons da página (menu, buraco ou mapeador). */
+export const sound = new SoundLibrary()
+
 /** Sons simples gerados na hora (sem arquivo). */
-function synth(context: AudioContext, out: GainNode, sound: SynthSound) {
+function synth(context: AudioContext, destination: GainNode, sound: SynthSound, volume: number) {
   const now = context.currentTime
+  const out = context.createGain()
+  out.gain.value = volume
+  out.connect(destination)
   const tone = (freq: number, start: number, length: number, type: OscillatorType, level = 0.5) => {
     const osc = context.createOscillator()
     const env = context.createGain()

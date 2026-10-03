@@ -21,7 +21,7 @@ export function readOutfits(file: string): Outfits {
 }
 
 /** Só o próprio PC pode gravar (não amigos na rede nem pelo link do cloudflared). */
-function isLocal(req: IncomingMessage) {
+export function isLocal(req: IncomingMessage) {
   const address = req.socket.remoteAddress ?? ''
   const local = address === '127.0.0.1' || address === '::1' || address === '::ffff:127.0.0.1'
   return local && !req.headers['cf-connecting-ip'] && !req.headers['x-forwarded-for']

@@ -34,13 +34,15 @@ import {
   saveOutfit,
   type CharacterEntry,
 } from './character.ts'
+import { SoundMapper } from '../audio/sound-mapper.ts'
 import { MotionCatalog } from './motion-catalog.ts'
 import { describeMotion, MOTION_CATEGORIES } from './motion-names.ts'
 import { golfMotions } from './motions.ts'
 
 const BALL_RADIUS = 0.2
-/** Tela aberta por último (catálogo ou estúdio). */
+/** Tela aberta por último (catálogo, estúdio ou sons). */
 const SCREEN_KEY = 'pangyaweb.mapeador.tela'
+type Screen = 'catalogo' | 'estudio' | 'sons'
 
 /** Slots das peças, traduzidos (conferidos com o jogo; "?" = ainda a confirmar). */
 const SLOT_NAMES: Record<string, string> = {
@@ -192,7 +194,8 @@ export async function startCharacterViewer() {
   left.className = 'viewer-side left'
   left.innerHTML = `
     <h1>Mapeador de personagens</h1>
-    <p><button class="open-catalog">📚 Catálogo de animações (C)</button></p>
+    <p><button class="open-catalog">📚 Catálogo de animações (C)</button>
+      <button class="open-sounds">🔊 Sons</button></p>
     <label>Personagem <select name="character"></select></label>
     <label>Taco <select name="club">${CLUBS.map((c) => `<option value="${c.value}">${c.label}</option>`).join('')}</select></label>
     <label>Ver <select name="mode">
@@ -239,9 +242,24 @@ export async function startCharacterViewer() {
     <label>Taco <select name="club">${CLUBS.map((c) => `<option value="${c.value}">${c.label}</option>`).join('')}</select></label>
     <button class="copy">Copiar lista</button>
     <button class="studio">🎬 Estúdio (C)</button>
+    <button class="sounds">🔊 Sons</button>
     <span class="catalog-status"></span>`
   catalog.element.hidden = true
   document.body.append(catalog.element)
+  // Tela dos sons do jogo (não depende do personagem).
+  const soundMapper = new SoundMapper(characters)
+  soundMapper.tools.innerHTML = `<button class="catalog">📚 Animações</button>
+    <button class="studio">🎬 Estúdio</button>`
+  document.body.append(soundMapper.element)
+  let screen: Screen = 'estudio'
+  left.querySelector('button.open-sounds')!.addEventListener('click', () => showScreen('sons'))
+  catalog.tools.querySelector('button.sounds')!.addEventListener('click', () => showScreen('sons'))
+  soundMapper.tools
+    .querySelector('button.catalog')!
+    .addEventListener('click', () => showScreen('catalogo'))
+  soundMapper.tools
+    .querySelector('button.studio')!
+    .addEventListener('click', () => showScreen('estudio'))
   const $ = <T extends Element>(root: Element, selector: string) =>
     root.querySelector(selector) as T
   const characterInput = $<HTMLSelectElement>(left, 'select[name=character]')
@@ -292,6 +310,10 @@ export async function startCharacterViewer() {
 
   if (characters.length === 0) {
     status('Nenhum personagem no catálogo (rode a extração dos assets).')
+    if (location.hash === '#sons') {
+      document.body.classList.add('catalog-open')
+      soundMapper.show(true)
+    }
     return
   }
   characterInput.innerHTML = characters
@@ -409,26 +431,28 @@ export async function startCharacterViewer() {
     }
   }
 
-  function showCatalog(on: boolean) {
-    catalog.element.hidden = !on
-    document.body.classList.toggle('catalog-open', on)
+  function showScreen(next: Screen) {
+    screen = next
+    catalog.element.hidden = next !== 'catalogo'
+    soundMapper.show(next === 'sons')
+    document.body.classList.toggle('catalog-open', next !== 'estudio')
     try {
-      localStorage.setItem(SCREEN_KEY, on ? 'catalogo' : 'estudio')
+      localStorage.setItem(SCREEN_KEY, next)
     } catch {
       // sem armazenamento: abre no catálogo da próxima vez
     }
-    if (on) {
+    if (next === 'catalogo') {
       catalogCharacter.value = characterInput.value
       catalogClub.value = clubInput.value
       if (catalogStale) void refreshCatalog()
-    } else {
+    } else if (next === 'estudio') {
       renderMotions() // mostra as anotações feitas no catálogo
     }
   }
 
   /** Clique no boneco do catálogo: toca o movimento no estúdio. */
   function openInStudio(name: string) {
-    showCatalog(false)
+    showScreen('estudio')
     motion = name
     model?.play(name, loopInput.checked, 0)
     setPaused(false)
@@ -667,8 +691,8 @@ export async function startCharacterViewer() {
     void refreshCatalog()
   })
   $(catalog.tools, 'button.copy').addEventListener('click', copyList)
-  $(catalog.tools, 'button.studio').addEventListener('click', () => showCatalog(false))
-  $(left, 'button.open-catalog').addEventListener('click', () => showCatalog(true))
+  $(catalog.tools, 'button.studio').addEventListener('click', () => showScreen('estudio'))
+  $(left, 'button.open-catalog').addEventListener('click', () => showScreen('catalogo'))
   modeInput.addEventListener('change', () => {
     place()
     frame()
@@ -697,8 +721,9 @@ export async function startCharacterViewer() {
   window.addEventListener('keydown', (e) => {
     if (e.target instanceof HTMLInputElement && e.target.type !== 'range') return
     if (e.target instanceof HTMLSelectElement) return
-    if (e.code === 'KeyC') showCatalog(!catalog.visible)
-    else if (catalog.visible) return
+    if (screen === 'sons') return
+    if (e.code === 'KeyC') showScreen(screen === 'catalogo' ? 'estudio' : 'catalogo')
+    else if (screen === 'catalogo') return
     else if (e.code === 'KeyH') document.body.classList.toggle('viewer-clean')
     else if (e.code === 'Space') {
       e.preventDefault()
@@ -722,19 +747,27 @@ export async function startCharacterViewer() {
   })
 
   selectCharacter(0)
-  let screen = 'catalogo'
+  let saved = 'catalogo'
   try {
-    screen = localStorage.getItem(SCREEN_KEY) ?? screen
+    saved = localStorage.getItem(SCREEN_KEY) ?? saved
   } catch {
     // sem armazenamento: começa no catálogo
   }
-  showCatalog(screen !== 'estudio')
+  // mapeador.html#sons (botão "Sons do jogo" do menu) abre direto nos sons.
+  showScreen(
+    location.hash === '#sons'
+      ? 'sons'
+      : saved === 'estudio' || saved === 'sons'
+        ? saved
+        : 'catalogo',
+  )
 
   const timer = new Timer()
   renderer.setAnimationLoop((time) => {
     timer.update(time)
     const dt = Math.min(timer.getDelta(), 0.1)
-    if (catalog.visible) {
+    if (screen === 'sons') return // tela dos sons cobre tudo
+    if (screen === 'catalogo') {
       catalog.render(renderer, dt)
       return
     }

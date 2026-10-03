@@ -321,6 +321,10 @@ export function createPowerBar(parent: HTMLElement = document.body) {
     get active() {
       return stage !== 'idle'
     },
+    /** Subindo: o próximo toque fixa a força. */
+    get rising() {
+      return stage === 'rising'
+    },
     /** Escala em jardas do taco atual (100% da barra). */
     setScale(yardsAt100: number) {
       maxYards = yardsAt100

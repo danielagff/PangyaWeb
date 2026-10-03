@@ -1,5 +1,7 @@
 import {
+  applyShot,
   decodeFrames,
+  isChipIn,
   scoreName,
   scoreToPar,
   totals,
@@ -280,7 +282,10 @@ export function startOnlineMode() {
         break
       }
       case 'shot': {
-        const name = match?.players.find((p) => p.id === message.playerId)?.name ?? '?'
+        const shooter = match?.players.find((p) => p.id === message.playerId)
+        const name = shooter?.name ?? '?'
+        // Estado depois desta tacada (para o som do resultado: birdie, par…).
+        const after = shooter?.state && applyShot(shooter.state, message.outcome)
         const frames = decodeFrames(message.frames)
         animating = animating.then(async () => {
           if (loading) await loading
@@ -290,8 +295,12 @@ export function startOnlineMode() {
             aim: message.aim,
             events: message.events,
             ...(message.impact !== undefined && { impact: message.impact }),
+            ...(message.powerShot && { powerShot: message.powerShot }),
           })
           view.showResult(`${name}: ${message.message}`)
+          if (after?.result === 'holed') {
+            view.announceScore(message.playerId, after.strokes, after.par, isChipIn(after))
+          }
           const type = message.outcome.type
           const pose =
             type === 'hole'

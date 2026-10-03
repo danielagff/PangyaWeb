@@ -10,6 +10,9 @@ import {
   rememberCharacter,
   type CharacterEntry,
 } from '../character/character.ts'
+import { SOUND_EVENTS } from '../audio/sound-events.ts'
+import { sound } from '../audio/sounds.ts'
+import { volumePanel } from '../audio/volume-panel.ts'
 import { powerInput } from '../settings.ts'
 import { CharacterPreview } from './character-preview.ts'
 import { courseName, describePlan, HOLE_COUNTS, planHoles, soloUrl } from './courses.ts'
@@ -124,8 +127,17 @@ export function showMenu() {
       if (e.key === 'Escape') (e.target as HTMLElement).blur()
       return
     }
+    // Sons do menu: setas mudam a seleção, Enter confirma, Esc volta.
+    if (e.key.startsWith('Arrow')) void sound.play('uiMove')
+    else if (e.key === 'Enter') void sound.play('uiConfirm')
+    else if (e.key === 'Escape') void sound.play('uiBack')
     keys(e)
   })
+  root.addEventListener('click', (e) => {
+    if ((e.target as HTMLElement).closest('a, button')) void sound.play('uiConfirm')
+  })
+  // Música do menu (começa no primeiro toque: o navegador só libera som depois dele).
+  void sound.music(SOUND_EVENTS.find((e) => e.id === 'musicMenu'))
 
   // ---- título ----
   function titleScreen() {
@@ -139,9 +151,11 @@ export function showMenu() {
         <a class="menu-button primary" href="#amigos" data-go="friends">Jogar com amigos</a>
         <a class="menu-button" href="?treino">Campo de treino</a>
         <a class="menu-button" href="mapeador.html">Mapeador de personagens</a>
+        <a class="menu-button" href="mapeador.html#sons">Sons do jogo</a>
         <a class="menu-button" href="?diagnostico">Diagnóstico</a>
       </nav>
       <p class="menu-hint">↑ ↓ escolher · Enter confirmar</p>`
+    root.append(volumePanel())
     const buttons = [...root.querySelectorAll<HTMLAnchorElement>('.menu-button')]
     for (const b of buttons) {
       const go = b.dataset['go'] as Screen | undefined

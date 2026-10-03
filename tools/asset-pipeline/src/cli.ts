@@ -5,6 +5,7 @@ import { extractClient, findPaks, mountClient, searchPakKey } from './extract.ts
 import { writeAssetIndex } from './asset-index.ts'
 import { exampleUrl, installExampleCourse } from './example-course.ts'
 import { installTestCharacter } from './test-character.ts'
+import { installTestSounds } from './test-sounds.ts'
 import { convertedDir, originalDir, repoRoot, resolvePangyaDir } from './config.ts'
 
 const envFile = resolve(repoRoot, '.env')
@@ -53,6 +54,7 @@ const commands: Record<string, (args: string[]) => void> = {
   /** Gera o personagem de teste sintético (sem arquivos do jogo): `pnpm assets:teste`. */
   teste() {
     installTestCharacter()
+    installTestSounds()
     writeAssetIndex(originalDir)
   },
 

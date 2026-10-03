@@ -161,6 +161,7 @@ export class Room {
       club: request.club,
       aim: request.aim,
       ...(played.impact !== undefined && { impact: played.impact }),
+      ...(request.powerShot && request.powerShot !== 'none' && { powerShot: request.powerShot }),
       outcome: played.outcome,
       message: describeShot(player.state!.ball, played),
     })

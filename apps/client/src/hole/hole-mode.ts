@@ -88,9 +88,13 @@ export async function startHoleMode(ref: HoleRef) {
       club: request.club,
       events: played.events,
       ...(played.impact !== undefined && { impact: played.impact }),
+      ...(request.powerShot && { powerShot: request.powerShot }),
     })
     state = applyShot(state, played.outcome)
     view.showResult(describeShot(from, played))
+    if (played.outcome.type === 'hole') {
+      view.announceScore(me.id, state.strokes, state.par, isChipIn(state))
+    }
     // Reação do personagem: comemora ao embocar, lamenta água/O.B.
     const type = played.outcome.type
     const pose =
@@ -140,6 +144,7 @@ export async function startHoleMode(ref: HoleRef) {
   /** Fim da rodada: cartão completo, total e recorde. */
   function roundEnd(strokes: (number | undefined)[], pars: (number | undefined)[], table: string) {
     const t = cardTotals(strokes, pars)
+    view.announceEnd(me.id, t.strokes <= t.par)
     const holed = state.result === 'holed'
     const last = holed ? scoreName(state.strokes, state.par) : 'Desistência'
     // Recorde só de rodada completa (todos os buracos do plano jogados).

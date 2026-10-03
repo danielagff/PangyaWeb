@@ -7,6 +7,7 @@ import { WebSocketServer } from 'ws'
 import { DiskFiles, listCourses } from './files.ts'
 import { handleOutfits } from './outfits.ts'
 import { Room } from './room.ts'
+import { handleSoundChoices } from './sounds.ts'
 import { serveStatic } from './static.ts'
 
 /**
@@ -44,6 +45,10 @@ const server = createServer((req, res) => {
   }
   if (url.pathname === '/api/roupas-padrao') {
     handleOutfits(req, res, resolve(dirs.assets, 'converted/data/roupas-padrao.json'))
+    return
+  }
+  if (url.pathname === '/api/sons') {
+    handleSoundChoices(req, res, resolve(dirs.assets, 'converted/data/sons.json'))
     return
   }
   serveStatic(req, res, dirs)

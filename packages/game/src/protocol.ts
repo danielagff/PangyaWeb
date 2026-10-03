@@ -5,6 +5,7 @@
 
 import type { Course, MatchState } from './match.ts'
 import type { ShotOutcome } from './hole.ts'
+import type { PowerShot } from '@pangya/physics'
 import type { ShotEvent, ShotRequest } from './world.ts'
 
 export type ClientMessage =
@@ -28,6 +29,8 @@ export type ServerMessage =
       aim: number
       /** Erro de impacto da barra (para o som/efeito de "Pangya!"). */
       impact?: number
+      /** Power shot usado (som e voz da batida). */
+      powerShot?: PowerShot
       outcome: ShotOutcome
       message: string
     }

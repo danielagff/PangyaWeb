@@ -41,12 +41,21 @@ jogar com amigos, com o **PC do Daniel como servidor**. Não é vendido nem publ
 | Menus                   | Título no estilo do jogo → personagem (lista + **prévia 3D** girável + força) → curso (nome do jogo, 1/3/9/18 buracos, buraco inicial, recorde). Teclado (setas/Enter/Esc) e mouse; "voltar" do navegador funciona.                                                                                                                                                                                          |
 | Rodada                  | Sozinho segue o plano de buracos escolhido; fim de cada buraco e da rodada com **cartão de placar** (par, birdie/bogey marcados, ida/volta, total); recorde por curso salvo no navegador. A sala usa o mesmo cartão e os nomes dos cursos.                                                                                                                                                                   |
 | Mapeador de personagens | **Catálogo de animações** estilo Mixamo (todas se mexendo em cartões, busca, categorias, anotação) e estúdio (girar, zoom, linha do tempo quadro a quadro); animações **traduzidas**; peças por categoria com **base × acessório**; anotações salvas; "usar como roupa padrão"; "copiar lista".                                                                                                              |
-| Sons                    | Linha do tempo da tacada (batida, quiques, rolagem, colisão, cova) com os sons de piso do jogo ou sintetizados.                                                                                                                                                                                                                                                                                              |
+| Sons                    | Batida (normal/PANGYA/power shot), quiques e rolagem por piso, árvore, água, O.B., cova e aplausos; som e voz do resultado (birdie, par…); vozes do personagem ("Pangya!", power shot); música do menu e de cada curso; sons do menu; volumes (geral, música, efeitos, vozes). Tela **Sons** no mapeador para ouvir e escolher cada arquivo.                                                                 |
 | Atualização             | Scripts avisam se o `git pull` falhar; o navegador sempre confere se os arquivos mudaram (sem precisar limpar cache).                                                                                                                                                                                                                                                                                        |
 
 ## Em andamento agora
 
-Última entrega (03/10/2026): **catálogo de animações no mapeador**, no estilo do Mixamo —
+Última entrega (03/10/2026): **sons** — todos os momentos do jogo ligados (batida normal,
+PANGYA e power shot, barra, quiques, árvore, água, O.B., cova e aplausos, resultado do
+buraco, menus) com **vozes dos personagens** ("Pangya!", power shot, birdie, par…),
+**música do menu e de cada curso** e **volumes** (painel "🔊 Som" no menu). Os arquivos são
+achados sozinhos pelo nome (em coreano: o curso usa `공_그린.wav`, `충돌_rough2.wav`…) e o
+Daniel confere e troca na nova tela **🔊 Sons do mapeador** (`mapeador.cmd` → 🔊 Sons, ou
+"Sons do jogo" no menu): ouvir cada arquivo e usar com um clique; grava no servidor e vale
+para todos. Ainda não conferido com os arquivos reais (na nuvem só com bipes de teste).
+
+Antes: **catálogo de animações no mapeador**, no estilo do Mixamo —
 abre direto no `mapeador.cmd` (tecla C alterna com o estúdio): um cartão por animação,
 **todas se mexendo ao mesmo tempo**, com tradução, nome coreano, duração e anotação; busca,
 filtro por categoria e tamanho dos cartões; clicar no boneco abre no estúdio (quadro a
@@ -123,7 +132,9 @@ lugar da bandeira, vista aérea com zoom (M/0, Delete+0), câmera livre e mira A
   (ajuste em `fitClub`, limites `CLUB_FIT`).
 - **Mapeador**: a lista "Copiar lista" com as anotações das animações (quadro do impacto do
   swing de cada taco) e das peças.
-- **Sons**: a parte "== SONS" do diagnóstico (`?diagnostico`).
+- **Sons**: abrir o `mapeador.cmd` → 🔊 Sons, ouvir e conferir o que foi achado sozinho
+  (e trocar o que estiver errado); dizer o que são as vozes `bu`, `w` e `pre`. Se quiser, a
+  parte "== SONS" do diagnóstico (`?diagnostico`) ajuda a melhorar a escolha automática.
 - **Nomes dos cursos no menu**: só Blue Lagoon (`blue`) e Pink Wind (`pink`) têm o nome do
   jogo; os outros aparecem pelo nome da pasta (ex.: "Spring Wind"). Quais estão errados? (a
   pasta aparece embaixo do nome na tela do curso; tabela em `apps/client/src/menu/courses.ts`).
@@ -158,8 +169,8 @@ Regras de nomes de peças já confirmadas pelo Daniel (implementadas em
 2. **1 mapa 100%** (qual e o que falta: o Daniel diz).
 3. **Habilidades do power shot** (tomahawk, spike, cobra): comandos ainda a definir pelo
    Daniel (a física já suporta `shot`; o HUD só manda tacada normal).
-4. **Sons**: mapear os efeitos e as vozes ("Pangya!", birdie…) — falta a parte "== SONS" do
-   diagnóstico (`?diagnostico`) para saber os nomes dos arquivos; música do curso; volume.
+4. **Sons**: conferir com os arquivos reais na tela Sons (Daniel); sons ambientes do curso
+   (ondas, pássaros — `soundbox` do .gbin); vozes dos caddies.
 5. **Interface e menus** (spec 15): feito o menu, o fluxo de buracos e o resultado final.
    Falta: telas/sprites originais do cliente (achar os arquivos de UI na extração),
    equipamento (tacos/bolas do `.iff`) mudando a física, configurações (gráficos, volume).

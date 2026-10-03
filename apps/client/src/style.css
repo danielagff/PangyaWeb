@@ -896,6 +896,185 @@
   opacity: 0.8;
 }
 
+/* Tela "Sons" do mapeador: momentos do jogo (esquerda) e arquivos de som (direita). */
+.sound-mapper {
+  position: fixed;
+  inset: 0;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  font:
+    13px/1.35 system-ui,
+    sans-serif;
+  color: #fff;
+  background: #1e2228;
+}
+.sound-mapper[hidden] {
+  display: none;
+}
+.sound-mapper header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  padding: 10px 16px 8px;
+  background: rgba(10, 30, 60, 0.96);
+}
+.sound-mapper h1 {
+  margin: 0;
+  font-size: 16px;
+}
+.sound-mapper .hint {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 12px;
+  opacity: 0.75;
+}
+.sound-mapper .sound-count {
+  opacity: 0.75;
+}
+.sound-mapper .sound-status {
+  color: #9be59b;
+}
+.sound-mapper button,
+.sound-mapper select,
+.sound-mapper .search {
+  font: inherit;
+}
+.sound-columns {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(300px, 1fr) minmax(300px, 1.2fr);
+  min-height: 0;
+}
+.sound-events,
+.sound-files {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px 16px 24px;
+}
+.sound-files {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-left: 1px solid #ffffff22;
+}
+.sound-file-list {
+  flex: 1;
+  overflow-y: auto;
+}
+.sound-files .search {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 6px;
+}
+.sound-mapper h2 {
+  margin: 14px 0 6px;
+  font-size: 14px;
+  color: #ffd54f;
+}
+.sound-event,
+.sound-voice {
+  margin: 4px 0;
+  padding: 6px 8px;
+  background: rgba(10, 30, 60, 0.85);
+  border: 2px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.sound-event.selected {
+  border-color: #ffcc33;
+}
+.sound-event .row,
+.sound-voice .row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+}
+.sound-event .select {
+  font-weight: bold;
+  color: #fff;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+.sound-event .source {
+  font-size: 11px;
+  opacity: 0.8;
+}
+.sound-event .source.chosen {
+  color: #ffd54f;
+  opacity: 1;
+}
+.sound-event .source.none {
+  color: #ff8a80;
+}
+.sound-event ul,
+.sound-files ul {
+  margin: 4px 0;
+  padding: 0;
+  list-style: none;
+}
+.sound-event li,
+.sound-files li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  padding: 2px 0;
+}
+.sound-files li[hidden],
+.sound-files details[hidden] {
+  display: none;
+}
+.sound-files summary {
+  cursor: pointer;
+  font-weight: bold;
+  color: #ffd54f;
+  overflow-wrap: anywhere;
+}
+.sound-files .name {
+  overflow-wrap: anywhere;
+}
+.sound-files .tag {
+  padding: 0 6px;
+  font-size: 11px;
+  color: #000;
+  background: #9be59b;
+  border-radius: 999px;
+}
+.sound-files .add {
+  margin-left: auto;
+}
+.sound-files .add.using {
+  opacity: 0.6;
+}
+.sound-event .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+.sound-voice .voice-codes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+@media (max-width: 720px) {
+  .sound-columns {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+  }
+  .sound-events,
+  .sound-files,
+  .sound-file-list {
+    overflow: visible;
+  }
+}
+
 /* HUD da tacada (embaixo): mostrador com taco, impacto, power shot e força + barra. */
 .shot-hud {
   position: fixed;
@@ -1105,6 +1284,34 @@
   margin: 0;
   font-size: 12px;
   color: #0b2a4a99;
+}
+/* Volumes (título do menu). */
+.volume-panel {
+  width: min(320px, 100%);
+  box-sizing: border-box;
+  padding: 6px 14px;
+  background: #ffffffcc;
+  border: 2px solid #1f6fc5;
+  border-radius: 14px;
+}
+.volume-panel summary {
+  font-weight: 700;
+  cursor: pointer;
+}
+.volume-panel label {
+  display: grid;
+  grid-template-columns: 64px 1fr 42px;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+.volume-panel output {
+  text-align: right;
+  font-size: 12px;
+}
+.volume-panel label.mute {
+  display: block;
+  margin: 4px 0;
 }
 .menu-header {
   text-align: center;

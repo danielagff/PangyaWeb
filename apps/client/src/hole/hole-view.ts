@@ -16,6 +16,7 @@ import {
   dropIntoCup,
   STEP_TIME,
   unitsToMeters,
+  type PowerShot,
   unitsToYards,
   yardsToUnits,
   type Wind,
@@ -51,7 +52,8 @@ import {
   Vector3,
   WebGLRenderer,
 } from 'three'
-import { SoundLibrary, type SynthSound } from '../audio/sounds.ts'
+import { courseMusicEvent, scoreSound, scoreVoice } from '../audio/sound-events.ts'
+import { sound, type SoundLibrary } from '../audio/sounds.ts'
 import { categoryOfClub, clubModelFor } from '../character/clubs.ts'
 import { golfMotions, reactionMotion, type Reaction } from '../character/motions.ts'
 import {
@@ -61,6 +63,7 @@ import {
   type CharacterEntry,
 } from '../character/character.ts'
 
+import { courseName } from '../menu/courses.ts'
 import { BALL_PLAYBACK_SPEED } from '../settings.ts'
 import { browserFiles } from './assets.ts'
 import { aimDirection, toScene } from './coords.ts'
@@ -417,6 +420,9 @@ export class HoleView {
         /** Quantos eventos da linha do tempo já tocaram. */
         fired: number
         impact: number | undefined
+        /** Taco e power shot da tacada (som e voz da batida). */
+        club: string | undefined
+        powerShot: PowerShot | undefined
         /** Quadro em que a bola toca o chão pela primeira vez. */
         landing: number
         /** Quadro mostrado agora. */
@@ -448,7 +454,11 @@ export class HoleView {
   ) {
     this.world = world
     this.devTools = options.devTools
-    this.sounds = new SoundLibrary(world.data.ref.round)
+    // Sons da página: a pasta do curso para os sons dos pisos e a música do curso.
+    this.sounds = sound
+    const { round, prefix } = world.data.ref
+    sound.round = round
+    void sound.music(courseMusicEvent(round, prefix, courseName({ round, prefix })))
     this.renderer = renderer
     this.camera = camera
     this.scene = scene
@@ -992,9 +1002,11 @@ export class HoleView {
       return
     }
     if (this.bar.active) {
+      if (this.bar.rising) void this.sounds.play('bar') // fixou a força (o 3º toque é a batida)
       this.bar.press()
       return
     }
+    void this.sounds.play('bar')
     const model = this.active && this.ready.get(this.active.id)
     const backswing = model?.root.visible ? this.golf(model).backswing : undefined
     if (model && backswing) {
@@ -1404,9 +1416,15 @@ export class HoleView {
   animateShot(
     playerId: string,
     frames: Float32Array,
-    options: { aim?: number; events?: ShotEvent[]; impact?: number; club?: string } = {},
+    options: {
+      aim?: number
+      events?: ShotEvent[]
+      impact?: number
+      club?: string
+      powerShot?: PowerShot
+    } = {},
   ): Promise<void> {
-    const { aim, events = [], impact, club } = options
+    const { aim, events = [], impact, club, powerShot } = options
     this.flight?.done()
     // A bola só sai quando o taco acerta (meio do swing do personagem).
     const delay = this.startSwing(playerId, club)
@@ -1428,6 +1446,8 @@ export class HoleView {
         events,
         fired: 0,
         impact,
+        club,
+        powerShot,
         landing: this.landingIndex(frames),
         index: 0,
       }
@@ -1465,27 +1485,70 @@ export class HoleView {
   /** Toca os eventos da linha do tempo até o quadro `index` (pulando: só o final). */
   private playEvents(index: number, skipped: boolean) {
     const flight = this.flight!
+    const sounds = this.sounds
+    const character = this.players.find((p) => p.id === flight.playerId)?.character
     while (flight.fired < flight.events.length && flight.events[flight.fired]!.frame <= index) {
       const e = flight.events[flight.fired++]!
       const last = flight.fired === flight.events.length
       if (skipped && !last && e.type !== 'hit') continue
-      const sound: Partial<Record<ShotEvent['type'], [SynthSound, (string | undefined)?]>> = {
-        hit: [
-          flight.impact === undefined || isPangya(flight.impact)
-            ? 'pangya'
-            : Math.abs(flight.impact) > 1
-              ? 'miss'
-              : 'hit',
-        ],
-        bounce: ['bounce', this.surfaceSound(e.surface, 'boundSound')],
-        roll: ['roll', this.surfaceSound(e.surface, 'rollSound')],
-        obstacle: ['wood'],
-        water: ['water'],
-        hole: ['cup'],
+      switch (e.type) {
+        case 'hit':
+          this.playHit(flight.impact, flight.club, flight.powerShot, character)
+          break
+        case 'bounce':
+          void sounds.playNamed(this.surfaceSound(e.surface, 'boundSound'), 'bounce')
+          break
+        case 'roll':
+          void sounds.playNamed(this.surfaceSound(e.surface, 'rollSound'), 'roll')
+          break
+        case 'obstacle':
+          void sounds.play('obstacle')
+          break
+        case 'water':
+          void sounds.play('water')
+          break
+        case 'outOfBounds':
+          void sounds.play('outOfBounds')
+          void sounds.voice(character, 'ob')
+          break
+        case 'hole':
+          void sounds.play('cup')
+          void sounds.play('applause')
+          break
       }
-      const play = sound[e.type]
-      if (play) void this.sounds.play(play[0], play[1])
     }
+  }
+
+  /** Som da batida: PANGYA, normal ou errada; power shot por cima; e a voz. */
+  private playHit(
+    impact: number | undefined,
+    club: string | undefined,
+    powerShot: PowerShot | undefined,
+    character: string | undefined,
+  ) {
+    const sounds = this.sounds
+    const pangya = impact === undefined || isPangya(impact)
+    void sounds.play(pangya ? 'pangya' : Math.abs(impact) > 1 ? 'miss' : 'shot')
+    const power = powerShot === 'one' || powerShot === 'two' || powerShot === 'item15'
+    if (power) void sounds.play('powerShot')
+    // Voz: power shot ("ps" / "dps") ou "Pangya!" (não no putt).
+    if (power) void sounds.voice(character, powerShot === 'two' ? 'dps' : 'ps')
+    else if (pangya && impact !== undefined && !club?.startsWith('PT')) {
+      void sounds.voice(character, 'py')
+    }
+  }
+
+  /** Som e voz do resultado do buraco (birdie, par…), quando a bola entra. */
+  announceScore(playerId: string, strokes: number, par: number, chipIn = false) {
+    const character = this.players.find((p) => p.id === playerId)?.character
+    void this.sounds.play(chipIn && strokes > 1 ? 'chipIn' : scoreSound(strokes, par))
+    void this.sounds.voice(character, scoreVoice(strokes, par))
+  }
+
+  /** Voz de fim de rodada (ganhou/perdeu). */
+  announceEnd(playerId: string, won: boolean) {
+    const character = this.players.find((p) => p.id === playerId)?.character
+    void this.sounds.voice(character, won ? 'win' : 'lose')
   }
 
   updateHud() {

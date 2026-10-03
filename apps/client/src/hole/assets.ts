@@ -20,6 +20,11 @@ export async function assetNames(): Promise<string[]> {
   return Object.keys(await loadIndex())
 }
 
+/** Todos os caminhos de arquivo do índice (relativos a ASSET_BASE). */
+export async function assetPaths(): Promise<string[]> {
+  return Object.values(await loadIndex()).flatMap((entry) => entry)
+}
+
 /** Caminho (relativo a ASSET_BASE) de um arquivo pelo nome, preferindo a pasta do curso. */
 export async function findAsset(name: string, round: string): Promise<string | undefined> {
   return pickIndexed(await loadIndex(), name, round)
