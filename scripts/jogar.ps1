@@ -11,6 +11,16 @@ Set-Location (Split-Path $PSScriptRoot -Parent)
 
 Atualizar
 LiberarPorta 5173
+
+# O servidor (porta 7777) guarda as escolhas do mapeador (sons, roupas): sem ele o jogo
+# funciona, mas sem essas escolhas. Liga escondido; um antigo nessa porta é fechado antes.
+LiberarPorta 7777
+try {
+  Start-Process -FilePath 'cmd.exe' -ArgumentList '/c', 'pnpm --filter @pangya/server start' `
+    -WindowStyle Hidden | Out-Null
+} catch {
+  Write-Host '   Não consegui ligar o servidor (escolhas de sons e roupas ficam de fora).' -ForegroundColor Yellow
+}
 $url = "http://localhost:5173/?curso=$([uri]::EscapeDataString($Curso))&prefixo=$Prefixo&buraco=$Buraco"
 Passo "Abrindo $url (feche esta janela para parar)"
 AbrirQuandoPronto $url
